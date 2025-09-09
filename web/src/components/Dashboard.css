@@ -1,0 +1,140 @@
+.dashboard {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.dashboard-header {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dashboard-header h1 {
+  color: white;
+  margin: 0;
+  font-size: 1.8rem;
+  font-weight: 600;
+}
+
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: white;
+  font-size: 0.9rem;
+}
+
+.status-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ff4757;
+}
+
+.status-indicator.connected {
+  background: #2ed573;
+  box-shadow: 0 0 10px #2ed573;
+}
+
+.dashboard-nav {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0 2rem;
+  display: flex;
+  gap: 1rem;
+}
+
+.dashboard-nav button {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 1rem 1.5rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-bottom: 3px solid transparent;
+  font-size: 1rem;
+}
+
+.dashboard-nav button:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dashboard-nav button.active {
+  color: white;
+  border-bottom-color: #00d2ff;
+}
+
+.live-control {
+  padding: 2rem;
+}
+
+.mode-control {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 15px;
+  padding: 1.5rem;
+  margin: 2rem 0;
+}
+
+.mode-control h3 {
+  color: white;
+  margin: 0 0 1rem 0;
+  font-size: 1.2rem;
+}
+
+.mode-switch {
+  display: flex;
+  gap: 1rem;
+}
+
+.mode-switch button {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 0.8rem 1.5rem;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 1rem;
+}
+
+.mode-switch button:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.mode-switch button.active {
+  background: #00d2ff;
+  border-color: #00d2ff;
+  box-shadow: 0 5px 15px rgba(0, 210, 255, 0.3);
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: white;
+}
+
+.loader {
+  text-align: center;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-left: 4px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

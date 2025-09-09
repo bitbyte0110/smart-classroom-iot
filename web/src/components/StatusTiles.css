@@ -1,0 +1,81 @@
+.status-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.tile {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border-radius: 15px;
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tile:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.tile-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+
+.tile-content {
+  flex: 1;
+}
+
+.tile-content h3 {
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tile-value {
+  color: white;
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+
+.tile-value.active {
+  color: #2ed573;
+  text-shadow: 0 0 10px rgba(46, 213, 115, 0.5);
+}
+
+.tile-value.success {
+  color: #2ed573;
+}
+
+.tile-value.warning {
+  color: #ffa726;
+}
+
+.tile-subtitle {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8rem;
+}
+
+.tile-error {
+  color: #ff4757;
+  font-size: 0.8rem;
+  margin-top: 0.3rem;
+}
+
+.tile.timestamp {
+  grid-column: span 1;
+}
+
+@media (max-width: 768px) {
+  .status-tiles {
+    grid-template-columns: 1fr;
+  }
+}
