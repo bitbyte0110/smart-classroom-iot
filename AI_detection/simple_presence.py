@@ -11,41 +11,47 @@ from datetime import datetime
 
 class SimplePresenceDetector:
     def __init__(self, firebase_url="http://localhost:9000", room_id="roomA"):
-        """Initialize simple presence detector with Firebase integration"""
+        """Initialize hybrid presence detector with Firebase integration"""
         self.firebase_url = firebase_url
         self.room_id = room_id
         
-        # Lightweight motion detection only (skip heavy HOG)
+        # Hybrid approach: HOG for accuracy + Motion for speed
+        self.hog = cv2.HOGDescriptor()
+        self.hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
         self.bg_subtractor = cv2.createBackgroundSubtractorMOG2(detectShadows=False)
         
         # Timing control
         self.last_update = 0
-        self.update_interval = 3.0  # Update Firebase every 3 seconds (less frequent)
+        self.update_interval = 2.0  # Update Firebase every 2 seconds
+        self.last_hog_detection = 0
+        self.hog_detection_interval = 1.0  # Run HOG every 1 second
         
-        # Detection history for stability (presence only)
+        # Detection state management
         self.presence_history = []
-        self.history_size = 3  # Smaller history for faster response
+        self.history_size = 3
+        self.last_person_detected = 0
+        self.person_timeout = 10.0  # Keep presence for 10 seconds after last detection
         
-        print("🤖 Optimized Presence Detector initialized")
+        print("🤖 Hybrid Presence Detector initialized")
         print(f"📍 Room: {room_id}")
         print(f"🔗 Firebase: {firebase_url}")
-        print("⚡ Mode: Motion-based presence detection (optimized for speed)")
+        print("⚡ Mode: HOG (accuracy) + Motion (speed) + Timeout (still people)")
     
-    def detect_people_hog(self, frame):
-        """Detect people using HOG + SVM (built into OpenCV)"""
+    def detect_people_hog_fast(self, frame):
+        """Fast HOG detection with optimized parameters"""
         try:
-            # Detect people
+            # Faster HOG detection with reduced accuracy for speed
             boxes, weights = self.hog.detectMultiScale(
                 frame, 
-                winStride=(8, 8),
-                padding=(32, 32),
-                scale=1.05
+                winStride=(16, 16),  # Larger stride for speed
+                padding=(16, 16),    # Less padding for speed
+                scale=1.1            # Larger scale step for speed
             )
             
-            return len(boxes), boxes, weights
+            return len(boxes) > 0, boxes
         except Exception as e:
             print(f"HOG detection error: {e}")
-            return 0, [], []
+            return False, []
     
     def detect_presence_fast(self, frame):
         """Fast motion-based presence detection"""
@@ -66,42 +72,40 @@ class SimplePresenceDetector:
             print(f"Motion detection error: {e}")
             return False, 0
     
-    def stable_presence_detection(self, has_presence):
-        """Apply stability filter to reduce false positives"""
-        # Add current detection to history
-        self.presence_history.append(has_presence)
+    def hybrid_presence_detection(self, hog_detected, motion_detected):
+        """Hybrid detection with timeout for still people"""
+        current_time = time.time()
         
-        # Keep only recent history
-        if len(self.presence_history) > self.history_size:
-            self.presence_history.pop(0)
+        # If HOG detects a person, update last detection time
+        if hog_detected:
+            self.last_person_detected = current_time
+            return True
         
-        # Require majority of recent frames to have detection
-        if len(self.presence_history) >= 2:
-            stable_presence = sum(self.presence_history) >= 2
-        else:
-            stable_presence = has_presence
+        # If recent HOG detection (within timeout), keep presence
+        if current_time - self.last_person_detected < self.person_timeout:
+            return True
         
-        return stable_presence
+        # If no recent HOG detection, use motion as backup
+        return motion_detected
     
-    def update_firebase(self, presence, motion_level=0):
-        """Update Firebase with presence data only"""
+    def update_firebase(self, presence, detection_method="Hybrid"):
+        """Update Firebase with presence data"""
         try:
             timestamp = int(time.time() * 1000)
             
-            # Prepare data for Firebase (simplified)
+            # Prepare data for Firebase
             data = {
                 "presence": presence,
                 "ts": timestamp,
-                "source": "AI_Camera_Motion",
-                "motionLevel": motion_level  # For debugging
+                "source": f"AI_Camera_{detection_method}"
             }
             
             # Update state
             state_url = f"{self.firebase_url}/lighting/{self.room_id}/state.json"
-            response = requests.patch(state_url, json=data, timeout=3)  # Shorter timeout
+            response = requests.patch(state_url, json=data, timeout=3)
             
             if response.status_code == 200:
-                print(f"✅ Firebase updated: presence={presence}, motion={motion_level}")
+                print(f"✅ Firebase updated: presence={presence} ({detection_method})")
             else:
                 print(f"❌ Firebase update failed: {response.status_code}")
                 
@@ -121,13 +125,13 @@ class SimplePresenceDetector:
         return frame
     
     def run_detection(self):
-        """Main detection loop - optimized for presence detection only"""
-        # Initialize camera with maximum performance settings
+        """Hybrid detection loop - HOG + Motion + Timeout for still people"""
+        # Initialize camera with balanced settings for performance and quality
         cap = cv2.VideoCapture(0)
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 240)  # Even smaller for speed
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 180)
-        cap.set(cv2.CAP_PROP_FPS, 10)  # Lower FPS for stability
-        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Minimize buffer
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)  # Balanced resolution
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
+        cap.set(cv2.CAP_PROP_FPS, 20)  # Higher FPS for smoother video
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Minimize lag
         
         if not cap.isOpened():
             print("❌ Error: Could not open camera")
@@ -135,13 +139,16 @@ class SimplePresenceDetector:
             return
         
         print("🎥 Camera started - Press 'q' to quit")
-        print("📖 Method: Fast motion detection for presence only")
-        print("⚡ Optimized: 240x180 @ 10fps - PRESENCE ONLY MODE")
+        print("📖 Method: Hybrid HOG + Motion + Timeout")
+        print("⚡ Settings: 320x240 @ 20fps")
+        print("🎯 Features: Detects still people + motion + 10s timeout")
         
         try:
             frame_count = 0
-            has_presence = False
-            motion_level = 0
+            hog_detected = False
+            motion_detected = False
+            detection_method = "Starting"
+            boxes = []
             
             while True:
                 ret, frame = cap.read()
@@ -149,33 +156,60 @@ class SimplePresenceDetector:
                     break
                 
                 frame_count += 1
-                
-                # Fast motion detection every frame (very lightweight)
-                has_presence, motion_level = self.detect_presence_fast(frame)
-                
-                # Apply stability filter
-                stable_presence = self.stable_presence_detection(has_presence)
-                
-                # Update Firebase every 3 seconds (less frequent)
                 current_time = time.time()
+                
+                # Always do fast motion detection
+                motion_detected, motion_level = self.detect_presence_fast(frame)
+                
+                # Do HOG detection every second (not every frame)
+                if current_time - self.last_hog_detection >= self.hog_detection_interval:
+                    # Use smaller frame for HOG processing
+                    small_frame = cv2.resize(frame, (160, 120))
+                    hog_detected, boxes = self.detect_people_hog_fast(small_frame)
+                    # Scale boxes back to original size
+                    boxes = [(x*2, y*2, w*2, h*2) for x, y, w, h in boxes]
+                    self.last_hog_detection = current_time
+                    detection_method = "HOG" if hog_detected else "Motion"
+                
+                # Hybrid presence detection with timeout
+                final_presence = self.hybrid_presence_detection(hog_detected, motion_detected)
+                
+                # Determine display method
+                time_since_hog = current_time - self.last_person_detected
+                if final_presence:
+                    if hog_detected:
+                        detection_method = "HOG"
+                    elif time_since_hog < self.person_timeout:
+                        detection_method = f"Timeout({self.person_timeout - time_since_hog:.1f}s)"
+                    else:
+                        detection_method = "Motion"
+                else:
+                    detection_method = "None"
+                
+                # Update Firebase every 2 seconds
                 if current_time - self.last_update >= self.update_interval:
-                    self.update_firebase(stable_presence, motion_level)
+                    self.update_firebase(final_presence, detection_method)
                     self.last_update = current_time
                 
-                # Simple visual feedback (no heavy drawing)
-                if stable_presence:
-                    cv2.rectangle(frame, (10, 10), (100, 50), (0, 255, 0), 2)
-                    cv2.putText(frame, "PRESENT", (15, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-                else:
-                    cv2.rectangle(frame, (10, 10), (100, 50), (0, 0, 255), 2)
-                    cv2.putText(frame, "EMPTY", (20, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                # Draw detection boxes if available
+                if len(boxes) > 0 and hog_detected:
+                    for (x, y, w, h) in boxes:
+                        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
                 
-                # Minimal status overlay
-                status_text = f"Motion: {motion_level} | Presence: {stable_presence}"
+                # Visual status indicator
+                if final_presence:
+                    cv2.rectangle(frame, (10, 10), (120, 50), (0, 255, 0), 2)
+                    cv2.putText(frame, "PRESENT", (15, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+                else:
+                    cv2.rectangle(frame, (10, 10), (120, 50), (0, 0, 255), 2)
+                    cv2.putText(frame, "EMPTY", (25, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                
+                # Status overlay
+                status_text = f"Method: {detection_method} | Motion: {motion_level}"
                 cv2.putText(frame, status_text, (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
                 
                 # Show frame
-                cv2.imshow('Fast Presence Detection', frame)
+                cv2.imshow('Hybrid Presence Detection', frame)
                 
                 # Check for quit
                 if cv2.waitKey(1) & 0xFF == ord('q'):
