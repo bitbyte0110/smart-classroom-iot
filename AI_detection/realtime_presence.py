@@ -198,16 +198,36 @@ class AIPresenceDetector:
             print("👋 Camera released")
 
 if __name__ == "__main__":
-    # For development with emulator
-    detector = AIPresenceDetector(
-        firebase_url="http://localhost:9000",
-        room_id="roomA"
-    )
-    
-    # For production with real Firebase
-    # detector = AIPresenceDetector(
-    #     firebase_url="https://smartclassroom-af237-default-rtdb.firebaseio.com",
-    #     room_id="roomA"
-    # )
-    
-    detector.run_detection()
+    try:
+        print("🚀 Starting AI Presence Detection...")
+        
+        # For development with emulator
+        detector = AIPresenceDetector(
+            firebase_url="http://localhost:9000",
+            room_id="roomA"
+        )
+        
+        # For production with real Firebase
+        # detector = AIPresenceDetector(
+        #     firebase_url="https://smartclassroom-af237-default-rtdb.firebaseio.com",
+        #     room_id="roomA"
+        # )
+        
+        detector.run_detection()
+        
+    except FileNotFoundError as e:
+        print(f"❌ YOLO model files not found: {e}")
+        print("Make sure yolov3-tiny.cfg and yolov3-tiny.weights are in the yolo/ folder")
+        input("Press Enter to exit...")
+        
+    except ImportError as e:
+        print(f"❌ Missing Python package: {e}")
+        print("Install with: pip install opencv-python numpy requests")
+        input("Press Enter to exit...")
+        
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        input("Press Enter to exit...")
+        
+    finally:
+        print("👋 AI Detection ended")
