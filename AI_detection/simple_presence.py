@@ -15,24 +15,21 @@ class SimplePresenceDetector:
         self.firebase_url = firebase_url
         self.room_id = room_id
         
-        # Initialize HOG (Histogram of Oriented Gradients) person detector
-        self.hog = cv2.HOGDescriptor()
-        self.hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
-        
-        # Motion detection for backup
-        self.bg_subtractor = cv2.createBackgroundSubtractorMOG2()
+        # Lightweight motion detection only (skip heavy HOG)
+        self.bg_subtractor = cv2.createBackgroundSubtractorMOG2(detectShadows=False)
         
         # Timing control
         self.last_update = 0
-        self.update_interval = 2.0  # Update Firebase every 2 seconds
+        self.update_interval = 3.0  # Update Firebase every 3 seconds (less frequent)
         
-        # Detection history for stability
-        self.detection_history = []
-        self.history_size = 5
+        # Detection history for stability (presence only)
+        self.presence_history = []
+        self.history_size = 3  # Smaller history for faster response
         
-        print("🤖 Simple Presence Detector initialized")
+        print("🤖 Optimized Presence Detector initialized")
         print(f"📍 Room: {room_id}")
         print(f"🔗 Firebase: {firebase_url}")
+        print("⚡ Mode: Motion-based presence detection (optimized for speed)")
     
     def detect_people_hog(self, frame):
         """Detect people using HOG + SVM (built into OpenCV)"""
@@ -50,59 +47,61 @@ class SimplePresenceDetector:
             print(f"HOG detection error: {e}")
             return 0, [], []
     
-    def detect_motion(self, frame):
-        """Backup motion detection method"""
+    def detect_presence_fast(self, frame):
+        """Fast motion-based presence detection"""
         try:
             # Apply background subtraction
             fg_mask = self.bg_subtractor.apply(frame)
             
-            # Find contours
-            contours, _ = cv2.findContours(fg_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            # Count non-zero pixels (motion pixels)
+            motion_pixels = cv2.countNonZero(fg_mask)
             
-            # Filter large contours (likely to be people)
-            large_contours = [c for c in contours if cv2.contourArea(c) > 1000]
+            # Simple threshold: if enough motion pixels, assume presence
+            motion_threshold = frame.shape[0] * frame.shape[1] * 0.02  # 2% of frame
             
-            return len(large_contours) > 0, large_contours
+            has_presence = motion_pixels > motion_threshold
+            
+            return has_presence, motion_pixels
         except Exception as e:
             print(f"Motion detection error: {e}")
-            return False, []
+            return False, 0
     
-    def stable_presence_detection(self, person_count):
+    def stable_presence_detection(self, has_presence):
         """Apply stability filter to reduce false positives"""
         # Add current detection to history
-        self.detection_history.append(person_count > 0)
+        self.presence_history.append(has_presence)
         
         # Keep only recent history
-        if len(self.detection_history) > self.history_size:
-            self.detection_history.pop(0)
+        if len(self.presence_history) > self.history_size:
+            self.presence_history.pop(0)
         
         # Require majority of recent frames to have detection
-        if len(self.detection_history) >= 3:
-            stable_presence = sum(self.detection_history) >= 2
+        if len(self.presence_history) >= 2:
+            stable_presence = sum(self.presence_history) >= 2
         else:
-            stable_presence = person_count > 0
+            stable_presence = has_presence
         
         return stable_presence
     
-    def update_firebase(self, presence, person_count, method="HOG"):
-        """Update Firebase with presence data"""
+    def update_firebase(self, presence, motion_level=0):
+        """Update Firebase with presence data only"""
         try:
             timestamp = int(time.time() * 1000)
             
-            # Prepare data for Firebase
+            # Prepare data for Firebase (simplified)
             data = {
                 "presence": presence,
-                "personCount": person_count,
                 "ts": timestamp,
-                "source": f"AI_Camera_{method}"
+                "source": "AI_Camera_Motion",
+                "motionLevel": motion_level  # For debugging
             }
             
             # Update state
             state_url = f"{self.firebase_url}/lighting/{self.room_id}/state.json"
-            response = requests.patch(state_url, json=data, timeout=5)
+            response = requests.patch(state_url, json=data, timeout=3)  # Shorter timeout
             
             if response.status_code == 200:
-                print(f"✅ Firebase updated: presence={presence}, count={person_count} ({method})")
+                print(f"✅ Firebase updated: presence={presence}, motion={motion_level}")
             else:
                 print(f"❌ Firebase update failed: {response.status_code}")
                 
@@ -122,11 +121,13 @@ class SimplePresenceDetector:
         return frame
     
     def run_detection(self):
-        """Main detection loop"""
-        # Initialize camera
+        """Main detection loop - optimized for presence detection only"""
+        # Initialize camera with maximum performance settings
         cap = cv2.VideoCapture(0)
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 240)  # Even smaller for speed
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 180)
+        cap.set(cv2.CAP_PROP_FPS, 10)  # Lower FPS for stability
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Minimize buffer
         
         if not cap.isOpened():
             print("❌ Error: Could not open camera")
@@ -134,13 +135,13 @@ class SimplePresenceDetector:
             return
         
         print("🎥 Camera started - Press 'q' to quit")
-        print("📖 Methods: HOG (person detection) + Motion (backup)")
+        print("📖 Method: Fast motion detection for presence only")
+        print("⚡ Optimized: 240x180 @ 10fps - PRESENCE ONLY MODE")
         
         try:
             frame_count = 0
-            person_count = 0
-            detection_method = "Starting"
-            boxes = []
+            has_presence = False
+            motion_level = 0
             
             while True:
                 ret, frame = cap.read()
@@ -149,43 +150,32 @@ class SimplePresenceDetector:
                 
                 frame_count += 1
                 
-                # Primary method: HOG person detection (every 3rd frame for performance)
-                if frame_count % 3 == 0:
-                    person_count, boxes, weights = self.detect_people_hog(frame)
-                    detection_method = "HOG"
-                    
-                    # If no people detected, try motion detection as backup
-                    if person_count == 0:
-                        has_motion, contours = self.detect_motion(frame)
-                        if has_motion:
-                            person_count = 1  # Assume 1 person if motion detected
-                            detection_method = "Motion"
-                            # Convert contours to boxes for drawing
-                            boxes = []
-                            for contour in contours:
-                                x, y, w, h = cv2.boundingRect(contour)
-                                if w * h > 1000:  # Filter small movements
-                                    boxes.append((x, y, w, h))
+                # Fast motion detection every frame (very lightweight)
+                has_presence, motion_level = self.detect_presence_fast(frame)
                 
                 # Apply stability filter
-                stable_presence = self.stable_presence_detection(person_count)
+                stable_presence = self.stable_presence_detection(has_presence)
                 
-                # Update Firebase every 2 seconds
+                # Update Firebase every 3 seconds (less frequent)
                 current_time = time.time()
                 if current_time - self.last_update >= self.update_interval:
-                    self.update_firebase(stable_presence, person_count, detection_method)
+                    self.update_firebase(stable_presence, motion_level)
                     self.last_update = current_time
                 
-                # Draw detections on frame
-                if len(boxes) > 0:
-                    frame = self.draw_detections(frame, boxes, detection_method)
+                # Simple visual feedback (no heavy drawing)
+                if stable_presence:
+                    cv2.rectangle(frame, (10, 10), (100, 50), (0, 255, 0), 2)
+                    cv2.putText(frame, "PRESENT", (15, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                else:
+                    cv2.rectangle(frame, (10, 10), (100, 50), (0, 0, 255), 2)
+                    cv2.putText(frame, "EMPTY", (20, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
                 
-                # Add status overlay
-                status_text = f"People: {person_count} | Presence: {stable_presence} | Method: {detection_method}"
-                cv2.putText(frame, status_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+                # Minimal status overlay
+                status_text = f"Motion: {motion_level} | Presence: {stable_presence}"
+                cv2.putText(frame, status_text, (10, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
                 
                 # Show frame
-                cv2.imshow('Simple AI Presence Detection', frame)
+                cv2.imshow('Fast Presence Detection', frame)
                 
                 # Check for quit
                 if cv2.waitKey(1) & 0xFF == ord('q'):
