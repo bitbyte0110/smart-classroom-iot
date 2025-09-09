@@ -34,19 +34,42 @@ export default function Reports() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const logsRef = ref(database, `/lighting/${ROOM_ID}/logs`);
-    const recentLogsQuery = query(logsRef, orderByKey(), limitToLast(1000));
-
-    const unsubscribe = onValue(recentLogsQuery, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const logsArray = Object.values(data) as LightingLog[];
-        setLogs(logsArray.sort((a, b) => a.ts - b.ts));
+    // Generate demo data for reports
+    const generateDemoLogs = (): LightingLog[] => {
+      const logs: LightingLog[] = [];
+      const now = Date.now();
+      
+      // Generate 100 demo log entries over the last 24 hours
+      for (let i = 0; i < 100; i++) {
+        const timeOffset = (24 * 60 * 60 * 1000) * (i / 100); // Spread over 24 hours
+        const timestamp = now - timeOffset;
+        
+        // Simulate realistic patterns
+        const hour = new Date(timestamp).getHours();
+        const isSchoolHours = hour >= 8 && hour <= 17;
+        const presence = isSchoolHours ? Math.random() > 0.3 : Math.random() > 0.8;
+        const ldrRaw = Math.floor(Math.random() * 1000) + 2500; // 2500-3500 range
+        const ledOn = presence && ldrRaw > 3000;
+        const pwm = ledOn ? Math.floor(Math.random() * 200) + 55 : 0;
+        
+        logs.push({
+          ts: timestamp,
+          presence,
+          ldrRaw,
+          mode: Math.random() > 0.8 ? 'manual' : 'auto',
+          led: { on: ledOn, pwm },
+          sensorError: null
+        });
       }
-      setIsLoading(false);
-    });
+      
+      return logs.sort((a, b) => a.ts - b.ts);
+    };
 
-    return () => unsubscribe();
+    // Simulate loading delay
+    setTimeout(() => {
+      setLogs(generateDemoLogs());
+      setIsLoading(false);
+    }, 500);
   }, []);
 
   // 1. Daily Brightness Line Chart
@@ -117,12 +140,12 @@ export default function Reports() {
     const occupiedLogs = logs.filter(log => log.presence);
     const actualUsage = logs.reduce((sum, log) => sum + (log.led.on ? log.led.pwm / 255 : 0), 0);
     const baselineUsage = occupiedLogs.length; // Always ON at PWM=255 when occupied
-    const savings = ((baselineUsage - actualUsage) / baselineUsage) * 100;
+    const savings = baselineUsage > 0 ? ((baselineUsage - actualUsage) / baselineUsage) * 100 : 0;
 
     return {
       actualUsage: Math.round(actualUsage * 10), // Watts
       baselineUsage: Math.round(baselineUsage * 10),
-      savings: Math.round(savings),
+      savings: Math.round(Math.max(0, savings)),
       savedWatts: Math.round((baselineUsage - actualUsage) * 10),
     };
   };

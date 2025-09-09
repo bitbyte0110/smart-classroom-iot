@@ -6,10 +6,8 @@ import { ROOM_ID } from '../types';
 import StatusTiles from './StatusTiles';
 import ManualControls from './ManualControls';
 import Reports from './Reports';
-import Climate from './Climate';
-import './Dashboard.css';
 
-export default function Dashboard() {
+export default function LightingModule() {
   const [state, setState] = useState<LightingState | null>(null);
   const [activeTab, setActiveTab] = useState<'live' | 'reports'>('live');
   const [isConnected, setIsConnected] = useState(false);
@@ -76,34 +74,26 @@ export default function Dashboard() {
     }
   };
 
-  // Show the dashboard immediately, but show loading state for lighting system only
   const renderLightingSection = () => {
     if (lightingLoading) {
       return (
-        <div className="system-section">
-          <h2 className="section-title">💡 Lighting System</h2>
-          <div className="loading-section">
-            <div className="spinner"></div>
-            <p>Initializing lighting system...</p>
-          </div>
+        <div className="loading-section">
+          <div className="spinner"></div>
+          <p>Initializing lighting system...</p>
         </div>
       );
     }
 
     if (!state) {
       return (
-        <div className="system-section">
-          <h2 className="section-title">💡 Lighting System</h2>
-          <div className="error-section">
-            <p>⚠️ Failed to load lighting system</p>
-          </div>
+        <div className="error-section">
+          <p>⚠️ Failed to load lighting system</p>
         </div>
       );
     }
 
     return (
-      <div className="system-section">
-        <h2 className="section-title">💡 Lighting System</h2>
+      <>
         <StatusTiles state={state} />
         
         <div className="mode-control">
@@ -130,14 +120,14 @@ export default function Dashboard() {
             onControlChange={handleManualControl}
           />
         )}
-      </div>
+      </>
     );
   };
 
   return (
-    <div className="dashboard">
-      <header className="dashboard-header">
-        <h1>🏫 Smart Classroom Control System</h1>
+    <div className="module-container">
+      <header className="module-header">
+        <h1>💡 Smart Lighting Control</h1>
         <div className="connection-status">
           <div className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}></div>
           <span>{isConnected ? 'Live Data' : 'Demo Mode'}</span>
@@ -150,7 +140,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      <nav className="dashboard-nav">
+      <nav className="module-nav">
         <button 
           className={activeTab === 'live' ? 'active' : ''}
           onClick={() => setActiveTab('live')}
@@ -165,19 +155,17 @@ export default function Dashboard() {
         </button>
       </nav>
 
-      {activeTab === 'live' && (
-        <div className="live-control">
-          {renderLightingSection()}
-
-          <div className="system-section">
-            <Climate />
+      <div className="module-content">
+        {activeTab === 'live' && (
+          <div className="live-control">
+            {renderLightingSection()}
           </div>
-        </div>
-      )}
+        )}
 
-      {activeTab === 'reports' && (
-        <Reports />
-      )}
+        {activeTab === 'reports' && (
+          <Reports />
+        )}
+      </div>
     </div>
   );
 }

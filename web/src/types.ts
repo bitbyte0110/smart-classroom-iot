@@ -32,7 +32,26 @@ export interface ChartData {
   }>;
 }
 
+// Climate/Fan system types
+export interface ClimateState {
+  ts: number;
+  temperature: number; // °C
+  aqRaw: number; // Air Quality raw value (100-500)
+  aqStatus: 'Good' | 'Moderate' | 'Poor';
+  fan: {
+    on: boolean;
+    pwm: number; // 0-255
+  };
+  mode: 'auto' | 'manual';
+  boostMode: boolean;
+  boostEndTime?: number; // timestamp when boost mode ends
+}
+
 // Constants from requirements
 export const BRIGHT_THRESHOLD = 2800;
 export const DARK_THRESHOLD = 3200;
 export const ROOM_ID = 'roomA';
+
+// Climate thresholds
+export const AQ_GOOD_THRESHOLD = 200;
+export const AQ_MODERATE_THRESHOLD = 350;

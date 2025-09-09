@@ -8,3 +8,126 @@
   width: 100%;
   min-height: 100vh;
 }
+
+.app {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.app-nav {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.app-nav-brand h1 {
+  color: white;
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.app-nav-modules {
+  display: flex;
+  gap: 1rem;
+}
+
+.app-nav-modules button {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 0.8rem 1.5rem;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 1rem;
+}
+
+.app-nav-modules button:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.app-nav-modules button.active {
+  background: #00d2ff;
+  border-color: #00d2ff;
+  box-shadow: 0 5px 15px rgba(0, 210, 255, 0.3);
+}
+
+.app-main {
+  padding: 0;
+}
+
+.module-container {
+  min-height: calc(100vh - 80px);
+}
+
+.module-header {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.module-header h1 {
+  color: white;
+  margin: 0;
+  font-size: 1.8rem;
+  font-weight: 600;
+}
+
+.module-nav {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0 2rem;
+  display: flex;
+  gap: 1rem;
+}
+
+.module-nav button {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 1rem 1.5rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-bottom: 3px solid transparent;
+  font-size: 1rem;
+}
+
+.module-nav button:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.module-nav button.active {
+  color: white;
+  border-bottom-color: #00d2ff;
+}
+
+.module-content {
+  padding: 2rem;
+}
+
+@media (max-width: 768px) {
+  .app-nav {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .app-nav-modules {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .module-header {
+    flex-direction: column;
+    gap: 1rem;
+  }
+}
