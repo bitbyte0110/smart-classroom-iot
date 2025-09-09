@@ -1,0 +1,73 @@
+Your task is to build the Internet of Things System Prototype Development:
+Choose one of this: - Smart Campus Application - Smart Living / Community Environment - Smart Manufacturing for Factories of the Future - Smart Agriculture for Productive Plantations - Any other system as suggested by students, approved by lecturer / tutor. You are advised to use the Raspberry Pi 3 / 4 with Raspbian and NodeMCU ESP32 modules. Suggested languages are Python or any other language.
+* Lecturers may introduce a common resource from time to time, for collecting sensor data via MQTT protocols, to be used as a part of the proposed system.
+Learning Outcomes Being Assessed
+1. Apply suitable software and hardware design techniques to develop project-driven Internet of Things system prototype with input (sensors), processing and output (actuator / indicator / user interface) features.
+2. Work effectively as a team to develop the Internet of Things system with a simple interface program.
+3. Write programs that make use of reading real-time input, process received input data with database / Internet (hereafter referred as Cloud) feature and output response with actuator / indicator.
+4. Generate an analysis report based on the collected data. Page 1 of 11
+BMIT2123 INTERNET OF THINGS Jun 2025
+Duration of completing assignment
+Due to the limitation of accessing lab accessories (e.g., Raspberry Pi, sensor sets, electronics tools), students are advised to prepare and test their assignment during the fourth to twelfth practical class, or if all practicals are done earlier, the remaining practical classes are utilised for assignment preparation.
+Submission Deadlines
+Part 1 (refer to Section A):
+Fourth practical class
+- meet the lecturer to present the proposed work
+Part 2 (refer to Section B):
+Document submission in Google Classroom by
+Week 12, Friday 5th September 2025: 11:59pm
+Presentation on thirteenth - fourteenth practical class
+- presentation starting from the thirteenth practical classes
+Roles and Responsibilities
+Each member of the team must work on different module(s). The individual work should then be combined to produce a complete Internet of Things system prototype. Each member of the team will be assessed individually.
+Academic Impropriety
+Refers to TAR UC Plagiarism Policy
+You may only work with the students in your team to produce your answer. This policy covers cheating, attempt to cheat, plagiarism, collusion and any other attempts to gain an unfair advantage in assessment. You are NOT to share your work with your peers, but please feel free to have a discussion with your peers. If cheating is discovered, both parties will take equal blame (get zero). Please note that the assignment should be your own work, although you may incorporate ideas or techniques from books, online resources, etc. By copying materials directly from any source of materials will lead to zero. You have been warned. Whenever you face any problems, please seek advice from your tutor.
+Page 2 of 11
+BMIT2123 INTERNET OF THINGS Jun 2025
+Late Submission
+Refers to TAR UC Guideline of Late Submission of Coursework
+NO late submissions will be tolerated. If you fail to submit your assignment on time, the penalty of marks will be imposed as the consequence of late submission. In certain circumstances, a student may be allowed to submit the assignment late with valid reason. S/he should contact the tutor at least three days before the assignment is due. The tutor will evaluate whether the circumstance warrants submitting the assignment late, but no guarantee that the students will not be penalised. Note: Late submission will be penalised:
+● Late 1 to 3 days after the deadline of submission: minus 10 marks;
+● Late 4 to 7 days after the deadline of submission: minus 20 marks;
+● Late more than 7 days after the deadline of submission: 0 marks
+Feedback
+The feedback of Part 1 & 2 will be given during the presentation.
+Page 3 of 11
+BMIT2123 INTERNET OF THINGS Jun 2025
+Section A: Part I - System Prototype Proposal
+Deadline
+Present a system proposal with presentation slides in the fourth practical class to your respective lecturer and submit softcopy of presentation slides via Google classroom.
+Question Details
+Each group is required to choose a different title from the list as shown in Assignment Overview.
+You are required to prepare a system prototype proposal presentation slide for your selected title.
+Proposal Content
+The proposal should contain the following:-
+(a) System Title
+(b) Description of System and Targeted Users
+* including an overall diagram of proposed system
+(c) Functional Modules Descriptions
+(d) Task Allocations
+NOTE:
+Each member should handle at least one module. A module consists of multiple sub-functions, such as the sensors’ data reading, processing and output responses. The designed system shall involve data collection using a database, or any cloud services (e.g., Google Firebase, PushBullet, AWS IoT, Cayenne, Microsoft Azure etc, refer to LINK, look for free services only). Students are solely responsible for any additional charges incurred from the use of external software services (e.g., cloud databases, dashboards) for the completion of assignments.
+* Google Firebase can be used to store data and read by any other programme / platform for data reporting / visualisation purposes.
+* Node-Red can be utilised for storing temporary data / for visualisation purposes using dashboard library.
+The proposed project content and outcome shall not exceed 30% of similarity to any practical exercises. For third year students, Final Year Project content shall not be used as the submission material for this assignment (and vice versa).
+Page 4
+
+You are required to apply the knowledge that you’ve learned by developing an Internet of Things related system prototype using Raspbian with Raspberry Pi 3 / 4 and NodeMCU ESP32. You may examine through the Internet websites to grasp the idea of how to develop a good system prototype. You are advised to use the suggested languages such as Python or any other language.
+Based on the system that you have chosen above in Part I, you are required to develop all the modules specified in your system proposal.
+All implementations should include appropriate data validations that are consistent with the business rules (either true or false on certain statements). Business rules include the possible scalability and extensionality of the proposed system in a real case scenario. Students must define and specify the criteria of proposed system output and allow tutors to verify their implementation.
+Suggested Modules (to be included in your selected system)
+(a) Sensor Data Acquisition Module
+- This module should include
+o The total number of sensors (inputs) and actuators/indicators (output) shall be not less than 5.
+o Please provide sufficient number of samples / records in the designed system (e.g., 10 car entry records in Carpark Control System) Page 6 of 11
+BMIT2123 INTERNET OF THINGS Jun 2025
+(b) Sensor Data Processing Module
+- The system must be able to update data to and retrieve data from the database / cloud service.
+- Retrieved data shall be utilised for analysis purpose (e.g., display the graph for temperature value in a day)
+(c) User Interface Module
+- An interface program shall be developed to communicate the IoT devices with available IoT platforms, show reports based on the collected input data from sensors / cloud services.
+- E.g., Mobile App interface, Web based interface, Node-Red dashboard, etc.
+Part (B) – Presentation and Documentation

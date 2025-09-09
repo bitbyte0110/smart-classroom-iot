@@ -1,14 +1,167 @@
 
-npm install firebase
+# 🏫 Smart Classroom IoT System - Module 3: Smart Lighting Control
 
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
+## 📋 System Overview & Assignment Compliance
 
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+### 🎯 Assignment Requirements Met
+- **System Type**: Smart Campus Application ✅
+- **Hardware**: ESP32 (NodeMCU) + Raspberry Pi 4 ✅
+- **Sensors**: 5+ inputs/outputs (PIR, LDR, LED, Temperature, Air Quality) ✅
+- **Cloud Integration**: Firebase Realtime Database ✅
+- **User Interface**: Web-based dashboard with real-time monitoring ✅
+- **Data Processing**: Real-time sensor data with analytics and reporting ✅
+
+### 🏗️ System Architecture
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   ESP32 Device  │    │  Raspberry Pi   │    │  Web Dashboard  │
+│                 │    │                 │    │                 │
+│ • PIR Sensor    │◄──►│ • MQTT Broker   │◄──►│ • React App     │
+│ • LDR Sensor    │    │ • Data Logger   │    │ • Firebase UI   │
+│ • LED Control   │    │ • AI Detection  │    │ • Analytics     │
+│ • Temperature   │    │ • Camera Stream │    │ • Reports       │
+│ • Air Quality   │    │                 │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         └───────────────────────┼───────────────────────┘
+                                 │
+                    ┌─────────────────┐
+                    │  Firebase Cloud │
+                    │                 │
+                    │ • Real-time DB  │
+                    │ • Authentication│
+                    │ • Analytics     │
+                    └─────────────────┘
+```
+
+### 🔄 MQTT Publisher/Subscriber Roles
+
+#### ESP32 (Publisher & Subscriber)
+**Publishes to:**
+- `sensors/lighting/presence` - PIR motion detection status
+- `sensors/lighting/brightness` - LDR analog readings (0-4095)
+- `sensors/lighting/led_state` - LED ON/OFF and PWM level
+- `sensors/lighting/temperature` - DHT22 temperature readings
+- `sensors/lighting/air_quality` - MQ-135 air quality values
+- `sensors/lighting/mode` - Auto/Manual mode status
+
+**Subscribes to:**
+- `control/lighting/mode` - Mode switching commands (auto/manual)
+- `control/lighting/led_on` - Manual LED ON/OFF commands
+- `control/lighting/led_pwm` - Manual brightness control (0-255)
+- `control/lighting/emergency` - Emergency override commands
+
+#### Raspberry Pi (Publisher & Subscriber)
+**Publishes to:**
+- `ai/presence/detection` - AI camera human detection results
+- `ai/presence/count` - Number of people detected
+- `ai/presence/confidence` - Detection confidence scores
+- `system/status/pi` - Raspberry Pi system health
+
+**Subscribes to:**
+- `sensors/lighting/*` - All sensor data from ESP32
+- `control/lighting/*` - All control commands
+- `system/status/esp32` - ESP32 health status
+
+#### Web Dashboard (Subscriber Only)
+**Subscribes to:**
+- `sensors/lighting/*` - Real-time sensor data
+- `ai/presence/*` - AI detection results
+- `system/status/*` - System health monitoring
+
+### 🍓 Raspberry Pi vs ESP32 Roles
+
+#### ESP32 (Edge Device - Sensor Hub)
+**Primary Functions:**
+- **Sensor Data Collection**: PIR, LDR, Temperature, Air Quality
+- **Actuator Control**: LED PWM control, Fan speed control
+- **Local Processing**: Sensor filtering, debouncing, validation
+- **MQTT Publishing**: Real-time sensor data to cloud
+- **Offline Operation**: Continues working without internet
+- **Hardware Interface**: Direct GPIO control of sensors/actuators
+
+**Technical Specifications:**
+- **CPU**: Dual-core 32-bit processor @ 240MHz
+- **Memory**: 520KB SRAM, 4MB Flash
+- **Connectivity**: WiFi 802.11 b/g/n, Bluetooth 4.2
+- **GPIO**: 34 digital pins, 18 analog inputs
+- **Programming**: Arduino IDE, ESP-IDF, MicroPython
+
+#### Raspberry Pi (Gateway & AI Processing)
+**Primary Functions:**
+- **MQTT Broker**: Mosquitto MQTT server for device communication
+- **AI Processing**: YOLO human detection with camera
+- **Data Logging**: Historical data storage and analytics
+- **Web Server**: Hosting React dashboard application
+- **Cloud Gateway**: Firebase integration and data synchronization
+- **System Monitoring**: Health checks and error reporting
+
+**Technical Specifications:**
+- **CPU**: Quad-core 64-bit ARM Cortex-A72 @ 1.5GHz
+- **Memory**: 4GB/8GB LPDDR4 RAM
+- **Storage**: 32GB+ microSD card
+- **Connectivity**: WiFi 802.11ac, Bluetooth 5.0, Gigabit Ethernet
+- **Camera**: Pi Camera Module or USB webcam
+- **OS**: Raspberry Pi OS (Debian-based)
+
+### 🖥️ User Interface Specifications
+
+#### Web Dashboard Features
+**Real-time Monitoring Tiles:**
+- **Presence Status**: PIR + AI detection with confidence indicators
+- **Brightness Level**: LDR readings with visual gauge (0-4095)
+- **LED Status**: ON/OFF state with PWM level display (0-255)
+- **Temperature**: Current room temperature with trend graph
+- **Air Quality**: MQ-135 readings with health status indicators
+- **System Mode**: Auto/Manual mode with visual toggle
+
+**Control Panel:**
+- **Mode Switch**: Toggle between Automatic and Manual modes
+- **Manual LED Control**: ON/OFF toggle and brightness slider (0-255)
+- **Emergency Override**: Force unlock/override all systems
+- **Settings Panel**: Threshold adjustments, calibration tools
+
+**Analytics & Reports:**
+- **Daily Brightness Chart**: LDR readings over time with day/night cycles
+- **Presence Heatmap**: Hourly detection patterns and occupancy trends
+- **LED Runtime Analysis**: Usage statistics and energy consumption
+- **Energy Savings Report**: Comparison with baseline (always-on scenario)
+- **Air Quality Trends**: Historical air quality data and alerts
+- **System Health**: Uptime, error logs, and performance metrics
+
+**Data Export:**
+- **CSV Download**: Complete sensor logs for analysis
+- **PDF Reports**: Formatted reports for submission
+- **Real-time Data**: Live streaming of all sensor values
+
+### 📊 Assignment Compliance Analysis
+
+#### ✅ Sensor Data Acquisition Module
+**Requirements Met:**
+- **5+ Sensors/Actuators**: PIR, LDR, LED, Temperature (DHT22), Air Quality (MQ-135) = 5 inputs/outputs ✅
+- **Sufficient Records**: 30-second logging intervals, 200+ entries per day ✅
+- **Real-time Data**: Live sensor readings with 2-second update intervals ✅
+
+#### ✅ Sensor Data Processing Module
+**Requirements Met:**
+- **Cloud Database**: Firebase Realtime Database integration ✅
+- **Data Retrieval**: Historical data access for analytics ✅
+- **Analysis Capabilities**: 4 different report types with charts ✅
+- **Business Rules**: Hysteresis, validation, error handling ✅
+
+#### ✅ User Interface Module
+**Requirements Met:**
+- **Web Interface**: React-based responsive dashboard ✅
+- **Real-time Communication**: MQTT + Firebase integration ✅
+- **Reports & Analytics**: Multiple chart types and data visualization ✅
+- **Control Interface**: Manual override and system configuration ✅
+
+### 🔧 Technical Implementation Details
+
+#### Firebase Configuration
+```javascript
+// Web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyDpAjEMP0MatqhwlLY_clqtpcfGVXkpsS8",
   authDomain: "smartclassroom-af237.firebaseapp.com",
@@ -18,13 +171,40 @@ const firebaseConfig = {
   appId: "1:172327783054:web:b9bdddfb213ea0dd48d7df",
   measurementId: "G-EHFTC93M2F"
 };
+```
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+#### MQTT Topic Structure
+```
+sensors/
+├── lighting/
+│   ├── presence          # PIR detection status
+│   ├── brightness        # LDR analog readings
+│   ├── led_state         # LED ON/OFF + PWM
+│   ├── temperature       # DHT22 temperature
+│   └── air_quality       # MQ-135 readings
 
+control/
+├── lighting/
+│   ├── mode              # Auto/Manual switching
+│   ├── led_on            # Manual LED control
+│   ├── led_pwm           # Brightness control
+│   └── emergency         # Emergency override
 
-Module 3 — Smart Lighting Control (ESP32 + PIR + LDR AO + LED)
+ai/
+├── presence/
+│   ├── detection         # AI camera results
+│   ├── count             # Person count
+│   └── confidence        # Detection confidence
+
+system/
+├── status/
+│   ├── esp32             # ESP32 health
+│   └── pi                # Raspberry Pi health
+```
+
+---
+
+## Module 3 — Smart Lighting Control (ESP32 + PIR + LDR AO + LED)
 🎯 Purpose
 Automate classroom lighting based on presence and ambient brightness, with monitoring and manual control via Firebase.
 
