@@ -14,7 +14,8 @@ import {
 } from 'chart.js';
 import dayjs from 'dayjs';
 import { database } from '../firebase';
-import { LightingLog, ROOM_ID } from '../types';
+import type { LightingLog } from '../types';
+import { ROOM_ID } from '../types';
 import './Reports.css';
 
 ChartJS.register(

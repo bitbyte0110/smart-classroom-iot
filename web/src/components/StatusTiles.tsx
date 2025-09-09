@@ -1,4 +1,5 @@
-import { LightingState, BRIGHT_THRESHOLD, DARK_THRESHOLD } from '../types';
+import type { LightingState } from '../types';
+import { BRIGHT_THRESHOLD, DARK_THRESHOLD } from '../types';
 import './StatusTiles.css';
 
 interface StatusTilesProps {
