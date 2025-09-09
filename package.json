@@ -1,0 +1,13 @@
+{
+  "name": "smart-lighting-system",
+  "version": "1.0.0",
+  "scripts": {
+    "start:emulator": "firebase emulators:start",
+    "build:web": "cd web && npm run build",
+    "dev:web": "cd web && npm run dev",
+    "sim": "cd simulator && npm start"
+  },
+  "devDependencies": {
+    "firebase-tools": "^13.0.0"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "rules": {
+    "lighting": {
+      "$room": {
+        ".read": true,
+        ".write": true
+      }
+    }
+  }
+}

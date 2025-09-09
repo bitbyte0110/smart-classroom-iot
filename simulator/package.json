@@ -1,0 +1,12 @@
+{
+  "name": "lighting-simulator",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start": "node simulator.js",
+    "dev": "node --watch simulator.js"
+  },
+  "dependencies": {
+    "firebase": "^10.7.0"
+  }
+}
