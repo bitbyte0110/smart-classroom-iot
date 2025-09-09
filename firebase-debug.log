@@ -1,42 +1,42 @@
-[debug] [2025-09-09T10:03:36.218Z] ----------------------------------------------------------------------
-[debug] [2025-09-09T10:03:36.220Z] Command:       D:\Program Files\nodejs\node.exe C:\Users\Legion\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js emulators:start
-[debug] [2025-09-09T10:03:36.220Z] CLI Version:   14.15.2
-[debug] [2025-09-09T10:03:36.221Z] Platform:      win32
-[debug] [2025-09-09T10:03:36.221Z] Node Version:  v22.17.0
-[debug] [2025-09-09T10:03:36.221Z] Time:          Tue Sep 09 2025 18:03:36 GMT+0800 (Malaysia Time)
-[debug] [2025-09-09T10:03:36.221Z] ----------------------------------------------------------------------
+[debug] [2025-09-09T14:34:11.957Z] ----------------------------------------------------------------------
+[debug] [2025-09-09T14:34:11.961Z] Command:       D:\Program Files\nodejs\node.exe C:\Users\Legion\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js emulators:start
+[debug] [2025-09-09T14:34:11.961Z] CLI Version:   14.15.2
+[debug] [2025-09-09T14:34:11.961Z] Platform:      win32
+[debug] [2025-09-09T14:34:11.961Z] Node Version:  v22.17.0
+[debug] [2025-09-09T14:34:11.962Z] Time:          Tue Sep 09 2025 22:34:11 GMT+0800 (Malaysia Time)
+[debug] [2025-09-09T14:34:11.962Z] ----------------------------------------------------------------------
 [debug] 
-[debug] [2025-09-09T10:03:36.425Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-09-09T14:34:12.173Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
 [debug] Failed to authenticate, have you run firebase login?
 [warn] !  emulators: You are not currently authenticated so some features may not work correctly. Please run firebase login to authenticate the CLI. 
-[debug] [2025-09-09T10:03:36.563Z] java version "17.0.12" 2024-07-16 LTS
+[debug] [2025-09-09T14:34:12.460Z] java version "17.0.12" 2024-07-16 LTS
 Java(TM) SE Runtime Environment (build 17.0.12+8-LTS-286)
 
-[debug] [2025-09-09T10:03:36.563Z] Java HotSpot(TM) 64-Bit Server VM (build 17.0.12+8-LTS-286, mixed mode, sharing)
+[debug] [2025-09-09T14:34:12.460Z] Java HotSpot(TM) 64-Bit Server VM (build 17.0.12+8-LTS-286, mixed mode, sharing)
 
-[debug] [2025-09-09T10:03:36.578Z] Parsed Java major version: 17
+[debug] [2025-09-09T14:34:12.489Z] Parsed Java major version: 17
 [info] i  emulators: Starting emulators: database, hosting {"metadata":{"emulator":{"name":"hub"},"message":"Starting emulators: database, hosting"}}
 [warn] !  hosting: The hosting emulator is configured but there is no hosting configuration. Have you run firebase init hosting? {"metadata":{"emulator":{"name":"hosting"},"message":"The hosting emulator is configured but there is no hosting configuration. Have you run \u001b[1mfirebase init hosting\u001b[22m?"}}
-[debug] [2025-09-09T10:03:36.586Z] [logging] Logging Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
-[debug] [2025-09-09T10:03:36.586Z] [database] Database Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
-[debug] [2025-09-09T10:03:36.586Z] assigned listening specs for emulators {"user":{"logging":[{"address":"127.0.0.1","family":"IPv4","port":4500}],"database":[{"address":"127.0.0.1","family":"IPv4","port":9000}]},"metadata":{"message":"assigned listening specs for emulators"}}
-[debug] [2025-09-09T10:03:36.587Z] No OAuth tokens found
-[debug] [2025-09-09T10:03:36.588Z] No OAuth tokens found
-[debug] [2025-09-09T10:03:36.588Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
-[debug] [2025-09-09T10:03:36.588Z] Failed to authenticate, have you run firebase login? (original: Could not load the default credentials. Browse to https://cloud.google.com/docs/authentication/getting-started for more information.)
-[debug] [2025-09-09T10:03:36.588Z] Failed to retrieve default database instance: {"name":"FirebaseError","children":[],"exit":2,"message":"Failed to get Firebase project undefined. Please make sure the project exists and your account has permission to access it.","original":{"name":"FirebaseError","children":[],"exit":1,"message":"Failed to authenticate, have you run \u001b[1mfirebase login\u001b[22m?","original":{},"status":500},"status":500} {"metadata":{"emulator":{"name":"database"},"message":"Failed to retrieve default database instance: {\"name\":\"FirebaseError\",\"children\":[],\"exit\":2,\"message\":\"Failed to get Firebase project undefined. Please make sure the project exists and your account has permission to access it.\",\"original\":{\"name\":\"FirebaseError\",\"children\":[],\"exit\":1,\"message\":\"Failed to authenticate, have you run \\u001b[1mfirebase login\\u001b[22m?\",\"original\":{},\"status\":500},\"status\":500}"}}
-[debug] [2025-09-09T10:03:36.589Z] database rules config:  [{"instance":"undefined-default-rtdb","rules":"D:\\Development\\smart-classroom-iot\\database.rules.json"}]
-[debug] [2025-09-09T10:03:36.592Z] Ignoring unsupported arg: projectId {"metadata":{"emulator":{"name":"database"},"message":"Ignoring unsupported arg: projectId"}}
-[debug] [2025-09-09T10:03:36.592Z] Ignoring unsupported arg: auto_download {"metadata":{"emulator":{"name":"database"},"message":"Ignoring unsupported arg: auto_download"}}
-[debug] [2025-09-09T10:03:36.592Z] Ignoring unsupported arg: rules {"metadata":{"emulator":{"name":"database"},"message":"Ignoring unsupported arg: rules"}}
-[debug] [2025-09-09T10:03:36.592Z] Starting Database Emulator with command {"binary":"java","args":["-Duser.language=en","-jar","C:\\Users\\Legion\\.cache\\firebase\\emulators\\firebase-database-emulator-v4.11.2.jar","--host","127.0.0.1","--port",9000,"--single_project_mode","Warning"],"optionalArgs":["port","host","functions_emulator_port","functions_emulator_host","single_project_mode"],"joinArgs":false,"shell":false,"port":9000} {"metadata":{"emulator":{"name":"database"},"message":"Starting Database Emulator with command {\"binary\":\"java\",\"args\":[\"-Duser.language=en\",\"-jar\",\"C:\\\\Users\\\\Legion\\\\.cache\\\\firebase\\\\emulators\\\\firebase-database-emulator-v4.11.2.jar\",\"--host\",\"127.0.0.1\",\"--port\",9000,\"--single_project_mode\",\"Warning\"],\"optionalArgs\":[\"port\",\"host\",\"functions_emulator_port\",\"functions_emulator_host\",\"single_project_mode\"],\"joinArgs\":false,\"shell\":false,\"port\":9000}"}}
+[debug] [2025-09-09T14:34:12.497Z] [logging] Logging Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2025-09-09T14:34:12.497Z] [database] Database Emulator only supports listening on one address (127.0.0.1). Not listening on ::1
+[debug] [2025-09-09T14:34:12.497Z] assigned listening specs for emulators {"user":{"logging":[{"address":"127.0.0.1","family":"IPv4","port":4500}],"database":[{"address":"127.0.0.1","family":"IPv4","port":9000}]},"metadata":{"message":"assigned listening specs for emulators"}}
+[debug] [2025-09-09T14:34:12.499Z] No OAuth tokens found
+[debug] [2025-09-09T14:34:12.499Z] No OAuth tokens found
+[debug] [2025-09-09T14:34:12.499Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-09-09T14:34:12.500Z] Failed to authenticate, have you run firebase login? (original: Could not load the default credentials. Browse to https://cloud.google.com/docs/authentication/getting-started for more information.)
+[debug] [2025-09-09T14:34:12.500Z] Failed to retrieve default database instance: {"name":"FirebaseError","children":[],"exit":2,"message":"Failed to get Firebase project undefined. Please make sure the project exists and your account has permission to access it.","original":{"name":"FirebaseError","children":[],"exit":1,"message":"Failed to authenticate, have you run \u001b[1mfirebase login\u001b[22m?","original":{},"status":500},"status":500} {"metadata":{"emulator":{"name":"database"},"message":"Failed to retrieve default database instance: {\"name\":\"FirebaseError\",\"children\":[],\"exit\":2,\"message\":\"Failed to get Firebase project undefined. Please make sure the project exists and your account has permission to access it.\",\"original\":{\"name\":\"FirebaseError\",\"children\":[],\"exit\":1,\"message\":\"Failed to authenticate, have you run \\u001b[1mfirebase login\\u001b[22m?\",\"original\":{},\"status\":500},\"status\":500}"}}
+[debug] [2025-09-09T14:34:12.500Z] database rules config:  [{"instance":"undefined-default-rtdb","rules":"D:\\Development\\smart-classroom-iot\\database.rules.json"}]
+[debug] [2025-09-09T14:34:12.503Z] Ignoring unsupported arg: projectId {"metadata":{"emulator":{"name":"database"},"message":"Ignoring unsupported arg: projectId"}}
+[debug] [2025-09-09T14:34:12.504Z] Ignoring unsupported arg: auto_download {"metadata":{"emulator":{"name":"database"},"message":"Ignoring unsupported arg: auto_download"}}
+[debug] [2025-09-09T14:34:12.504Z] Ignoring unsupported arg: rules {"metadata":{"emulator":{"name":"database"},"message":"Ignoring unsupported arg: rules"}}
+[debug] [2025-09-09T14:34:12.504Z] Starting Database Emulator with command {"binary":"java","args":["-Duser.language=en","-jar","C:\\Users\\Legion\\.cache\\firebase\\emulators\\firebase-database-emulator-v4.11.2.jar","--host","127.0.0.1","--port",9000,"--single_project_mode","Warning"],"optionalArgs":["port","host","functions_emulator_port","functions_emulator_host","single_project_mode"],"joinArgs":false,"shell":false,"port":9000} {"metadata":{"emulator":{"name":"database"},"message":"Starting Database Emulator with command {\"binary\":\"java\",\"args\":[\"-Duser.language=en\",\"-jar\",\"C:\\\\Users\\\\Legion\\\\.cache\\\\firebase\\\\emulators\\\\firebase-database-emulator-v4.11.2.jar\",\"--host\",\"127.0.0.1\",\"--port\",9000,\"--single_project_mode\",\"Warning\"],\"optionalArgs\":[\"port\",\"host\",\"functions_emulator_port\",\"functions_emulator_host\",\"single_project_mode\"],\"joinArgs\":false,\"shell\":false,\"port\":9000}"}}
 [info] i  database: Database Emulator logging to database-debug.log {"metadata":{"emulator":{"name":"database"},"message":"Database Emulator logging to \u001b[1mdatabase-debug.log\u001b[22m"}}
 [warn] !  emulators: The Emulator UI is not starting, either because none of the running emulators have a UI component or the Emulator UI cannot determine the Project ID. Pass the --project flag to specify a project. {"metadata":{"emulator":{"name":"hub"},"message":"The Emulator UI is not starting, either because none of the running emulators have a UI component or the Emulator UI cannot determine the Project ID. Pass the --project flag to specify a project."}}
-[debug] [2025-09-09T10:03:38.453Z] >>> [apiv2][query] PUT http://127.0.0.1:9000/.settings/rules.json ns=undefined-default-rtdb
-[debug] [2025-09-09T10:03:38.453Z] >>> [apiv2][body] PUT http://127.0.0.1:9000/.settings/rules.json "{\r\n  \"rules\": {\r\n    \"lighting\": {\r\n      \"$room\": {\r\n        \".read\": true,\r\n        \".write\": true\r\n      }\r\n    }\r\n  }\r\n}"
-[debug] [2025-09-09T10:03:39.095Z] <<< [apiv2][status] PUT http://127.0.0.1:9000/.settings/rules.json 200
-[debug] [2025-09-09T10:03:39.095Z] <<< [apiv2][body] PUT http://127.0.0.1:9000/.settings/rules.json {"status":"ok"}
-[debug] [2025-09-09T10:03:39.102Z] Could not find VSCode notification endpoint: FetchError: request to http://localhost:40001/vscode/notify failed, reason: . If you are not running the Firebase Data Connect VSCode extension, this is expected and not an issue.
+[debug] [2025-09-09T14:34:14.981Z] >>> [apiv2][query] PUT http://127.0.0.1:9000/.settings/rules.json ns=undefined-default-rtdb
+[debug] [2025-09-09T14:34:14.981Z] >>> [apiv2][body] PUT http://127.0.0.1:9000/.settings/rules.json "{\r\n  \"rules\": {\r\n    \"lighting\": {\r\n      \"$room\": {\r\n        \".read\": true,\r\n        \".write\": true\r\n      }\r\n    }\r\n  }\r\n}"
+[debug] [2025-09-09T14:34:15.581Z] <<< [apiv2][status] PUT http://127.0.0.1:9000/.settings/rules.json 200
+[debug] [2025-09-09T14:34:15.581Z] <<< [apiv2][body] PUT http://127.0.0.1:9000/.settings/rules.json {"status":"ok"}
+[debug] [2025-09-09T14:34:15.587Z] Could not find VSCode notification endpoint: FetchError: request to http://localhost:40001/vscode/notify failed, reason: . If you are not running the Firebase Data Connect VSCode extension, this is expected and not an issue.
 [info] 
 ┌─────────────────────────────────────────────────────────────┐
 │ ✔  All emulators ready! It is now safe to connect your app. │
