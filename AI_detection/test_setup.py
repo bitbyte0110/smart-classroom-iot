@@ -79,7 +79,7 @@ def test_setup():
     try:
         net = cv2.dnn.readNetFromDarknet(yolo_cfg, yolo_weights)
         layer_names = net.getLayerNames()
-        output_layers = [layer_names[i[0] - 1] for i in net.getUnconnectedOutLayers()]
+        output_layers = [layer_names[i - 1] for i in net.getUnconnectedOutLayers()]
         print(f"✅ YOLO model loaded: {len(output_layers)} output layers")
     except Exception as e:
         print(f"❌ YOLO loading error: {e}")
