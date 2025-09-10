@@ -244,7 +244,7 @@ Laptop Integrated Camera → YOLO Detection → Firebase Update → ESP32 Respon
 - **Smart Filtering**: Reduces false positives with debouncing
 - **Background Processing**: Runs continuously without user interaction
 
-### 🚀 Quick Start — Camera-Only Smart Lighting
+### 🚀 Quick Start — Camera-Only Smart Lighting (Real-Only Mode)
 
 1) Flash the ESP32 (Camera + LDR Only)
 - Open `module3_smart_lighting/ASSIGNMENT_COMPLIANT.ino`.
@@ -261,11 +261,16 @@ pip install -r AI_detection/requirements.txt
 python AI_detection/yolo_force_gpu.py
 ```
 - The script uses GPU if available; otherwise CPU.
+- Presence is REAL ONLY: UI shows presence=true only if `ai_timestamp` is fresh (≤6s).
 
 3) Test End-to-End
 - Stand in front of the camera → presence updates to Firebase (`/lighting/{roomId}/state`).
 - Cover the LDR → darker reading on ESP32.
 - Result: presence AND dark → LED ON (auto), otherwise LED OFF.
+
+Tips:
+- If covering the LDR makes the value LOWER, set `LDR_INVERT = true` in `module3_smart_lighting/ASSIGNMENT_COMPLIANT/ASSIGNMENT_COMPLIANT.ino`.
+- If you get occasional false positives from the camera, thresholds are tightened in `AI_detection/yolo_force_gpu.py` (conf=0.6, iou=0.5) and smoothing requires 2 of last 3 frames.
 
 ---
 

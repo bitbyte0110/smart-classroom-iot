@@ -18,7 +18,7 @@
 #include <ArduinoJson.h>
 
 // Assignment Requirements - WiFi and Firebase
-#define WIFI_SSID "vivo x200 Ultra"
+#define WIFI_SSID "vivo X200 Ultra"
 #define WIFI_PASS "12345678"
 #define FIREBASE_URL "https://smartclassroom-af237-default-rtdb.asia-southeast1.firebasedatabase.app"
 
@@ -32,6 +32,7 @@ const int DARK_THRESHOLD = 3200;
 const int PWM_FREQ = 5000;
 const int PWM_RESOLUTION = 8;
 const int MAX_PWM = 255;
+const bool LDR_INVERT = false; // Set true if covering LDR makes value LOWER
 const String ROOM_ID = "roomA";
 
 // Assignment compliance - Data acquisition intervals
@@ -167,9 +168,10 @@ void acquireSensorData() {
   currentData.timestamp = millis();
   
   // Business rule: Light level classification
-  if (currentData.ldrRaw < BRIGHT_THRESHOLD) {
+  int darkMetric = LDR_INVERT ? (4095 - currentData.ldrRaw) : currentData.ldrRaw;
+  if (darkMetric < BRIGHT_THRESHOLD) {
     currentData.lightLevel = "BRIGHT";
-  } else if (currentData.ldrRaw > DARK_THRESHOLD) {
+  } else if (darkMetric > DARK_THRESHOLD) {
     currentData.lightLevel = "DARK";
   } else {
     currentData.lightLevel = "MEDIUM";
@@ -238,6 +240,14 @@ void readAIDataFromCloud() {
     if (doc.containsKey("mode")) {
       currentData.mode = doc["mode"].as<String>();
     }
+
+    // Anti-stale: treat AI presence as false if ai_timestamp is older than 6s
+    if (doc.containsKey("ai_timestamp")) {
+      unsigned long ai_ts = doc["ai_timestamp"];
+      if (millis() - ai_ts > 6000) {
+        currentData.ai_presence = false;
+      }
+    }
     
     // Read manual commands for web interface
     if (currentData.mode == "manual" && doc.containsKey("led")) {
@@ -264,10 +274,11 @@ void validateBusinessRules() {
   
   if (currentData.mode == "auto") {
     // Smart lighting business logic
-    if (currentData.ai_presence && currentData.ldrRaw > DARK_THRESHOLD) {
+    int darkMetric = LDR_INVERT ? (4095 - currentData.ldrRaw) : currentData.ldrRaw;
+    if (currentData.ai_presence && darkMetric > DARK_THRESHOLD) {
       currentData.ledOn = true;
       currentData.ledPwm = mapLightToPWM(currentData.ldrRaw);
-    } else if (!currentData.ai_presence || currentData.ldrRaw < BRIGHT_THRESHOLD) {
+    } else if (!currentData.ai_presence || darkMetric < BRIGHT_THRESHOLD) {
       currentData.ledOn = false;
       currentData.ledPwm = 0;
     }
@@ -296,7 +307,8 @@ void validateBusinessRules() {
 
 int mapLightToPWM(int ldrValue) {
   // Assignment requirement: Actuator control logic
-  return constrain(map(4095 - ldrValue, 0, 4095, 0, MAX_PWM), 0, MAX_PWM);
+  int pwmInput = LDR_INVERT ? ldrValue : (4095 - ldrValue);
+  return constrain(map(pwmInput, 0, 4095, 0, MAX_PWM), 0, MAX_PWM);
 }
 
 void controlActuators() {

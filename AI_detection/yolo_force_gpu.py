@@ -37,14 +37,14 @@ class ForceGPUYOLODetector:
             print(f"✅ Model on GPU: {next(self.model.model.parameters()).device}")
         
         # Ultra-fast settings
-        self.conf_threshold = 0.4
-        self.iou_threshold = 0.6
+        self.conf_threshold = 0.6
+        self.iou_threshold = 0.5
         self.frame_skip = 2
         self.input_size = 224
         
         # Detection history
         self.detection_history = []
-        self.history_size = 3
+        self.history_size = 4
         
         # Timing
         self.last_update = 0
@@ -114,8 +114,8 @@ class ForceGPUYOLODetector:
         if len(self.detection_history) > self.history_size:
             self.detection_history.pop(0)
         
-        if len(self.detection_history) >= 2:
-            return sum(self.detection_history) >= 1
+        if len(self.detection_history) >= 3:
+            return sum(self.detection_history) >= 2
         return person_count > 0
     
     def update_firebase(self, presence, person_count, max_confidence=0.0):

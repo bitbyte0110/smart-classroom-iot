@@ -16,38 +16,40 @@ export default function Dashboard() {
 
   useEffect(() => {
     const stateRef = ref(database, `/lighting/${ROOM_ID}/state`);
-    
+
     const unsubscribe = onValue(stateRef, (snapshot) => {
       const value = snapshot.val();
-      if (value) {
-        setState(value);
-        setIsConnected(true);
-        setError('');
-      } else {
-        // Set demo data if no real data
-        setState({
-          ts: Date.now(),
-          presence: false,
-          ldrRaw: 3000,
-          mode: 'auto' as const,
-          led: { on: false, pwm: 0 },
-          sensorError: null
-        });
-        setError('Demo mode - Start Firebase emulator and simulator for live data');
+      if (!value) {
+        setIsConnected(false);
+        setError('No live data. Ensure ESP32 and Camera AI are running.');
+        return;
       }
-    }, (error) => {
-      console.error('Firebase connection error:', error);
+
+      const dataTimestamp = value.ai_timestamp ?? value.timestamp ?? value.ts ?? Date.now();
+      const isStale = (Date.now() - dataTimestamp) > 6000; // >6s considered stale
+
+      const presenceFromAI = typeof value.ai_presence === 'boolean' ? value.ai_presence : false;
+      const uiPresence = presenceFromAI && !isStale;
+
+      const merged = {
+        ts: dataTimestamp,
+        presence: uiPresence,
+        ldrRaw: Number.isFinite(value.ldrRaw) ? value.ldrRaw : 0,
+        mode: (value.mode === 'manual' ? 'manual' : 'auto') as 'auto' | 'manual',
+        led: {
+          on: Boolean(value.led?.on),
+          pwm: Number.isFinite(value.led?.pwm) ? value.led.pwm : 0
+        },
+        sensorError: value.sensorError ?? null
+      } as const;
+
+      setState(merged);
+      setIsConnected(!isStale);
+      setError(isStale ? 'Live data is stale (>6s). Check Camera AI and ESP32.' : '');
+    }, (err) => {
+      console.error('Firebase connection error:', err);
       setIsConnected(false);
-      setError(`Connection failed: ${error.message}. Start Firebase emulator first.`);
-      // Set demo data
-      setState({
-        ts: Date.now(),
-        presence: false,
-        ldrRaw: 3000,
-        mode: 'auto' as const,
-        led: { on: false, pwm: 0 },
-        sensorError: null
-      });
+      setError(`Connection failed: ${err.message}`);
     });
 
     return () => unsubscribe();
