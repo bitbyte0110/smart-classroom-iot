@@ -27,16 +27,17 @@ const int LDR_PIN = 34;      // Light sensor (ADC input)
 const int LED_PIN = 18;      // LED actuator (PWM output)
 
 // System constants - Business Rules
-const int BRIGHT_THRESHOLD = 2800;
-const int DARK_THRESHOLD = 3200;
+const int BRIGHT_THRESHOLD = 1500;  // Lowered for better sensitivity
+const int DARK_THRESHOLD = 2000;    // Lowered for better sensitivity
 const int PWM_FREQ = 5000;
 const int PWM_RESOLUTION = 8;
 const int MAX_PWM = 255;
 const bool LDR_INVERT = false; // Set true if covering LDR makes value LOWER
+const bool LDR_DEBUG = true;   // Enable real-time LDR debugging
 const String ROOM_ID = "roomA";
 
 // Assignment compliance - Data acquisition intervals
-const unsigned long SENSOR_INTERVAL = 2000;    // 2 seconds (real-time)
+const unsigned long SENSOR_INTERVAL = 500;     // 0.5 seconds (more responsive)
 const unsigned long CLOUD_SYNC_INTERVAL = 5000; // 5 seconds (cloud update)
 const unsigned long LOG_INTERVAL = 30000;       // 30 seconds (sufficient records)
 
@@ -171,8 +172,23 @@ void connectToWiFi() {
 void acquireSensorData() {
   // Module 3: Smart Lighting sensor acquisition
   
-  // Environmental sensors
-  currentData.ldrRaw = filterLDRReading(analogRead(LDR_PIN));
+  // Environmental sensors - RAW reading first
+  int rawLDR = analogRead(LDR_PIN);
+  currentData.ldrRaw = filterLDRReading(rawLDR);
+  
+  // REAL-TIME LDR DEBUG
+  if (LDR_DEBUG) {
+    int darkMetric = LDR_INVERT ? (4095 - currentData.ldrRaw) : currentData.ldrRaw;
+    Serial.printf("🔍 LDR: Raw=%d, Filtered=%d, DarkMetric=%d | ", rawLDR, currentData.ldrRaw, darkMetric);
+    Serial.printf("Thresholds: Bright<%d, Dark>%d | ", BRIGHT_THRESHOLD, DARK_THRESHOLD);
+    if (darkMetric < BRIGHT_THRESHOLD) {
+      Serial.println("STATUS: BRIGHT ☀️");
+    } else if (darkMetric > DARK_THRESHOLD) {
+      Serial.println("STATUS: DARK 🌙");
+    } else {
+      Serial.println("STATUS: MEDIUM 🔄");
+    }
+  }
   
   // AI camera integration (from cloud)
   readAIDataFromCloud();
@@ -198,29 +214,18 @@ int filterLDRReading(int rawValue) {
   // Assignment requirement: Data validation
   rawValue = constrain(rawValue, 0, 4095);
   
-  // Median filter for noise reduction
+  // SIMPLIFIED FILTER - Less aggressive for better responsiveness
   ldrHistory[ldrIndex] = rawValue;
   ldrIndex = (ldrIndex + 1) % 5;
   if (ldrIndex == 0) ldrFull = true;
   
   if (ldrFull) {
-    int sorted[5];
-    memcpy(sorted, ldrHistory, sizeof(ldrHistory));
-    
-    // Sort for median
-    for (int i = 0; i < 4; i++) {
-      for (int j = 0; j < 4 - i; j++) {
-        if (sorted[j] > sorted[j + 1]) {
-          int temp = sorted[j];
-          sorted[j] = sorted[j + 1];
-          sorted[j + 1] = temp;
-        }
-      }
-    }
-    return sorted[2]; // Return median
+    // Simple average of last 3 readings (more responsive than median)
+    int sum = ldrHistory[0] + ldrHistory[1] + ldrHistory[2];
+    return sum / 3;
   }
   
-  return rawValue;
+  return rawValue; // Return raw if not enough samples
 }
 
 // Temperature and Air Quality functions removed - not part of Module 3 Smart Lighting
