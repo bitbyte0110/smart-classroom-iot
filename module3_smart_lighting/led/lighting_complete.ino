@@ -17,9 +17,9 @@
 #include <ArduinoJson.h>
 #include <time.h>
 
-// Firebase and WiFi credentials
-#define WIFI_SSID "T"
-#define WIFI_PASS "Sanjit02"
+// Firebase and WiFi credentials - UPDATE THESE WITH YOUR ACTUAL VALUES
+#define WIFI_SSID "vivo x200 Ultra"          // Replace with your WiFi network name
+#define WIFI_PASS "12345678"       
 #define API_KEY "AIzaSyDpAjEMP0MatqhwlLY_clqtpcfGVXkpsS8"
 #define DATABASE_URL "https://smartclassroom-af237-default-rtdb.firebaseio.com/"
 
