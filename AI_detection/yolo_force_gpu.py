@@ -10,7 +10,7 @@ import numpy as np
 from ultralytics import YOLO
 
 class ForceGPUYOLODetector:
-    def __init__(self, firebase_url="https://smartclassroom-af237-default-rtdb.firebaseio.com", room_id="roomA"):
+    def __init__(self, firebase_url="https://smartclassroom-af237-default-rtdb.asia-southeast1.firebasedatabase.app", room_id="roomA"):
         """Initialize force GPU YOLO detector"""
         self.firebase_url = firebase_url
         self.room_id = room_id

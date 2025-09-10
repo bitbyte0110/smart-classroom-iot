@@ -21,7 +21,7 @@
 #define WIFI_SSID "vivo x200 Ultra"          // Replace with your WiFi network name
 #define WIFI_PASS "12345678"       
 #define API_KEY "AIzaSyDpAjEMP0MatqhwlLY_clqtpcfGVXkpsS8"
-#define DATABASE_URL "https://smartclassroom-af237-default-rtdb.firebaseio.com/"
+#define DATABASE_URL "https://smartclassroom-af237-default-rtdb.asia-southeast1.firebasedatabase.app/"
 
 // Pin definitions
 const int PIR_PIN = 27;      // PIR OUT -> GPIO27
@@ -105,9 +105,8 @@ void setup() {
   pinMode(PIR_PIN, INPUT);
   pinMode(LDR_PIN, INPUT);
   
-  // Initialize PWM
-  ledcSetup(LED_CHANNEL, PWM_FREQ, PWM_RESOLUTION);
-  ledcAttachPin(LED_PIN, LED_CHANNEL);
+  // Initialize PWM (compatible with ESP32 core 3.x)
+  ledcAttach(LED_PIN, PWM_FREQ, PWM_RESOLUTION);
   
   // Initialize time
   configTime(0, 0, "pool.ntp.org");
@@ -351,8 +350,8 @@ void updateLEDState() {
     currentState.ledPwm = 0;
   }
   
-  // Update actual LED
-  ledcWrite(LED_CHANNEL, currentState.ledPwm);
+  // Update actual LED (compatible with ESP32 core 3.x)
+  ledcWrite(LED_PIN, currentState.ledPwm);
 }
 
 int mapLDRToPWM(int ldrValue) {

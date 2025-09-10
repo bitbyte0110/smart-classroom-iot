@@ -4,6 +4,7 @@ import { getDatabase, connectDatabaseEmulator } from "firebase/database";
 const firebaseConfig = {
   apiKey: "AIzaSyDpAjEMP0MatqhwlLY_clqtpcfGVXkpsS8",
   authDomain: "smartclassroom-af237.firebaseapp.com",
+  databaseURL: "https://smartclassroom-af237-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "smartclassroom-af237",
   storageBucket: "smartclassroom-af237.firebasestorage.app",
   messagingSenderId: "172327783054",
@@ -14,12 +15,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const database = getDatabase(app);
 
-// Connect to emulator in development
-if (import.meta.env.DEV) {
-  try {
-    connectDatabaseEmulator(database, "localhost", 9000);
-    console.log("🔥 Connected to Firebase Emulator");
-  } catch (error) {
-    console.warn("Firebase emulator connection failed:", error);
-  }
-}
+// Connect to real Firebase (for production with real hardware)
+console.log("🔥 Connected to Real Firebase Database");
+console.log("🎯 Ready for live ESP32 + AI data!");

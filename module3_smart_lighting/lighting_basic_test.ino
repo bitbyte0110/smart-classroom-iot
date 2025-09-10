@@ -1,12 +1,13 @@
 /*
- * Smart Lighting - Simple Test (No Firebase Dependencies)
- * ESP32: LDR -> GPIO34, LED -> GPIO18
- * Test hardware first, then add Firebase later
+ * Smart Lighting - Basic Hardware Test (No Firebase)
+ * Test your hardware connections first before adding Firebase
  */
 
 // Pin definitions
+const int PIR_PIN = 27;      // PIR OUT -> GPIO27
 const int LDR_PIN = 34;      // LDR AO -> GPIO34 (ADC input-only)
 const int LED_PIN = 18;      // LED PWM -> GPIO18
+const int LED_CHANNEL = 0;   // PWM channel
 
 // System constants
 const int BRIGHT_THRESHOLD = 2800;
@@ -15,64 +16,89 @@ const int PWM_FREQ = 5000;
 const int PWM_RESOLUTION = 8;
 const int MAX_PWM = 255;
 
+// Timing constants
+const unsigned long PIR_STABLE_TIME = 200;       // 200ms
+const unsigned long PIR_COOLDOWN = 2000;         // 2 seconds
+
 // System state
-bool ai_presence = false;      // Simulated AI presence
-int ai_people_count = 0;       // Simulated people count
-int ldrRaw = 0;               // LDR reading
-bool ledOn = false;           // LED state
-int ledPwm = 0;              // LED brightness
+bool presence = false;
+int ldrRaw = 0;
+String mode = "auto";
+bool ledOn = false;
+int ledPwm = 0;
+
+// PIR debounce variables
+unsigned long pirLastHigh = 0;
+unsigned long pirCooldownUntil = 0;
+bool pirStableHigh = false;
 
 // LDR filtering
 int ldrHistory[5] = {0};
 int ldrHistoryIndex = 0;
 bool ldrHistoryFull = false;
 
-// Timing variables
-unsigned long lastUpdate = 0;
-const unsigned long UPDATE_INTERVAL = 2000; // 2 seconds
-
 void setup() {
   Serial.begin(115200);
-  Serial.println("🏫 Smart Lighting - Hardware Test");
-  Serial.println("=================================");
+  Serial.println("🏫 Smart Lighting - Basic Hardware Test");
+  Serial.println("=====================================");
   
   // Initialize pins
+  pinMode(PIR_PIN, INPUT);
   pinMode(LDR_PIN, INPUT);
   
   // Initialize PWM (compatible with ESP32 core 3.x)
   ledcAttach(LED_PIN, PWM_FREQ, PWM_RESOLUTION);
   
   Serial.println("✅ Hardware initialized!");
-  Serial.println("📊 Testing LDR + LED control...");
-  Serial.println("🎯 Logic: Simulate AI presence to test LED");
+  Serial.println("📊 Monitoring sensors...");
   Serial.println();
 }
 
 void loop() {
-  unsigned long now = millis();
+  // Read sensors
+  readSensors();
   
-  // Read LDR sensor
-  readLocalSensors();
-  
-  // Simulate AI presence detection (for testing)
-  simulateAIPresence();
-  
-  // Update LED based on simulated AI + LDR
+  // Update LED based on sensors
   updateLEDState();
   
   // Print status every 2 seconds
-  if (now - lastUpdate > UPDATE_INTERVAL) {
+  static unsigned long lastPrint = 0;
+  if (millis() - lastPrint > 2000) {
     printStatus();
-    lastUpdate = now;
+    lastPrint = millis();
   }
   
   delay(100);
 }
 
-void readLocalSensors() {
+void readSensors() {
+  // Read PIR with debounce
+  bool pirRaw = digitalRead(PIR_PIN);
+  presence = debouncePIR(pirRaw);
+  
   // Read LDR with filtering
   int ldrRawReading = analogRead(LDR_PIN);
   ldrRaw = filterLDR(ldrRawReading);
+}
+
+bool debouncePIR(bool currentReading) {
+  unsigned long now = millis();
+  
+  if (currentReading && !pirStableHigh) {
+    if (pirLastHigh == 0) {
+      pirLastHigh = now;
+    } else if (now - pirLastHigh >= PIR_STABLE_TIME) {
+      pirStableHigh = true;
+      pirCooldownUntil = now + PIR_COOLDOWN;
+    }
+  } else if (!currentReading) {
+    pirLastHigh = 0;
+    if (now > pirCooldownUntil) {
+      pirStableHigh = false;
+    }
+  }
+  
+  return pirStableHigh && now > pirCooldownUntil;
 }
 
 int filterLDR(int rawValue) {
@@ -106,39 +132,18 @@ int filterLDR(int rawValue) {
   return rawValue;
 }
 
-void simulateAIPresence() {
-  // Simulate AI detection every 10 seconds
-  unsigned long now = millis();
-  int cycle = (now / 10000) % 3; // 30-second cycle
-  
-  switch(cycle) {
-    case 0:
-      ai_presence = true;
-      ai_people_count = 1;
-      break;
-    case 1:
-      ai_presence = false;
-      ai_people_count = 0;
-      break;
-    case 2:
-      ai_presence = true;
-      ai_people_count = 2;
-      break;
-  }
-}
-
 void updateLEDState() {
-  // Smart lighting logic: AI presence + LDR
-  if (ai_presence && ldrRaw > DARK_THRESHOLD) {
-    // AI detects person + Dark room → LED ON
+  // Auto mode logic with hysteresis
+  if (presence && ldrRaw > DARK_THRESHOLD) {
+    // Dark room + presence -> LED ON
     ledOn = true;
     ledPwm = mapLDRToPWM(ldrRaw);
-  } else if (!ai_presence || ldrRaw < BRIGHT_THRESHOLD) {
-    // No person OR bright room → LED OFF
+  } else if (!presence || ldrRaw < BRIGHT_THRESHOLD) {
+    // No presence OR bright room -> LED OFF
     ledOn = false;
     ledPwm = 0;
   }
-  // Between thresholds → maintain current state (hysteresis)
+  // Between thresholds -> maintain current state (hysteresis)
   
   // Apply PWM guardrails
   ledPwm = constrain(ledPwm, 0, MAX_PWM);
@@ -146,7 +151,7 @@ void updateLEDState() {
     ledPwm = 0;
   }
   
-  // Update actual LED
+  // Update actual LED (compatible with ESP32 core 3.x)
   ledcWrite(LED_PIN, ledPwm);
 }
 
@@ -156,9 +161,8 @@ int mapLDRToPWM(int ldrValue) {
 }
 
 void printStatus() {
-  Serial.println("📊 SMART LIGHTING STATUS:");
-  Serial.println("├─ AI Presence: " + String(ai_presence ? "DETECTED" : "none"));
-  Serial.println("├─ AI People Count: " + String(ai_people_count));
+  Serial.println("📊 SENSOR STATUS:");
+  Serial.println("├─ PIR Presence: " + String(presence ? "DETECTED" : "none"));
   Serial.println("├─ LDR Raw: " + String(ldrRaw) + " (0-4095)");
   
   // LDR interpretation
@@ -175,17 +179,17 @@ void printStatus() {
   Serial.println("├─ LED State: " + String(ledOn ? "ON" : "OFF"));
   Serial.println("└─ LED PWM: " + String(ledPwm) + "/255");
   
-  // Smart logic explanation
+  // Business logic explanation
   Serial.println();
-  Serial.println("🧠 SMART LOGIC:");
-  if (ai_presence && ldrRaw > DARK_THRESHOLD) {
-    Serial.println("   ✅ AI detects person + Dark room = LED ON");
-  } else if (!ai_presence) {
-    Serial.println("   ⭕ No person detected = LED OFF");
+  Serial.println("🧠 LOGIC:");
+  if (presence && ldrRaw > DARK_THRESHOLD) {
+    Serial.println("   Presence + Dark = LED ON ✅");
+  } else if (!presence) {
+    Serial.println("   No presence = LED OFF ⭕");
   } else if (ldrRaw < BRIGHT_THRESHOLD) {
-    Serial.println("   ☀️ Room too bright = LED OFF");
+    Serial.println("   Too bright = LED OFF ☀️");
   } else {
-    Serial.println("   🔄 Hysteresis zone = Maintain current state");
+    Serial.println("   Hysteresis zone = Maintain state 🔄");
   }
   
   Serial.println("═══════════════════════════════════════");
