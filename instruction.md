@@ -5,8 +5,8 @@
 
 ### 🎯 Assignment Requirements Met
 - **System Type**: Smart Campus Application ✅
-- **Hardware**: ESP32 (NodeMCU) + Raspberry Pi 4 ✅
-- **Sensors**: 5+ inputs/outputs (PIR, LDR, LED, Temperature, Air Quality) ✅
+- **Hardware**: ESP32 (NodeMCU) + Laptop Camera ✅
+- **Sensors/Actuators**: 4+ (LDR, LED, AI Camera, Manual Controls) ✅
 - **Cloud Integration**: Firebase Realtime Database ✅
 - **User Interface**: Web-based dashboard with real-time monitoring ✅
 - **Data Processing**: Real-time sensor data with analytics and reporting ✅
@@ -17,11 +17,10 @@
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   ESP32 Device  │    │  Laptop/PC      │    │  Web Dashboard  │
 │                 │    │                 │    │                 │
-│ • PIR Sensor    │◄──►│ • AI Detection  │◄──►│ • React App     │
+│ • Manual Controls│◄──►│ • AI Detection  │◄──►│ • React App     │
 │ • LDR Sensor    │    │ • Integrated    │    │ • Firebase UI   │
 │ • LED Control   │    │   Camera        │    │ • Analytics     │
-│ • Temperature   │    │ • MQTT Client   │    │ • Reports       │
-│ • Air Quality   │    │ • Firebase Sync │    │                 │
+│                 │    │ • Firebase Sync │    │ • Reports       │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          └───────────────────────┼───────────────────────┘
@@ -39,7 +38,7 @@
 
 #### ESP32 (Publisher & Subscriber)
 **Publishes to:**
-- `sensors/lighting/presence` - PIR motion detection status
+- `sensors/lighting/presence` - (unused in camera-only; AI presence via Firebase state)
 - `sensors/lighting/brightness` - LDR analog readings (0-4095)
 - `sensors/lighting/led_state` - LED ON/OFF and PWM level
 - `sensors/lighting/temperature` - DHT22 temperature readings
@@ -74,7 +73,7 @@
 
 #### ESP32 (Edge Device - Sensor Hub)
 **Primary Functions:**
-- **Sensor Data Collection**: PIR, LDR, Temperature, Air Quality
+- **Sensor Data Collection**: LDR, Temperature, Air Quality
 - **Actuator Control**: LED PWM control, Fan speed control
 - **Local Processing**: Sensor filtering, debouncing, validation
 - **MQTT Publishing**: Real-time sensor data to cloud
@@ -110,7 +109,7 @@
 
 #### Web Dashboard Features
 **Real-time Monitoring Tiles:**
-- **Presence Status**: PIR + AI detection with confidence indicators
+- **Presence Status**: AI detection (camera) with confidence indicators
 - **Brightness Level**: LDR readings with visual gauge (0-4095)
 - **LED Status**: ON/OFF state with PWM level display (0-255)
 - **Temperature**: Current room temperature with trend graph
@@ -140,7 +139,7 @@
 
 #### ✅ Sensor Data Acquisition Module
 **Requirements Met:**
-- **5+ Sensors/Actuators**: PIR, LDR, LED, Temperature (DHT22), Air Quality (MQ-135) = 5 inputs/outputs ✅
+- **4+ Sensors/Actuators**: LDR, LED, AI Camera, Manual Controls ✅
 - **Sufficient Records**: 30-second logging intervals, 200+ entries per day ✅
 - **Real-time Data**: Live sensor readings with 2-second update intervals ✅
 
@@ -178,7 +177,7 @@ const firebaseConfig = {
 ```
 sensors/
 ├── lighting/
-│   ├── presence          # PIR detection status
+│   ├── presence          # (unused in camera-only; AI presence via Firebase state)
 │   ├── brightness        # LDR analog readings
 │   ├── led_state         # LED ON/OFF + PWM
 │   ├── temperature       # DHT22 temperature
@@ -219,7 +218,7 @@ Laptop Integrated Camera → YOLO Detection → Firebase Update → ESP32 Respon
 
 **Step-by-Step Process:**
 1. **Camera Capture**: Laptop camera captures video frames (640x480, 20fps)
-2. **YOLO Processing**: Real-time human detection using YOLOv3-tiny
+2. **YOLO Processing**: Real-time human detection using YOLOv8n
 3. **Presence Logic**: Determines if people are present in classroom
 4. **Firebase Update**: Sends presence data to Firebase Realtime Database
 5. **ESP32 Sync**: ESP32 reads Firebase data and controls lighting accordingly
@@ -245,14 +244,37 @@ Laptop Integrated Camera → YOLO Detection → Firebase Update → ESP32 Respon
 - **Smart Filtering**: Reduces false positives with debouncing
 - **Background Processing**: Runs continuously without user interaction
 
+### 🚀 Quick Start — Camera-Only Smart Lighting
+
+1) Flash the ESP32 (Camera + LDR Only)
+- Open `module3_smart_lighting/ASSIGNMENT_COMPLIANT.ino`.
+- Set `WIFI_SSID`, `WIFI_PASS`, and optionally `ROOM_ID`.
+- Upload to ESP32. Open Serial Monitor @115200 to confirm WiFi and status.
+
+2) Run the Camera AI on Laptop
+- Ensure Python 3.8+ installed.
+- In a terminal from project root:
+```bash
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r AI_detection/requirements.txt
+python AI_detection/yolo_force_gpu.py
+```
+- The script uses GPU if available; otherwise CPU.
+
+3) Test End-to-End
+- Stand in front of the camera → presence updates to Firebase (`/lighting/{roomId}/state`).
+- Cover the LDR → darker reading on ESP32.
+- Result: presence AND dark → LED ON (auto), otherwise LED OFF.
+
 ---
 
-## Module 3 — Smart Lighting Control (ESP32 + PIR + LDR AO + LED)
+## Module 3 — Smart Lighting Control (ESP32 + LDR AO + LED + Camera AI)
 🎯 Purpose
 Automate classroom lighting based on presence and ambient brightness, with monitoring and manual control via Firebase.
 
 ⚡ Features
-PIR (GPIO27): Detects human presence.
+Camera AI (Laptop): Detects human presence (people count, confidence).
 
 
 LDR Module AO (GPIO34): Reads brightness (analog 0–4095).
@@ -264,10 +286,10 @@ LED Demo Light (GPIO18, PWM): Dims automatically in Auto mode; fully user-contro
 Logic
 
 
-Presence and Dark → LED ON (auto-dim by brightness).
+AI Presence and Dark → LED ON (auto-dim by brightness).
 
 
-No presence → LED OFF (energy saving).
+No AI presence → LED OFF (energy saving).
 
 
 Bright room → LED OFF (even if presence).
@@ -305,7 +327,7 @@ Required Hardware
 1 × ESP32 (recommended)
 
 
-1 × PIR motion sensor (HC-SR501)
+1 × Laptop with integrated camera (replaces PIR)
 
 
 1 × LDR module with AO pin (the blue-potentiometer board)
@@ -344,17 +366,7 @@ GND → GND
 AO → GPIO34 (ADC input-only)
 
 
-PIR (HC-SR501)
-VCC → 5 V
-
-
-GND → GND
-
-
-OUT → GPIO27 (digital input)
-
-
-Most modules output ~3.3 V HIGH (safe). If yours is 5 V, add divider: OUT→220 kΩ→GPIO27, GPIO27→100 kΩ→GND.
+Camera AI is on the laptop; no PIR wiring is required.
 
 
 LED (demo light)
@@ -364,11 +376,11 @@ GPIO18 (PWM) → 220 Ω → LED anode (+)
 LED cathode (–) → GND
 
 
-Common ground: ESP32 GND ↔ PIR GND ↔ LDR GND ↔ LED (–)
+Common ground: ESP32 GND ↔ LDR GND ↔ LED (–)
 
 ⚙️ Control Logic (Auto vs Manual)
 Auto Mode
-Read PIR (presence) and LDR AO (brightness).
+Read AI presence (from Firebase) and LDR AO (brightness).
 
 
 If presence = true and ldrRaw > DARK_THRESHOLD → LED ON with PWM mapped from LDR (darker = brighter).
@@ -438,7 +450,7 @@ BMIT2123 Assignment (202505)
  • ADC sanity: clamp ldrRaw to 0–4095; ignore NaN/-1; apply a 5-sample median filter before mapping to PWM.
 BMIT2123 Assignment (202505)
 
- • PIR debounce: require a stable HIGH ≥200 ms; add a 2 s cooldown to prevent flicker.
+ • AI presence smoothing: use short history (e.g., 2–3 frames) to reduce flicker.
 BMIT2123 Assignment Marking Sch…
 
  • PWM guardrails: always clamp 0–255; if mode=manual and on=false, force PWM=0.
@@ -453,7 +465,7 @@ BMIT2123 Assignment (202505)
  • Wi-Fi/Firebase down: keep local control running; queue up to 200 log entries in a ring buffer; retry with exponential back-off; flush on reconnect.
 BMIT2123 Assignment Marking Sch…
 
- • Sensor faults: if ldrRaw unchanged ±5 for >10 min or reads invalid, raise state.sensorError='LDR' and fall back to presence-only control; if PIR stuck, switch to brightness-only. Never crash; no restart needed.
+ • Sensor faults: if ldrRaw unchanged ±5 for >10 min or reads invalid, raise state.sensorError='LDR' and fall back to presence-only control; if AI feed unavailable, switch to brightness-only. Never crash; no restart needed.
 BMIT2123 Assignment Marking Sch…
 
  • Command conflicts: when switching Manual ↔ Auto, atomically set mode first, then apply on/pwm to avoid race conditions. Log all overrides in /logs.
