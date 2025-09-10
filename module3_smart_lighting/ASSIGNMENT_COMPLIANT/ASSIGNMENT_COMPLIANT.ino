@@ -77,6 +77,10 @@ unsigned long lastSensorRead = 0;
 unsigned long lastCloudSync = 0;
 unsigned long lastDataLog = 0;
 
+// Track AI timestamp freshness without relying on epoch vs millis
+uint64_t lastAiTimestampServer = 0;           // last ai_timestamp seen from cloud (epoch ms)
+unsigned long lastAiTimestampChangeMillis = 0; // millis() when ai_timestamp last changed
+
 // Assignment compliance counters
 int totalRecords = 0;
 int successfulCloudUploads = 0;
@@ -96,6 +100,16 @@ void setup() {
   // Initialize hardware - Module 3 Smart Lighting
   pinMode(LDR_PIN, INPUT);
   ledcAttach(LED_PIN, PWM_FREQ, PWM_RESOLUTION);
+  
+  // LDR TEST - Check if sensor responds
+  Serial.println("🔧 LDR SENSOR TEST:");
+  for (int i = 0; i < 5; i++) {
+    int ldrValue = analogRead(LDR_PIN);
+    Serial.printf("├─ LDR Reading %d: %d/4095\n", i+1, ldrValue);
+    delay(500);
+  }
+  Serial.println("💡 Cover/uncover LDR now to see if values change!");
+  Serial.println();
   
   // Connect to cloud - Assignment requirement
   connectToWiFi();
@@ -241,11 +255,12 @@ void readAIDataFromCloud() {
       currentData.mode = doc["mode"].as<String>();
     }
 
-    // Anti-stale: treat AI presence as false if ai_timestamp is older than 6s
+    // Anti-stale using change detection: update when ai_timestamp changes
     if (doc.containsKey("ai_timestamp")) {
-      unsigned long ai_ts = doc["ai_timestamp"];
-      if (millis() - ai_ts > 6000) {
-        currentData.ai_presence = false;
+      uint64_t ai_ts = doc["ai_timestamp"]; // epoch ms from server
+      if (ai_ts != lastAiTimestampServer) {
+        lastAiTimestampServer = ai_ts;
+        lastAiTimestampChangeMillis = millis();
       }
     }
     
@@ -275,10 +290,15 @@ void validateBusinessRules() {
   if (currentData.mode == "auto") {
     // Smart lighting business logic
     int darkMetric = LDR_INVERT ? (4095 - currentData.ldrRaw) : currentData.ldrRaw;
-    if (currentData.ai_presence && darkMetric > DARK_THRESHOLD) {
+
+    // Use freshness gate: presence only if timestamp changed within 6s
+    bool aiFresh = (millis() - lastAiTimestampChangeMillis) <= 6000;
+    bool effectivePresence = currentData.ai_presence && aiFresh;
+
+    if (effectivePresence && darkMetric > DARK_THRESHOLD) {
       currentData.ledOn = true;
       currentData.ledPwm = mapLightToPWM(currentData.ldrRaw);
-    } else if (!currentData.ai_presence || darkMetric < BRIGHT_THRESHOLD) {
+    } else if (!effectivePresence || darkMetric < BRIGHT_THRESHOLD) {
       currentData.ledOn = false;
       currentData.ledPwm = 0;
     }
@@ -420,10 +440,16 @@ void printAssignmentStatus() {
   Serial.println("├─ Business Rules: Validated ✅");
   Serial.println();
   
+  // Check AI freshness for display
+  bool aiFresh = (millis() - lastAiTimestampChangeMillis) <= 6000;
+  bool effectivePresence = currentData.ai_presence && aiFresh;
+  
   Serial.println("📊 CURRENT SENSOR DATA:");
   Serial.printf("├─ Light Level: %s (%d/4095)\n", currentData.lightLevel.c_str(), currentData.ldrRaw);
-  Serial.printf("├─ AI Presence: %s (%d people, %.1f%% confidence)\n", 
-    currentData.ai_presence ? "DETECTED" : "none", currentData.ai_people_count, currentData.ai_confidence * 100);
+  Serial.printf("├─ AI Presence: %s (%d people, %.1f%% confidence) %s\n", 
+    currentData.ai_presence ? "DETECTED" : "none", currentData.ai_people_count, currentData.ai_confidence * 100,
+    aiFresh ? "[FRESH]" : "[STALE]");
+  Serial.printf("├─ Effective Presence: %s\n", effectivePresence ? "TRUE" : "FALSE");
   Serial.printf("├─ LED State: %s (PWM: %d/255)\n", 
     currentData.ledOn ? "ON" : "OFF", currentData.ledPwm);
   Serial.printf("├─ Mode: %s\n", currentData.mode.c_str());
@@ -433,14 +459,17 @@ void printAssignmentStatus() {
   Serial.println("🎯 SMART LIGHTING LOGIC:");
   if (currentData.mode == "manual") {
     Serial.println("   🎛️ Manual mode - Web dashboard control");
-  } else if (currentData.ai_presence && currentData.ldrRaw > DARK_THRESHOLD) {
-    Serial.println("   ✅ AI detects person + Dark room = LED ON (Auto)");
-  } else if (!currentData.ai_presence) {
-    Serial.println("   ⭕ No person detected = LED OFF (Energy saving)");
-  } else if (currentData.ldrRaw < BRIGHT_THRESHOLD) {
-    Serial.println("   ☀️ Room too bright = LED OFF (Energy saving)");
   } else {
-    Serial.println("   🔄 Hysteresis zone = Maintain current state");
+    int darkMetric = LDR_INVERT ? (4095 - currentData.ldrRaw) : currentData.ldrRaw;
+    if (effectivePresence && darkMetric > DARK_THRESHOLD) {
+      Serial.println("   ✅ AI detects person + Dark room = LED ON (Auto)");
+    } else if (!effectivePresence) {
+      Serial.println("   ⭕ No fresh person detection = LED OFF (Energy saving)");
+    } else if (darkMetric < BRIGHT_THRESHOLD) {
+      Serial.println("   ☀️ Room too bright = LED OFF (Energy saving)");
+    } else {
+      Serial.println("   🔄 Hysteresis zone = Maintain current state");
+    }
   }
   
   Serial.println("═══════════════════════════════════════");

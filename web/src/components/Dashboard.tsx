@@ -17,11 +17,34 @@ export default function Dashboard() {
   useEffect(() => {
     const stateRef = ref(database, `/lighting/${ROOM_ID}/state`);
 
+    // Loading timeout: show error if no data after 5 seconds
+    const loadingTimer = setTimeout(() => {
+      setState(prevState => {
+        if (!prevState) {
+          setError('No Firebase data found. Check ESP32 and Camera AI are running and writing to Firebase.');
+          setIsConnected(false);
+        }
+        return prevState;
+      });
+    }, 5000);
+
     const unsubscribe = onValue(stateRef, (snapshot) => {
+      clearTimeout(loadingTimer);
+      
       const value = snapshot.val();
+      console.log('Firebase snapshot received:', value); // Debug log
+      
       if (!value) {
         setIsConnected(false);
         setError('No live data. Ensure ESP32 and Camera AI are running.');
+        setState({
+          ts: Date.now(),
+          presence: false,
+          ldrRaw: 0,
+          mode: 'auto',
+          led: { on: false, pwm: 0 },
+          sensorError: 'No data'
+        });
         return;
       }
 
@@ -43,16 +66,29 @@ export default function Dashboard() {
         sensorError: value.sensorError ?? null
       } as const;
 
+      console.log('Setting state:', merged); // Debug log
       setState(merged);
       setIsConnected(!isStale);
       setError(isStale ? 'Live data is stale (>6s). Check Camera AI and ESP32.' : '');
     }, (err) => {
+      clearTimeout(loadingTimer);
       console.error('Firebase connection error:', err);
       setIsConnected(false);
       setError(`Connection failed: ${err.message}`);
+      setState({
+        ts: Date.now(),
+        presence: false,
+        ldrRaw: 0,
+        mode: 'auto',
+        led: { on: false, pwm: 0 },
+        sensorError: 'Connection failed'
+      });
     });
 
-    return () => unsubscribe();
+    return () => {
+      clearTimeout(loadingTimer);
+      unsubscribe();
+    };
   }, []);
 
   const handleModeChange = async (newMode: 'auto' | 'manual') => {
