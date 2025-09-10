@@ -15,13 +15,13 @@
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   ESP32 Device  │    │  Raspberry Pi   │    │  Web Dashboard  │
+│   ESP32 Device  │    │  Laptop/PC      │    │  Web Dashboard  │
 │                 │    │                 │    │                 │
-│ • PIR Sensor    │◄──►│ • MQTT Broker   │◄──►│ • React App     │
-│ • LDR Sensor    │    │ • Data Logger   │    │ • Firebase UI   │
-│ • LED Control   │    │ • AI Detection  │    │ • Analytics     │
-│ • Temperature   │    │ • Camera Stream │    │ • Reports       │
-│ • Air Quality   │    │                 │    │                 │
+│ • PIR Sensor    │◄──►│ • AI Detection  │◄──►│ • React App     │
+│ • LDR Sensor    │    │ • Integrated    │    │ • Firebase UI   │
+│ • LED Control   │    │   Camera        │    │ • Analytics     │
+│ • Temperature   │    │ • MQTT Client   │    │ • Reports       │
+│ • Air Quality   │    │ • Firebase Sync │    │                 │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          └───────────────────────┼───────────────────────┘
@@ -52,12 +52,12 @@
 - `control/lighting/led_pwm` - Manual brightness control (0-255)
 - `control/lighting/emergency` - Emergency override commands
 
-#### Raspberry Pi (Publisher & Subscriber)
+#### Laptop/PC (Publisher & Subscriber)
 **Publishes to:**
 - `ai/presence/detection` - AI camera human detection results
 - `ai/presence/count` - Number of people detected
 - `ai/presence/confidence` - Detection confidence scores
-- `system/status/pi` - Raspberry Pi system health
+- `system/status/laptop` - Laptop system health
 
 **Subscribes to:**
 - `sensors/lighting/*` - All sensor data from ESP32
@@ -70,7 +70,7 @@
 - `ai/presence/*` - AI detection results
 - `system/status/*` - System health monitoring
 
-### 🍓 Raspberry Pi vs ESP32 Roles
+### 💻 Laptop/PC vs ESP32 Roles
 
 #### ESP32 (Edge Device - Sensor Hub)
 **Primary Functions:**
@@ -88,22 +88,23 @@
 - **GPIO**: 34 digital pins, 18 analog inputs
 - **Programming**: Arduino IDE, ESP-IDF, MicroPython
 
-#### Raspberry Pi (Gateway & AI Processing)
+#### Laptop/PC (AI Processing & Gateway)
 **Primary Functions:**
-- **MQTT Broker**: Mosquitto MQTT server for device communication
-- **AI Processing**: YOLO human detection with camera
+- **AI Processing**: YOLO human detection with integrated camera
+- **MQTT Client**: Direct communication with ESP32 and Firebase
 - **Data Logging**: Historical data storage and analytics
 - **Web Server**: Hosting React dashboard application
 - **Cloud Gateway**: Firebase integration and data synchronization
 - **System Monitoring**: Health checks and error reporting
 
 **Technical Specifications:**
-- **CPU**: Quad-core 64-bit ARM Cortex-A72 @ 1.5GHz
-- **Memory**: 4GB/8GB LPDDR4 RAM
-- **Storage**: 32GB+ microSD card
-- **Connectivity**: WiFi 802.11ac, Bluetooth 5.0, Gigabit Ethernet
-- **Camera**: Pi Camera Module or USB webcam
-- **OS**: Raspberry Pi OS (Debian-based)
+- **CPU**: Multi-core processor (Intel/AMD)
+- **Memory**: 8GB+ RAM (recommended)
+- **Storage**: SSD/HDD for data storage
+- **Connectivity**: WiFi 802.11ac, Ethernet, Bluetooth
+- **Camera**: Integrated laptop camera (720p/1080p)
+- **OS**: Windows 10/11, macOS, or Linux
+- **AI Framework**: Python with OpenCV, YOLO, PyTorch/TensorFlow
 
 ### 🖥️ User Interface Specifications
 
@@ -199,8 +200,50 @@ ai/
 system/
 ├── status/
 │   ├── esp32             # ESP32 health
-│   └── pi                # Raspberry Pi health
+│   └── laptop             # Laptop/PC health
 ```
+
+### 🤖 Laptop-Based AI Camera Setup
+
+#### Simplified Architecture Benefits
+- **No External Hardware**: Uses your laptop's integrated camera
+- **Direct Processing**: AI runs directly on laptop (no streaming needed)
+- **Simplified Setup**: No Raspberry Pi or external camera required
+- **Better Performance**: Laptop CPU/GPU can handle YOLO processing efficiently
+- **Easy Development**: All code runs on familiar laptop environment
+
+#### Laptop AI Processing Workflow
+```
+Laptop Integrated Camera → YOLO Detection → Firebase Update → ESP32 Response
+```
+
+**Step-by-Step Process:**
+1. **Camera Capture**: Laptop camera captures video frames (640x480, 20fps)
+2. **YOLO Processing**: Real-time human detection using YOLOv3-tiny
+3. **Presence Logic**: Determines if people are present in classroom
+4. **Firebase Update**: Sends presence data to Firebase Realtime Database
+5. **ESP32 Sync**: ESP32 reads Firebase data and controls lighting accordingly
+
+#### Required Laptop Setup
+**Hardware Requirements:**
+- **Camera**: Integrated laptop camera (720p minimum)
+- **RAM**: 8GB+ recommended for smooth YOLO processing
+- **CPU**: Multi-core processor (Intel i5/AMD Ryzen 5 or better)
+- **Storage**: 2GB+ free space for models and data
+
+**Software Requirements:**
+- **Python 3.8+**: For AI processing
+- **OpenCV**: Computer vision library
+- **YOLO**: Pre-trained model (yolov3-tiny.weights)
+- **Firebase SDK**: For cloud integration
+- **MQTT Client**: For ESP32 communication
+
+#### AI Detection Features
+- **Real-time Processing**: 20fps detection with integrated camera
+- **Person Counting**: Exact number of people in classroom
+- **Confidence Scoring**: Detection reliability (0.0-1.0)
+- **Smart Filtering**: Reduces false positives with debouncing
+- **Background Processing**: Runs continuously without user interaction
 
 ---
 
@@ -257,6 +300,8 @@ All state changes are synced in real time between the ESP32 device and the Fireb
 
 
 Required Hardware
+
+#### ESP32 Module Components
 1 × ESP32 (recommended)
 
 
@@ -270,6 +315,21 @@ Required Hardware
 
 
 Breadboard, jumper wires, USB cable, power supply
+
+#### Laptop/PC Requirements
+1 × Laptop with integrated camera (720p minimum)
+
+
+8GB+ RAM (recommended for YOLO processing)
+
+
+Multi-core processor (Intel i5/AMD Ryzen 5 or better)
+
+
+2GB+ free storage space
+
+
+WiFi connectivity for MQTT and Firebase communication
 
 
 

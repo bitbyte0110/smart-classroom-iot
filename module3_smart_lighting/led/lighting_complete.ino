@@ -18,7 +18,7 @@
 #include <time.h>
 
 // Firebase and WiFi credentials
-#define WIFI_SSID "X_X"
+#define WIFI_SSID "T"
 #define WIFI_PASS "Sanjit02"
 #define API_KEY "AIzaSyDpAjEMP0MatqhwlLY_clqtpcfGVXkpsS8"
 #define DATABASE_URL "https://smartclassroom-af237-default-rtdb.firebaseio.com/"
