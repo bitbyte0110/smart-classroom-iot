@@ -10,7 +10,7 @@ import numpy as np
 from ultralytics import YOLO
 
 class ForceGPUYOLODetector:
-    def __init__(self, firebase_url="http://localhost:9000", room_id="roomA"):
+    def __init__(self, firebase_url="https://smartclassroom-af237-default-rtdb.firebaseio.com", room_id="roomA"):
         """Initialize force GPU YOLO detector"""
         self.firebase_url = firebase_url
         self.room_id = room_id
@@ -118,20 +118,35 @@ class ForceGPUYOLODetector:
             return sum(self.detection_history) >= 1
         return person_count > 0
     
-    def update_firebase(self, presence, person_count):
-        """Update Firebase"""
+    def update_firebase(self, presence, person_count, max_confidence=0.0):
+        """Update Firebase with complete AI data"""
         try:
+            import requests
             timestamp = int(time.time() * 1000)
-            data = {
-                "presence": presence,
-                "personCount": person_count,
-                "ts": timestamp,
-                "source": "Force_GPU"
+            
+            # Complete AI data for ESP32 integration
+            ai_data = {
+                "ai_presence": presence,
+                "ai_people_count": person_count,
+                "ai_confidence": round(max_confidence, 2),
+                "ai_timestamp": timestamp,
+                "ai_source": "GPU_Camera"
             }
+            
+            # Update Firebase state
             state_url = f"{self.firebase_url}/lighting/{self.room_id}/state.json"
-            requests.patch(state_url, json=data, timeout=2)
-        except:
-            pass
+            response = requests.patch(state_url, json=ai_data, timeout=5)
+            
+            if response.status_code == 200:
+                print(f"📡 Firebase updated: AI presence={presence}, people={person_count}, conf={max_confidence:.2f}")
+                return True
+            else:
+                print(f"❌ Firebase error: {response.status_code}")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Firebase update failed: {e}")
+            return False
     
     def draw_detections(self, frame, boxes, confidences):
         """Draw detections"""
@@ -179,9 +194,12 @@ class ForceGPUYOLODetector:
                     person_count, boxes, confidences = self.detect_people_force_gpu(frame)
                     stable_presence = self.stable_presence_detection(person_count)
                     
+                    # Get max confidence for Firebase
+                    max_confidence = max(confidences) if confidences else 0.0
+                    
                     # Update Firebase occasionally
                     if current_time - self.last_update >= self.update_interval:
-                        self.update_firebase(stable_presence, person_count)
+                        self.update_firebase(stable_presence, person_count, max_confidence)
                         self.last_update = current_time
                     
                     # Draw detections
