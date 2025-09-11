@@ -2584,3 +2584,214 @@ The dashboard should now update in real-time without any errors! 🚀
 
 ---
 
+_**User (2025-09-11 16:12Z)**_
+
+@Dashboard.tsx @instruction.md 
+
+I already have a Smart Classroom Lighting Control module UI.
+Now, I want to add a new Climate/Fan module UI.
+Important: The Climate/Fan module must be a separate page and should not interfere with the Lighting module UI.
+I only need navigation between the two modules (Lighting ↔ Climate).
+On the Climate page, I want the same structure as Lighting:
+
+A tabbed layout with Live Control and Reports & Analytics.
+
+For now, both tabs can just be blank placeholders.
+
+Add navigation so I can switch between this two module 
+
+remove the test mode button , i wont use this @.cursorrules.md 
+
+
+
+---
+
+_**Assistant**_
+
+## Task Scope Clarification
+
+I need to:
+1. Create a separate Climate/Fan module UI page
+2. Add navigation between Lighting and Climate modules
+3. Use the same tabbed structure (Live Control + Reports & Analytics)
+4. Keep both modules completely separate
+5. Remove test mode functionality
+
+## Implementation Plan
+
+**Files to modify:**
+1. Create `web/src/components/ClimateControl.tsx` - new climate module component
+2. Modify `web/src/App.tsx` - add routing and navigation
+3. Modify `web/src/components/Dashboard.tsx` - remove test mode, add navigation
+4. Create `web/src/types.ts` additions for climate types
+
+## Implementation
+
+### 1. Create Climate Control Component
+
+---
+
+
+
+---
+
+### 2. Create App Router with Navigation
+
+---
+
+Read file: undefined
+
+---
+
+<details><summary>Edit file: web/src/App.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 41, lines removed: 38
+
+```diff
+@@ -1,55 +1,58 @@
+  import { useState } from 'react'
+  import Dashboard from './components/Dashboard'
+- import TestPage from './components/TestPage'
++ import ClimateControl from './components/ClimateControl'
+  import './App.css'
++ 
++ type AppModule = 'lighting' | 'climate'
+  
+  function App() {
+-   const [showTest, setShowTest] = useState(false)
++   const [currentModule, setCurrentModule] = useState<AppModule>('lighting')
+    
+-   if (showTest) {
+-     return (
+-       <div>
++   return (
++     <div>
++       <nav style={{
++         position: 'fixed',
++         top: '0',
++         left: '0',
++         right: '0',
++         background: 'rgba(0,0,0,0.9)',
++         padding: '0.5rem 1rem',
++         display: 'flex',
++         gap: '1rem',
++         zIndex: 1000,
++         borderBottom: '1px solid rgba(255,255,255,0.1)'
++       }}>
+          <button 
+-           onClick={() => setShowTest(false)}
++           onClick={() => setCurrentModule('lighting')}
+            style={{
+-             position: 'fixed',
+-             top: '10px',
+-             right: '10px',
+-             background: '#ff4757',
++             background: currentModule === 'lighting' ? '#4CAF50' : 'rgba(255,255,255,0.1)',
+              color: 'white',
+              border: 'none',
+              padding: '0.5rem 1rem',
+              borderRadius: '5px',
+-             cursor: 'pointer',
+-             zIndex: 1000
++             cursor: 'pointer'
+            }}
+          >
+-           Back to Dashboard
++           💡 Lighting Control
+          </button>
+-         <TestPage />
+-       </div>
+-     )
+-   }
+-   
+-   return (
+-     <div>
+-       <button 
+-         onClick={() => setShowTest(true)}
+-         style={{
+-           position: 'fixed',
+-           top: '10px',
+-           right: '10px',
+-           background: '#2ed573',
+-           color: 'white',
+-           border: 'none',
+-           padding: '0.5rem 1rem',
+-           borderRadius: '5px',
+-           cursor: 'pointer',
+-           zIndex: 1000
+-         }}
+-       >
+-         Test Mode
+-       </button>
+-       <Dashboard />
++         <button 
++           onClick={() => setCurrentModule('climate')}
++           style={{
++             background: currentModule === 'climate' ? '#4CAF50' : 'rgba(255,255,255,0.1)',
++             color: 'white',
++             border: 'none',
++             padding: '0.5rem 1rem',
++             borderRadius: '5px',
++             cursor: 'pointer'
++           }}
++         >
++           🌡️ Climate Control
++         </button>
++       </nav>
++       
++       <div style={{ paddingTop: '60px' }}>
++         {currentModule === 'lighting' && <Dashboard />}
++         {currentModule === 'climate' && <ClimateControl />}
++       </div>
+      </div>
+    )
+```
+
+</details>
+
+---
+
+### 3. Check for Linting Errors
+
+---
+
+
+
+---
+
+## Summary
+
+### Files Modified:
+
+1. **`web/src/components/ClimateControl.tsx`** - Created new climate control component with:
+   - Same tabbed structure as lighting (Live Control + Reports & Analytics)
+   - Placeholder content for both tabs
+   - Reuses existing Dashboard.css styles
+
+2. **`web/src/App.tsx`** - Complete rewrite to:
+   - Remove test mode functionality entirely
+   - Add navigation between Lighting and Climate modules
+   - Implement clean module switching with visual indicators
+   - Add fixed navigation bar at top
+
+### What Was Delivered:
+
+- ✅ Separate Climate/Fan module UI page
+- ✅ Navigation between Lighting ↔ Climate modules  
+- ✅ Same tabbed structure (Live Control + Reports & Analytics)
+- ✅ Blank placeholders for both tabs
+- ✅ Test mode functionality completely removed
+- ✅ No interference between modules (completely separate components)
+
+### Usage:
+- Click "💡 Lighting Control" to view the existing lighting dashboard
+- Click "🌡️ Climate Control" to view the new climate module
+- Both modules maintain their own state and functionality independently
+
+The implementation is minimal, contained, and follows the existing codebase patterns exactly as requested.
+
+---
+
