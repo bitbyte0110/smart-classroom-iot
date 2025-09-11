@@ -16,28 +16,38 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
+#include <WiFiClient.h>
+#include <PubSubClient.h>
 
 // Assignment Requirements - WiFi and Firebase
-#define WIFI_SSID "vivo X200 Ultra"
-#define WIFI_PASS "12345678"
+#define WIFI_SSID "privacy_2.4G"
+#define WIFI_PASS "#RkRs#1920"
 #define FIREBASE_URL "https://smartclassroom-af237-default-rtdb.asia-southeast1.firebasedatabase.app"
 
 // Pin definitions - Module 3 Smart Lighting (Camera-Only)
 const int LDR_PIN = 34;      // Light sensor (ADC input)
 const int LED_PIN = 18;      // LED actuator (PWM output)
 
-// System constants - Business Rules
-const int BRIGHT_THRESHOLD = 1500;  // Lowered for better sensitivity
-const int DARK_THRESHOLD = 2000;    // Lowered for better sensitivity
+// System constants - Demo-friendly thresholds (dark ⇒ higher AO)
+const int BRIGHT_THRESHOLD = 1500;  // Below this = bright room (LED OFF)
+const int DARK_THRESHOLD = 2500;    // Above this = dark room (LED ON)
 const int PWM_FREQ = 5000;
 const int PWM_RESOLUTION = 8;
 const int MAX_PWM = 255;
-const bool LDR_INVERT = false; // Set true if covering LDR makes value LOWER
-const bool LDR_DEBUG = true;   // Enable real-time LDR debugging
+const bool LDR_INVERT = false; // FALSE because dark makes AO increase
+const bool LDR_DEBUG = true;   // Enable for hardware debugging
 const String ROOM_ID = "roomA";
 
-// Assignment compliance - Data acquisition intervals
-const unsigned long SENSOR_INTERVAL = 500;     // 0.5 seconds (more responsive)
+// MQTT (Raspberry Pi broker)
+const char* MQTT_HOST = "192.168.0.102"; // Your Pi IPv4
+const int   MQTT_PORT = 1883;
+const char* MQTT_CLIENT_ID = "esp32-lighting-roomA";
+
+WiFiClient espClient;
+PubSubClient mqtt(espClient);
+
+// Assignment compliance - Realistic classroom intervals
+const unsigned long SENSOR_INTERVAL = 2000;    // 2 seconds (smooth, not spammy)
 const unsigned long CLOUD_SYNC_INTERVAL = 5000; // 5 seconds (cloud update)
 const unsigned long LOG_INTERVAL = 30000;       // 30 seconds (sufficient records)
 
@@ -114,6 +124,8 @@ void setup() {
   
   // Connect to cloud - Assignment requirement
   connectToWiFi();
+  mqtt.setServer(MQTT_HOST, MQTT_PORT);
+  mqtt.setCallback(mqttCallback);
   
   Serial.println("🎯 Assignment System Ready!");
   Serial.println("📊 Generating sufficient data records...");
@@ -122,6 +134,8 @@ void setup() {
 
 void loop() {
   unsigned long now = millis();
+  mqttEnsureConnected();
+  mqtt.loop();
   
   // Sensor Data Acquisition Module (Assignment requirement)
   if (now - lastSensorRead >= SENSOR_INTERVAL) {
@@ -133,6 +147,7 @@ void loop() {
   // Cloud Data Processing Module (Assignment requirement)
   if (now - lastCloudSync >= CLOUD_SYNC_INTERVAL) {
     syncWithCloud();
+    publishMQTT();
     lastCloudSync = now;
   }
   
@@ -169,24 +184,90 @@ void connectToWiFi() {
   }
 }
 
+void mqttCallback(char* topic, byte* payload, unsigned int len) {
+  String t = String(topic);
+  String msg;
+  msg.reserve(len);
+  for (unsigned int i = 0; i < len; i++) msg += (char)payload[i];
+  
+  if (t == "control/lighting/mode") {
+    currentData.mode = (msg == "manual") ? "manual" : "auto";
+  } else if (t == "control/lighting/led_on") {
+    manualCommands.ledOn = (msg == "true" || msg == "1");
+  } else if (t == "control/lighting/led_pwm") {
+    manualCommands.ledPwm = constrain(msg.toInt(), 0, MAX_PWM);
+  }
+}
+
+void mqttEnsureConnected() {
+  if (mqtt.connected()) return;
+  while (!mqtt.connected()) {
+    if (mqtt.connect(MQTT_CLIENT_ID)) {
+      mqtt.subscribe("control/lighting/mode");
+      mqtt.subscribe("control/lighting/led_on");
+      mqtt.subscribe("control/lighting/led_pwm");
+    } else {
+      delay(1000);
+    }
+  }
+}
+
+void publishMQTT() {
+  if (!mqtt.connected()) return;
+  
+  // sensors/lighting/brightness
+  StaticJsonDocument<96> j1;
+  j1["ldrRaw"] = currentData.ldrRaw;
+  char b1[96];
+  size_t n1 = serializeJson(j1, b1);
+  mqtt.publish("sensors/lighting/brightness", (const uint8_t*)b1, n1, true);
+  
+  // sensors/lighting/led_state
+  StaticJsonDocument<96> j2;
+  j2["on"] = currentData.ledOn;
+  j2["pwm"] = currentData.ledPwm;
+  char b2[96];
+  size_t n2 = serializeJson(j2, b2);
+  mqtt.publish("sensors/lighting/led_state", (const uint8_t*)b2, n2, true);
+  
+  // sensors/lighting/mode
+  mqtt.publish("sensors/lighting/mode", currentData.mode.c_str(), true);
+}
+
 void acquireSensorData() {
   // Module 3: Smart Lighting sensor acquisition
   
-  // Environmental sensors - RAW reading first
-  int rawLDR = analogRead(LDR_PIN);
+  // Read LDR sensor multiple times for stability check
+  int rawLDR1 = analogRead(LDR_PIN);
+  delay(10);
+  int rawLDR2 = analogRead(LDR_PIN);
+  delay(10);
+  int rawLDR3 = analogRead(LDR_PIN);
+  
+  // Check for unstable readings (hardware issue indicator)
+  int maxDiff = max(abs(rawLDR1 - rawLDR2), abs(rawLDR2 - rawLDR3));
+  bool isStable = maxDiff < 100; // Values should be close if hardware is working
+  
+  int rawLDR = (rawLDR1 + rawLDR2 + rawLDR3) / 3; // Average of 3 readings
   currentData.ldrRaw = filterLDRReading(rawLDR);
   
-  // REAL-TIME LDR DEBUG
+  // HARDWARE DEBUG
   if (LDR_DEBUG) {
-    int darkMetric = LDR_INVERT ? (4095 - currentData.ldrRaw) : currentData.ldrRaw;
-    Serial.printf("🔍 LDR: Raw=%d, Filtered=%d, DarkMetric=%d | ", rawLDR, currentData.ldrRaw, darkMetric);
-    Serial.printf("Thresholds: Bright<%d, Dark>%d | ", BRIGHT_THRESHOLD, DARK_THRESHOLD);
-    if (darkMetric < BRIGHT_THRESHOLD) {
-      Serial.println("STATUS: BRIGHT ☀️");
-    } else if (darkMetric > DARK_THRESHOLD) {
-      Serial.println("STATUS: DARK 🌙");
+    Serial.printf("🔧 LDR HARDWARE CHECK: Read1=%d, Read2=%d, Read3=%d, Avg=%d | ", 
+                  rawLDR1, rawLDR2, rawLDR3, rawLDR);
+    Serial.printf("MaxDiff=%d, Stable=%s | ", maxDiff, isStable ? "YES" : "NO");
+    
+    int level = currentData.ldrRaw;
+    Serial.printf("Level=%d | ", level);
+    
+    if (!isStable) {
+      Serial.println("⚠️ HARDWARE PROBLEM: Unstable readings!");
+    } else if (level < BRIGHT_THRESHOLD) {
+      Serial.println("STATUS: BRIGHT ☀️ (LED OFF)");
+    } else if (level > DARK_THRESHOLD) {
+      Serial.println("STATUS: DARK 🌙 (LED ON)");
     } else {
-      Serial.println("STATUS: MEDIUM 🔄");
+      Serial.println("STATUS: MEDIUM 🔄 (LED MEDIUM)");
     }
   }
   
@@ -194,38 +275,44 @@ void acquireSensorData() {
   readAIDataFromCloud();
   
   // Data validation
-  currentData.validData = (currentData.ldrRaw >= 0 && currentData.ldrRaw <= 4095);
+  currentData.validData = (currentData.ldrRaw >= 0 && currentData.ldrRaw <= 4095 && isStable);
   currentData.timestamp = millis();
   
-  // Business rule: Light level classification
-  int darkMetric = LDR_INVERT ? (4095 - currentData.ldrRaw) : currentData.ldrRaw;
-  if (darkMetric < BRIGHT_THRESHOLD) {
-    currentData.lightLevel = "BRIGHT";
-  } else if (darkMetric > DARK_THRESHOLD) {
-    currentData.lightLevel = "DARK";
+  // Classify light level (only if stable)
+  if (isStable) {
+    // dark ⇒ higher AO, no inversion
+    int level = currentData.ldrRaw;
+    if (level < BRIGHT_THRESHOLD) {
+      currentData.lightLevel = "BRIGHT";
+    } else if (level > DARK_THRESHOLD) {
+      currentData.lightLevel = "DARK";
+    } else {
+      currentData.lightLevel = "MEDIUM";
+    }
   } else {
-    currentData.lightLevel = "MEDIUM";
+    currentData.lightLevel = "ERROR";
+    currentData.systemStatus = "LDR_UNSTABLE";
   }
   
   totalRecords++;
 }
 
 int filterLDRReading(int rawValue) {
-  // Assignment requirement: Data validation
+  // Simple validation and smoothing for classroom environment
   rawValue = constrain(rawValue, 0, 4095);
   
-  // SIMPLIFIED FILTER - Less aggressive for better responsiveness
+  // Store in history
   ldrHistory[ldrIndex] = rawValue;
   ldrIndex = (ldrIndex + 1) % 5;
   if (ldrIndex == 0) ldrFull = true;
   
+  // Simple smoothing: average of last 3 readings
   if (ldrFull) {
-    // Simple average of last 3 readings (more responsive than median)
     int sum = ldrHistory[0] + ldrHistory[1] + ldrHistory[2];
     return sum / 3;
   }
   
-  return rawValue; // Return raw if not enough samples
+  return rawValue;
 }
 
 // Temperature and Air Quality functions removed - not part of Module 3 Smart Lighting
@@ -294,16 +381,17 @@ void validateBusinessRules() {
   
   if (currentData.mode == "auto") {
     // Smart lighting business logic
-    int darkMetric = LDR_INVERT ? (4095 - currentData.ldrRaw) : currentData.ldrRaw;
+    // dark ⇒ higher AO
+    int level = currentData.ldrRaw;
 
     // Use freshness gate: presence only if timestamp changed within 6s
     bool aiFresh = (millis() - lastAiTimestampChangeMillis) <= 6000;
     bool effectivePresence = currentData.ai_presence && aiFresh;
 
-    if (effectivePresence && darkMetric > DARK_THRESHOLD) {
+    if (effectivePresence && level > DARK_THRESHOLD) {
       currentData.ledOn = true;
       currentData.ledPwm = mapLightToPWM(currentData.ldrRaw);
-    } else if (!effectivePresence || darkMetric < BRIGHT_THRESHOLD) {
+    } else if (!effectivePresence || level < BRIGHT_THRESHOLD) {
       currentData.ledOn = false;
       currentData.ledPwm = 0;
     }
@@ -332,8 +420,13 @@ void validateBusinessRules() {
 
 int mapLightToPWM(int ldrValue) {
   // Assignment requirement: Actuator control logic
-  int pwmInput = LDR_INVERT ? ldrValue : (4095 - ldrValue);
-  return constrain(map(pwmInput, 0, 4095, 0, MAX_PWM), 0, MAX_PWM);
+  // Demo-friendly mapping: 4095 (hand cover) = 100%, 2500 (normal dark) = 50%, 1500 (bright) = 0%
+  if (ldrValue >= 4000) return 255;        // Hand cover = 100% brightness
+  if (ldrValue >= 3500) return 200;        // Very dark = 78% brightness  
+  if (ldrValue >= 3000) return 150;        // Dark = 59% brightness
+  if (ldrValue >= 2500) return 100;        // Medium dark = 39% brightness
+  if (ldrValue >= 2000) return 50;         // Slightly dark = 20% brightness
+  return 0;                                // Bright room = OFF
 }
 
 void controlActuators() {
@@ -465,12 +558,12 @@ void printAssignmentStatus() {
   if (currentData.mode == "manual") {
     Serial.println("   🎛️ Manual mode - Web dashboard control");
   } else {
-    int darkMetric = LDR_INVERT ? (4095 - currentData.ldrRaw) : currentData.ldrRaw;
-    if (effectivePresence && darkMetric > DARK_THRESHOLD) {
+    int level = currentData.ldrRaw;
+    if (effectivePresence && level > DARK_THRESHOLD) {
       Serial.println("   ✅ AI detects person + Dark room = LED ON (Auto)");
     } else if (!effectivePresence) {
       Serial.println("   ⭕ No fresh person detection = LED OFF (Energy saving)");
-    } else if (darkMetric < BRIGHT_THRESHOLD) {
+    } else if (level < BRIGHT_THRESHOLD) {
       Serial.println("   ☀️ Room too bright = LED OFF (Energy saving)");
     } else {
       Serial.println("   🔄 Hysteresis zone = Maintain current state");

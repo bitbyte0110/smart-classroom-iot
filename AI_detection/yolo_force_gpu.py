@@ -8,9 +8,10 @@ import time
 import torch
 import numpy as np
 from ultralytics import YOLO
+import paho.mqtt.client as mqtt
 
 class ForceGPUYOLODetector:
-    def __init__(self, firebase_url="https://smartclassroom-af237-default-rtdb.asia-southeast1.firebasedatabase.app", room_id="roomA"):
+    def __init__(self, firebase_url="https://smartclassroom-af237-default-rtdb.asia-southeast1.firebasedatabase.app", room_id="roomA", mqtt_host="192.168.0.102", mqtt_port=1883):
         """Initialize force GPU YOLO detector"""
         self.firebase_url = firebase_url
         self.room_id = room_id
@@ -50,6 +51,16 @@ class ForceGPUYOLODetector:
         self.last_update = 0
         self.update_interval = 3.0
         
+        # MQTT client (Raspberry Pi broker)
+        self.mqtt_host = mqtt_host
+        self.mqtt_port = mqtt_port
+        self.mqtt = mqtt.Client(client_id=f"ai-camera-{self.room_id}")
+        try:
+            self.mqtt.connect(self.mqtt_host, self.mqtt_port, 60)
+            print(f"🔗 MQTT connected: {self.mqtt_host}:{self.mqtt_port}")
+        except Exception as e:
+            print(f"⚠️ MQTT connect failed: {e}")
+
         print("✅ Force GPU YOLO Detector initialized")
     
     def detect_people_force_gpu(self, frame):
@@ -137,6 +148,14 @@ class ForceGPUYOLODetector:
             state_url = f"{self.firebase_url}/lighting/{self.room_id}/state.json"
             response = requests.patch(state_url, json=ai_data, timeout=5)
             
+            # Publish to MQTT alongside Firebase
+            try:
+                self.mqtt.publish("ai/presence/detection", "true" if presence else "false", qos=0, retain=True)
+                self.mqtt.publish("ai/presence/count", str(person_count), qos=0, retain=True)
+                self.mqtt.publish("ai/presence/confidence", f"{max_confidence:.2f}", qos=0, retain=True)
+            except Exception as e:
+                print(f"⚠️ MQTT publish failed: {e}")
+
             if response.status_code == 200:
                 print(f"📡 Firebase updated: AI presence={presence}, people={person_count}, conf={max_confidence:.2f}")
                 return True

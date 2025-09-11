@@ -202,6 +202,41 @@ system/
 │   └── laptop             # Laptop/PC health
 ```
 
+### 🧩 Raspberry Pi MQTT Broker (Mosquitto) — Setup & Run
+
+Use your Raspberry Pi as the MQTT hub so ESP32 and Laptop AI can exchange data reliably.
+
+1) Install Mosquitto broker and clients
+```bash
+sudo apt update
+sudo apt install -y mosquitto mosquitto-clients
+```
+
+2) Allow LAN access (listen on all interfaces)
+```bash
+echo "listener 1883 0.0.0.0" | sudo tee /etc/mosquitto/conf.d/lan.conf
+echo "allow_anonymous true"   | sudo tee -a /etc/mosquitto/conf.d/lan.conf
+sudo systemctl restart mosquitto
+sudo systemctl enable mosquitto
+```
+- Your Pi IP (from user): `192.168.0.102` (use this in ESP32 and AI script)
+- Optional: replace `allow_anonymous true` with username/password for security.
+
+3) Test from the Pi (or any LAN device)
+```bash
+# Terminal 1 (subscriber)
+mosquitto_sub -h 192.168.0.102 -t 'sensors/lighting/#' -v
+
+# Terminal 2 (publisher)
+mosquitto_pub -h 192.168.0.102 -t 'sensors/lighting/brightness' -m '{"ldrRaw":1234}'
+```
+
+4) Run the Pi bridge (mirrors MQTT → Firebase)
+```bash
+python3 /home/pi/pi_mqtt_firebase_bridge.py --mqtt-host 192.168.0.102 --room roomA
+```
+Keep this running during demos so the web dashboard stays in sync.
+
 ### 🤖 Laptop-Based AI Camera Setup
 
 #### Simplified Architecture Benefits
@@ -251,7 +286,10 @@ Laptop Integrated Camera → YOLO Detection → Firebase Update → ESP32 Respon
 - Set `WIFI_SSID`, `WIFI_PASS`, and optionally `ROOM_ID`.
 - Upload to ESP32. Open Serial Monitor @115200 to confirm WiFi and status.
 
-2) Run the Camera AI on Laptop
+2) Start MQTT Broker on the Pi
+Ensure Mosquitto is running on the Raspberry Pi at `192.168.0.102` (see section above).
+
+3) Run the Camera AI on Laptop
 - Ensure Python 3.8+ installed.
 - In a terminal from project root:
 ```bash
@@ -263,13 +301,14 @@ python AI_detection/yolo_force_gpu.py
 - The script uses GPU if available; otherwise CPU.
 - Presence is REAL ONLY: UI shows presence=true only if `ai_timestamp` is fresh (≤6s).
 
-3) Test End-to-End
+4) Test End-to-End
 - Stand in front of the camera → presence updates to Firebase (`/lighting/{roomId}/state`).
 - Cover the LDR → darker reading on ESP32.
 - Result: presence AND dark → LED ON (auto), otherwise LED OFF.
 
 Tips:
-- If covering the LDR makes the value LOWER, set `LDR_INVERT = true` in `module3_smart_lighting/ASSIGNMENT_COMPLIANT/ASSIGNMENT_COMPLIANT.ino`.
+- Your hardware behaves as: dark ⇒ AO increases. In code `LDR_INVERT = false`.
+- If your LDR module outputs LOWER when dark, set `LDR_INVERT = true` instead.
 - If you get occasional false positives from the camera, thresholds are tightened in `AI_detection/yolo_force_gpu.py` (conf=0.6, iou=0.5) and smoothing requires 2 of last 3 frames.
 
 ---
@@ -398,6 +437,19 @@ Use hysteresis (two thresholds) to avoid flicker:
 
 
 BRIGHT_THRESHOLD < DARK_THRESHOLD
+
+#### LED Brightness Mapping (Demo-Ready)
+- Hardware confirmed behavior: dark ⇒ AO increases (up to 4095), bright ⇒ lower AO (~1100).
+- Current thresholds in code: `BRIGHT_THRESHOLD = 1500`, `DARK_THRESHOLD = 2500`.
+- Discrete PWM mapping for clear visual demo:
+  - `ldrRaw ≥ 4000` → PWM 255 (100%)
+  - `ldrRaw ≥ 3500` → PWM 200 (~78%)
+  - `ldrRaw ≥ 3000` → PWM 150 (~59%)
+  - `ldrRaw ≥ 2500` → PWM 100 (~39%)
+  - `ldrRaw ≥ 2000` → PWM 50  (20%)
+  - `< 1500` (bright) → PWM 0 (OFF)
+
+This makes brightness changes obvious during demo: flashlight on LDR → OFF, normal room → medium, cover with hand → 100%.
 
 
 Manual Mode
