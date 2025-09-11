@@ -49,7 +49,7 @@ class ForceGPUYOLODetector:
         
         # Timing
         self.last_update = 0
-        self.update_interval = 3.0
+        self.update_interval = 2.0  # Update every 2s for better responsiveness
         
         # MQTT client (Raspberry Pi broker)
         self.mqtt_host = mqtt_host

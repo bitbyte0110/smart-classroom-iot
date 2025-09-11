@@ -39,8 +39,26 @@ export default function Reports() {
 
     const unsubscribe = onValue(recentLogsQuery, (snapshot) => {
       const data = snapshot.val();
+      console.log('📊 Raw log data from Firebase:', data); // Debug log
+      
       if (data) {
-        const logsArray = Object.values(data) as LightingLog[];
+        const logsArray = Object.values(data).map((rawLog: any) => {
+          // Handle ESP32 nested log structure
+          const log: LightingLog = {
+            ts: rawLog.timestamp || rawLog.ts || Date.now(),
+            presence: rawLog.ai?.presence || rawLog.presence || false,
+            ldrRaw: rawLog.sensors?.ldr || rawLog.ldrRaw || 0,
+            mode: rawLog.system?.mode || rawLog.mode || 'auto',
+            led: {
+              on: rawLog.actuators?.ledOn || rawLog.led?.on || false,
+              pwm: rawLog.actuators?.ledPWM || rawLog.led?.pwm || 0
+            },
+            sensorError: rawLog.system?.status || rawLog.sensorError || null
+          };
+          return log;
+        }) as LightingLog[];
+        
+        console.log('📊 Processed logs:', logsArray.slice(0, 3)); // Debug: show first 3
         setLogs(logsArray.sort((a, b) => a.ts - b.ts));
       }
       setIsLoading(false);
@@ -97,11 +115,11 @@ export default function Reports() {
 
   // 3. LED Runtime & Average PWM
   const getLEDStats = () => {
-    const onLogs = logs.filter(log => log.led.on);
-    const totalMinutes = (logs.length * 2) / 60; // 2 seconds per log
-    const onMinutes = (onLogs.length * 2) / 60;
+    const onLogs = logs.filter(log => log.led?.on);
+    const totalMinutes = (logs.length * 30) / 60; // 30 seconds per log (ESP32 logs every 30s)
+    const onMinutes = (onLogs.length * 30) / 60;
     const avgPWM = onLogs.length > 0 
-      ? onLogs.reduce((sum, log) => sum + log.led.pwm, 0) / onLogs.length 
+      ? onLogs.reduce((sum, log) => sum + (log.led?.pwm || 0), 0) / onLogs.length 
       : 0;
 
     return {
@@ -115,9 +133,9 @@ export default function Reports() {
   // 4. Energy Saved vs Baseline
   const getEnergySavings = () => {
     const occupiedLogs = logs.filter(log => log.presence);
-    const actualUsage = logs.reduce((sum, log) => sum + (log.led.on ? log.led.pwm / 255 : 0), 0);
+    const actualUsage = logs.reduce((sum, log) => sum + (log.led?.on ? (log.led?.pwm || 0) / 255 : 0), 0);
     const baselineUsage = occupiedLogs.length; // Always ON at PWM=255 when occupied
-    const savings = ((baselineUsage - actualUsage) / baselineUsage) * 100;
+    const savings = baselineUsage > 0 ? ((baselineUsage - actualUsage) / baselineUsage) * 100 : 0;
 
     return {
       actualUsage: Math.round(actualUsage * 10), // Watts
@@ -152,6 +170,36 @@ export default function Reports() {
 
   if (isLoading) {
     return <div className="reports loading">Loading reports...</div>;
+  }
+
+  // Debug: Show basic info even with no data
+  if (logs.length === 0) {
+    return (
+      <div className="reports">
+        <div className="reports-header">
+          <h2>📊 Analytics & Reports</h2>
+        </div>
+        <div className="stat-card" style={{ margin: '2rem auto', maxWidth: '500px' }}>
+          <h3>📊 No Data Available</h3>
+          <div className="stat-value">0</div>
+          <div className="stat-subtitle">
+            Reports will appear once your ESP32 starts logging data to Firebase at<br/>
+            <code>/lighting/roomA/logs</code>
+          </div>
+          <div style={{ marginTop: '1rem', fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)' }}>
+            💡 The system logs data every 30 seconds when running<br/>
+            🔧 Check browser console (F12) for debug logs<br/>
+            📍 Make sure ESP32 is uploading and logging data
+          </div>
+          <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', fontSize: '0.8rem' }}>
+            <strong>Troubleshooting:</strong><br/>
+            1. ESP32 should show "📊 Data record #X logged" messages<br/>
+            2. Check Firebase console for data at the logs path<br/>
+            3. Wait 1-2 minutes for initial log entries to accumulate
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const ledStats = getLEDStats();

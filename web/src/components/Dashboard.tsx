@@ -61,7 +61,7 @@ export default function Dashboard() {
       }
 
       const dataTimestamp = value.ai_timestamp ?? value.timestamp ?? value.ts ?? Date.now();
-      const isStale = (Date.now() - dataTimestamp) > 6000; // >6s considered stale
+      const isStale = (Date.now() - dataTimestamp) > 10000; // >10s considered stale
 
       const presenceFromAI = typeof value.ai_presence === 'boolean' ? value.ai_presence : false;
       const uiPresence = presenceFromAI && !isStale;
@@ -81,7 +81,7 @@ export default function Dashboard() {
       console.log('Setting state:', merged); // Debug log
       setState(merged);
       setIsConnected(!isStale);
-      setError(isStale ? 'Live data is stale (>6s). Check Camera AI and ESP32.' : '');
+      setError(isStale ? 'Live data is stale (>10s). Check Camera AI and ESP32.' : '');
     }, (err) => {
       clearTimeout(loadingTimer);
       console.error('Firebase connection error:', err);

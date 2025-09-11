@@ -417,8 +417,8 @@ void validateBusinessRules() {
     // dark ⇒ higher AO
     int level = currentData.ldrRaw;
 
-    // Use freshness gate: presence only if timestamp changed within 6s
-    bool aiFresh = (millis() - lastAiTimestampChangeMillis) <= 6000;
+    // Use freshness gate: presence only if timestamp changed within 10s
+    bool aiFresh = (millis() - lastAiTimestampChangeMillis) <= 10000;
     bool effectivePresence = currentData.ai_presence && aiFresh;
 
     if (effectivePresence && level > DARK_THRESHOLD) {
@@ -576,14 +576,14 @@ void printAssignmentStatus() {
   Serial.println();
   
   // Check AI freshness for display
-  bool aiFresh = (millis() - lastAiTimestampChangeMillis) <= 6000;
+  bool aiFresh = (millis() - lastAiTimestampChangeMillis) <= 10000;
   bool effectivePresence = currentData.ai_presence && aiFresh;
   
   Serial.println("📊 CURRENT SENSOR DATA:");
   Serial.printf("├─ Light Level: %s (%d/4095)\n", currentData.lightLevel.c_str(), currentData.ldrRaw);
   Serial.printf("├─ AI Presence: %s (%d people, %.1f%% confidence) %s\n", 
     currentData.ai_presence ? "DETECTED" : "none", currentData.ai_people_count, currentData.ai_confidence * 100,
-    aiFresh ? "[FRESH]" : "[STALE]");
+    aiFresh ? "[FRESH]" : "[STALE >10s]");
   Serial.printf("├─ Effective Presence: %s\n", effectivePresence ? "TRUE" : "FALSE");
   Serial.printf("├─ LED State: %s (PWM: %d/255)\n", 
     currentData.ledOn ? "ON" : "OFF", currentData.ledPwm);
