@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Debug Test</title>
+    <script type="module">
+        // Import Firebase SDK
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js';
+        import { getDatabase, ref, onValue } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-database.js';
+
+        // Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyDpAjEMP0MatqhwlLY_clqtpcfGVXkpsS8",
+            authDomain: "smartclassroom-af237.firebaseapp.com",
+            databaseURL: "https://smartclassroom-af237-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "smartclassroom-af237",
+            storageBucket: "smartclassroom-af237.firebasestorage.app",
+            messagingSenderId: "172327783054",
+            appId: "1:172327783054:web:b9bdddfb213ea0dd48d7df",
+            measurementId: "G-EHFTC93M2F"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        // Test connection
+        console.log('🔥 Initializing Firebase test...');
+        
+        const ROOM_ID = 'roomA';
+        const stateRef = ref(database, `/lighting/${ROOM_ID}/state`);
+        
+        console.log('📍 Listening to path:', `/lighting/${ROOM_ID}/state`);
+        
+        // Set up listener
+        const unsubscribe = onValue(stateRef, (snapshot) => {
+            const value = snapshot.val();
+            console.log('🔥 Firebase snapshot received:', value);
+            
+            const statusDiv = document.getElementById('status');
+            const dataDiv = document.getElementById('data');
+            
+            if (value) {
+                statusDiv.innerHTML = '✅ Data received from Firebase';
+                statusDiv.style.color = 'green';
+                dataDiv.innerHTML = '<pre>' + JSON.stringify(value, null, 2) + '</pre>';
+            } else {
+                statusDiv.innerHTML = '❌ No data found in Firebase';
+                statusDiv.style.color = 'red';
+                dataDiv.innerHTML = 'No data available';
+            }
+        }, (error) => {
+            console.error('❌ Firebase error:', error);
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = '❌ Firebase connection error: ' + error.message;
+            statusDiv.style.color = 'red';
+        });
+
+        // Test after 5 seconds
+        setTimeout(() => {
+            console.log('⏰ 5 seconds elapsed, checking status...');
+        }, 5000);
+    </script>
+</head>
+<body>
+    <h1>🏫 Smart Classroom Firebase Debug</h1>
+    <h2>Connection Status:</h2>
+    <div id="status">🔄 Connecting to Firebase...</div>
+    
+    <h2>Data:</h2>
+    <div id="data">Waiting for data...</div>
+    
+    <h2>Instructions:</h2>
+    <ol>
+        <li>Open browser Developer Tools (F12)</li>
+        <li>Check Console tab for debug messages</li>
+        <li>Look for Firebase connection status above</li>
+        <li>If no data appears, ESP32 is not writing to Firebase</li>
+    </ol>
+    
+    <h2>Direct Firebase URL:</h2>
+    <a href="https://smartclassroom-af237-default-rtdb.asia-southeast1.firebasedatabase.app/lighting/roomA/state.json" target="_blank">
+        Test Firebase directly in browser
+    </a>
+</body>
+</html>

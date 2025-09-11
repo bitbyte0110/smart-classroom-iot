@@ -9,7 +9,7 @@ export default defineConfig({
     headers: {
       // Note: This header is for localhost development only
       // Remove or tighten for production hosting
-      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' blob:; style-src 'self' 'unsafe-inline'; connect-src *; img-src 'self' data: blob:;"
+      'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' blob: https:; style-src 'self' 'unsafe-inline'; connect-src *; img-src 'self' data: blob:;"
     }
   }
 })

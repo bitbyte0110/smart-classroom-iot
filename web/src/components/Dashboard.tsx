@@ -15,24 +15,36 @@ export default function Dashboard() {
   const [error, setError] = useState<string>('');
 
   useEffect(() => {
+    console.log('🚀 Dashboard component mounted, connecting to Firebase...');
+    console.log('🎯 Target path:', `/lighting/${ROOM_ID}/state`);
     const stateRef = ref(database, `/lighting/${ROOM_ID}/state`);
 
-    // Loading timeout: show error if no data after 5 seconds
+    // Loading timeout: show error if no data after 3 seconds
     const loadingTimer = setTimeout(() => {
       setState(prevState => {
         if (!prevState) {
           setError('No Firebase data found. Check ESP32 and Camera AI are running and writing to Firebase.');
           setIsConnected(false);
+          // Return fallback state instead of null
+          return {
+            ts: Date.now(),
+            presence: false,
+            ldrRaw: 1200,
+            mode: 'auto' as const,
+            led: { on: false, pwm: 0 },
+            sensorError: 'No data - Timeout'
+          };
         }
         return prevState;
       });
-    }, 5000);
+    }, 3000);
 
     const unsubscribe = onValue(stateRef, (snapshot) => {
       clearTimeout(loadingTimer);
       
       const value = snapshot.val();
-      console.log('Firebase snapshot received:', value); // Debug log
+      console.log('🔥 Firebase snapshot received:', value); // Debug log
+      console.log('📍 Firebase path:', `/lighting/${ROOM_ID}/state`); // Debug path
       
       if (!value) {
         setIsConnected(false);
@@ -40,10 +52,10 @@ export default function Dashboard() {
         setState({
           ts: Date.now(),
           presence: false,
-          ldrRaw: 0,
+          ldrRaw: 1200,  // Show demo data instead of 0
           mode: 'auto',
           led: { on: false, pwm: 0 },
-          sensorError: 'No data'
+          sensorError: 'No data - Demo mode'
         });
         return;
       }
@@ -78,10 +90,10 @@ export default function Dashboard() {
       setState({
         ts: Date.now(),
         presence: false,
-        ldrRaw: 0,
+        ldrRaw: 1200,  // Show demo data
         mode: 'auto',
         led: { on: false, pwm: 0 },
-        sensorError: 'Connection failed'
+        sensorError: 'Connection failed - Demo mode'
       });
     });
 

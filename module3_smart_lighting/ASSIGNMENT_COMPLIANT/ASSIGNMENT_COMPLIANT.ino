@@ -18,6 +18,7 @@
 #include <ArduinoJson.h>
 #include <WiFiClient.h>
 #include <PubSubClient.h>
+#include <time.h>
 
 // Assignment Requirements - WiFi and Firebase
 #define WIFI_SSID "privacy_2.4G"
@@ -124,6 +125,26 @@ void setup() {
   
   // Connect to cloud - Assignment requirement
   connectToWiFi();
+  
+  // Configure NTP for proper timestamps
+  configTime(8 * 3600, 0, "pool.ntp.org", "time.nist.gov");  // GMT+8 for Malaysia
+  Serial.println("⏰ Configuring time from NTP servers...");
+  
+  // Wait for time to be set
+  int attempts = 0;
+  while (!time(nullptr) && attempts < 10) {
+    delay(1000);
+    Serial.print(".");
+    attempts++;
+  }
+  
+  if (time(nullptr)) {
+    Serial.println("\n✅ NTP time synchronized!");
+    Serial.printf("📅 Current time: %llu ms since epoch\n", getEpochTime());
+  } else {
+    Serial.println("\n⚠️ NTP time failed, using fallback timestamps");
+  }
+  
   mqtt.setServer(MQTT_HOST, MQTT_PORT);
   mqtt.setCallback(mqttCallback);
   
@@ -161,6 +182,18 @@ void loop() {
   controlActuators();
   
   delay(100);
+}
+
+uint64_t getEpochTime() {
+  time_t now;
+  struct tm timeinfo;
+  if (!getLocalTime(&timeinfo)) {
+    // If NTP time not available, use millis() offset from a base epoch
+    // This is a fallback - not perfect but better than pure millis()
+    return 1700000000000ULL + millis();  // Nov 2023 + millis offset
+  }
+  time(&now);
+  return (uint64_t)now * 1000;  // Convert to milliseconds
 }
 
 void connectToWiFi() {
@@ -276,7 +309,7 @@ void acquireSensorData() {
   
   // Data validation
   currentData.validData = (currentData.ldrRaw >= 0 && currentData.ldrRaw <= 4095 && isStable);
-  currentData.timestamp = millis();
+  currentData.timestamp = getEpochTime();
   
   // Classify light level (only if stable)
   if (isStable) {
@@ -447,8 +480,10 @@ void syncWithCloud() {
   // Create comprehensive data payload
   DynamicJsonDocument doc(2048);
   
-  // Sensor data
-  doc["timestamp"] = currentData.timestamp;
+  // Sensor data - use epoch timestamp for web dashboard compatibility
+  uint64_t currentEpochTime = getEpochTime();
+  doc["ts"] = currentEpochTime;
+  doc["timestamp"] = currentEpochTime;
   doc["ldrRaw"] = currentData.ldrRaw;
   doc["lightLevel"] = currentData.lightLevel;
   
@@ -467,6 +502,7 @@ void syncWithCloud() {
   doc["ai_presence"] = currentData.ai_presence;
   doc["ai_people_count"] = currentData.ai_people_count;
   doc["ai_confidence"] = currentData.ai_confidence;
+  doc["ai_timestamp"] = lastAiTimestampServer;  // Add AI timestamp for freshness check
   
   String jsonString;
   serializeJson(doc, jsonString);
@@ -489,7 +525,8 @@ void logDataRecord() {
   if (WiFi.status() != WL_CONNECTED) return;
   
   HTTPClient http;
-  String url = String(FIREBASE_URL) + "/lighting/" + ROOM_ID + "/logs/" + String(currentData.timestamp) + ".json";
+  uint64_t logEpochTime = getEpochTime();
+  String url = String(FIREBASE_URL) + "/lighting/" + ROOM_ID + "/logs/" + String(logEpochTime) + ".json";
   
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
@@ -497,7 +534,7 @@ void logDataRecord() {
   // Complete data log for analysis
   DynamicJsonDocument doc(2048);
   
-  doc["timestamp"] = currentData.timestamp;
+  doc["timestamp"] = logEpochTime;
   doc["sensors"]["ldr"] = currentData.ldrRaw;
   doc["sensors"]["lightLevel"] = currentData.lightLevel;
   
