@@ -26,7 +26,7 @@ export default function ClimateControl() {
           setError('No Firebase data found. Check ESP32 Climate Module is running and writing to Firebase.');
           setIsConnected(false);
           // Return fallback state instead of null
-          return {
+          const fallbackState: ClimateState = {
             ts: Date.now(),
             presence: false,
             tempC: 26.5,
@@ -38,6 +38,7 @@ export default function ClimateControl() {
             comfortBand: 'Moderate',
             sensorError: 'No data - Timeout'
           };
+          return fallbackState;
         }
         return prevState;
       });
@@ -53,7 +54,7 @@ export default function ClimateControl() {
       if (!value) {
         setIsConnected(false);
         setError('No live data. Ensure ESP32 Climate Module is running.');
-        setState({
+        const demoState: ClimateState = {
           ts: Date.now(),
           presence: false,
           tempC: 26.5,
@@ -64,7 +65,8 @@ export default function ClimateControl() {
           fan: { on: false, pwm: 0 },
           comfortBand: 'Moderate',
           sensorError: 'No data - Demo mode'
-        });
+        };
+        setState(demoState);
         return;
       }
 
@@ -74,7 +76,7 @@ export default function ClimateControl() {
       // Get presence from the same AI source (follows lighting module)
       const presenceValue = value.presence ?? false;
 
-      const merged = {
+      const merged: ClimateState = {
         ts: dataTimestamp,
         presence: presenceValue && !isStale,
         tempC: Number.isFinite(value.tempC) ? value.tempC : 0,
@@ -88,7 +90,7 @@ export default function ClimateControl() {
         },
         comfortBand: (value.comfortBand || 'Moderate') as 'Low' | 'Moderate' | 'High',
         sensorError: value.sensorError ?? null
-      } as const;
+      };
 
       console.log('Setting climate state:', merged); // Debug log
       setState(merged);
@@ -99,7 +101,7 @@ export default function ClimateControl() {
       console.error('Firebase connection error (Climate):', err);
       setIsConnected(false);
       setError(`Connection failed: ${err.message}`);
-      setState({
+      const errorState: ClimateState = {
         ts: Date.now(),
         presence: false,
         tempC: 26.5,
@@ -110,7 +112,8 @@ export default function ClimateControl() {
         fan: { on: false, pwm: 0 },
         comfortBand: 'Moderate',
         sensorError: 'Connection failed - Demo mode'
-      });
+      };
+      setState(errorState);
     });
 
     return () => {

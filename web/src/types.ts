@@ -11,7 +11,30 @@ export interface LightingState {
   sensorError: string | null;
 }
 
+// Types for the smart climate control system
+export interface ClimateState {
+  ts: number;
+  tempC: number;
+  humidity: number;
+  aqRaw: number; // MQ-135 raw reading
+  aqStatus: 'Good' | 'Moderate' | 'Poor';
+  mode: 'auto' | 'manual';
+  fan: {
+    on: boolean;
+    pwm: number; // 0-255
+  };
+  comfortBand: 'Low' | 'Moderate' | 'High' | 'Idle';
+  presence: boolean;
+  systemActive: boolean;
+  boostMode: boolean;
+  sensorError: string | null;
+}
+
 export interface LightingLog extends LightingState {
+  // Logs have the same structure as state
+}
+
+export interface ClimateLog extends ClimateState {
   // Logs have the same structure as state
 }
 
@@ -57,3 +80,9 @@ export interface ClimateLog extends ClimateState {
 export const BRIGHT_THRESHOLD = 2800;
 export const DARK_THRESHOLD = 3200;
 export const ROOM_ID = 'roomA';
+
+// Climate control constants (from instruction.md)
+export const TEMP_LOW_MAX = 25.0;  // ≤25°C → LOW
+export const TEMP_MED_MAX = 28.0;  // 25.1-28°C → MED, ≥28.1°C → HIGH
+export const AQ_GOOD_MAX = 300;    // 0-300 → Good
+export const AQ_MODERATE_MAX = 400; // 301-400 → Moderate, ≥401 → Poor
