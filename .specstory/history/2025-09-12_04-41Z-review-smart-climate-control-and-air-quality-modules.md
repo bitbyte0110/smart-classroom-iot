@@ -3682,3 +3682,906 @@ Try uploading this updated code and check the Serial Monitor for the debug messa
 
 ---
 
+_**User (2025-09-12 00:30Z)**_
+
+@instruction.md now i want to do the UI for module 2 smart climate control and air quality monitoring module. the UI should be done at @ClimateControl.tsx 
+
+u can refer to @Dashboard.tsx for an example for the UI design but the UI for @ClimateControl.tsx should only have the components of module 2 smart climate control and air quality monitoring module
+
+the image is the components to be included in the UI for @ClimateControl.tsx 
+
+---
+
+_**Assistant**_
+
+I'll create the UI for the Smart Climate Control module in `ClimateControl.tsx` based on the Module 2 specifications from `instruction.md` and using the design pattern from `Dashboard.tsx`. Looking at the image, I need to create tiles for Temperature, Air Quality, Fan Status, Mode, and Last Update.
+
+---
+
+## Todo List
+
+- [-] Create Climate Control UI with temperature, air quality, fan status, and mode components
+- [ ] Add Firebase integration for climate data
+- [ ] Add manual fan controls for manual mode
+- [ ] Add presence indicator and system status
+
+---
+
+Let me first check the current types to see if I need to add climate types:
+
+---
+
+Read file: undefined
+
+---
+
+I need to add climate types. Let me update the types file first:
+
+---
+
+<details><summary>Edit file: web/src/types.ts</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 19, lines removed: undefined
+
+```diff
+@@ -11,4 +11,23 @@
+    sensorError: string | null;
+  }
++ 
++ // Types for the smart climate control system
++ export interface ClimateState {
++   ts: number;
++   tempC: number;
++   humidity: number;
++   aqRaw: number; // MQ-135 raw reading
++   aqStatus: 'Good' | 'Moderate' | 'Poor';
++   mode: 'auto' | 'manual';
++   fan: {
++     on: boolean;
++     pwm: number; // 0-255
++   };
++   comfortBand: 'Low' | 'Moderate' | 'High' | 'Idle';
++   presence: boolean;
++   systemActive: boolean;
++   boostMode: boolean;
++   sensorError: string | null;
++ }
+  
+  export interface LightingLog extends LightingState {
+```
+
+</details>
+
+---
+
+Now let me add climate log type and climate constants:
+
+---
+
+<details><summary>Edit file: web/src/types.ts</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 4, lines removed: undefined
+
+```diff
+@@ -34,4 +34,8 @@
+    // Logs have the same structure as state
+  }
++ 
++ export interface ClimateLog extends ClimateState {
++   // Logs have the same structure as state
++ }
+  
+  export interface DashboardTile {
+```
+
+</details>
+
+---
+
+<details><summary>Edit file: web/src/types.ts</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 7, lines removed: 2
+
+```diff
+@@ -58,4 +59,9 @@
+  export const BRIGHT_THRESHOLD = 2800;
+  export const DARK_THRESHOLD = 3200;
+- export const DARK_THRESHOLD = 3200;
+- export const ROOM_ID = 'roomA';
++ export const ROOM_ID = 'roomA';
++ 
++ // Climate control constants (from instruction.md)
++ export const TEMP_LOW_MAX = 25.0;  // ≤25°C → LOW
++ export const TEMP_MED_MAX = 28.0;  // 25.1-28°C → MED, ≥28.1°C → HIGH
++ export const AQ_GOOD_MAX = 300;    // 0-300 → Good
++ export const AQ_MODERATE_MAX = 400; // 301-400 → Moderate, ≥401 → Poor
+```
+
+</details>
+
+---
+
+Now let me create the Climate Control UI component:
+
+---
+
+<details><summary>Edit file: web/src/components/ClimateControl.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 184, lines removed: 1
+
+```diff
+@@ -1,7 +1,190 @@
+- import { useState } from 'react';
++ import { useState, useEffect } from 'react';
++ import { ref, onValue, update } from 'firebase/database';
++ import { database } from '../firebase';
++ import type { ClimateState } from '../types';
++ import { ROOM_ID, TEMP_LOW_MAX, TEMP_MED_MAX, AQ_GOOD_MAX, AQ_MODERATE_MAX } from '../types';
+  import './Dashboard.css'; // Reuse the same styles
+  
+  export default function ClimateControl() {
++   const [state, setState] = useState<ClimateState | null>(null);
+    const [activeTab, setActiveTab] = useState<'live' | 'reports'>('live');
++   const [isConnected, setIsConnected] = useState(false);
++   const [error, setError] = useState<string>('');
++ 
++   useEffect(() => {
++     console.log('🚀 Climate Control component mounted, connecting to Firebase...');
++     console.log('🎯 Target path:', `/climate/${ROOM_ID}/state`);
++     const stateRef = ref(database, `/climate/${ROOM_ID}/state`);
++ 
++     // Loading timeout: show error if no data after 3 seconds
++     const loadingTimer = setTimeout(() => {
++       setState(prevState => {
++         if (!prevState) {
++           setError('No Firebase data found. Check ESP32 Climate Control is running and writing to Firebase.');
++           setIsConnected(false);
++           // Return fallback state instead of null
++           return {
++             ts: Date.now(),
++             tempC: 23.5,
++             humidity: 45.0,
++             aqRaw: 250,
++             aqStatus: 'Good' as const,
++             mode: 'auto' as const,
++             fan: { on: false, pwm: 0 },
++             comfortBand: 'Low' as const,
++             presence: false,
++             systemActive: false,
++             boostMode: false,
++             sensorError: 'No data - Demo mode'
++           };
++         }
++         return prevState;
++       });
++     }, 3000);
++ 
++     const unsubscribe = onValue(stateRef, (snapshot) => {
++       clearTimeout(loadingTimer);
++       
++       const value = snapshot.val();
++       console.log('🔥 Firebase climate snapshot received:', value);
++       console.log('📍 Firebase path:', `/climate/${ROOM_ID}/state`);
++       
++       if (!value) {
++         setIsConnected(false);
++         setError('No live data. Ensure ESP32 Climate Control is running.');
++         setState({
++           ts: Date.now(),
++           tempC: 23.5,
++           humidity: 45.0,
++           aqRaw: 250,
++           aqStatus: 'Good',
++           mode: 'auto',
++           fan: { on: false, pwm: 0 },
++           comfortBand: 'Low',
++           presence: false,
++           systemActive: false,
++           boostMode: false,
++           sensorError: 'No data - Demo mode'
++         });
++         return;
++       }
++ 
++       const dataTimestamp = value.ts ?? Date.now();
++       const isStale = (Date.now() - dataTimestamp) > 15000; // >15s considered stale
++ 
++       const merged = {
++         ts: dataTimestamp,
++         tempC: Number.isFinite(value.tempC) ? value.tempC : 0,
++         humidity: Number.isFinite(value.humidity) ? value.humidity : 0,
++         aqRaw: Number.isFinite(value.aqRaw) ? value.aqRaw : 0,
++         aqStatus: (value.aqStatus as 'Good' | 'Moderate' | 'Poor') || 'Good',
++         mode: (value.mode === 'manual' ? 'manual' : 'auto') as 'auto' | 'manual',
++         fan: {
++           on: Boolean(value.fan?.on),
++           pwm: Number.isFinite(value.fan?.pwm) ? value.fan.pwm : 0
++         },
++         comfortBand: (value.comfortBand as 'Low' | 'Moderate' | 'High' | 'Idle') || 'Low',
++         presence: Boolean(value.presence),
++         systemActive: Boolean(value.systemActive),
++         boostMode: Boolean(value.boostMode),
++         sensorError: value.sensorError ?? null
++       } as const;
++ 
++       console.log('Setting climate state:', merged);
++       setState(merged);
++       setIsConnected(!isStale);
++       setError(isStale ? 'Live data is stale (>15s). Check ESP32 Climate Control.' : '');
++     }, (err) => {
++       clearTimeout(loadingTimer);
++       console.error('Firebase climate connection error:', err);
++       setIsConnected(false);
++       setError(`Connection failed: ${err.message}`);
++       setState({
++         ts: Date.now(),
++         tempC: 23.5,
++         humidity: 45.0,
++         aqRaw: 250,
++         aqStatus: 'Good',
++         mode: 'auto',
++         fan: { on: false, pwm: 0 },
++         comfortBand: 'Low',
++         presence: false,
++         systemActive: false,
++         boostMode: false,
++         sensorError: 'Connection failed - Demo mode'
++       });
++     });
++ 
++     return () => {
++       clearTimeout(loadingTimer);
++       unsubscribe();
++     };
++   }, []);
++ 
++   const handleModeChange = async (newMode: 'auto' | 'manual') => {
++     if (!state) return;
++     
++     try {
++       const stateRef = ref(database, `/climate/${ROOM_ID}/state`);
++       await update(stateRef, { mode: newMode });
++     } catch (error) {
++       console.error('Mode change failed:', error);
++       alert('Mode change failed - check Firebase connection');
++     }
++   };
++ 
++   const handleManualControl = async (fan: { on: boolean; pwm: number }) => {
++     if (!state || state.mode !== 'manual') return;
++     
++     try {
++       const stateRef = ref(database, `/climate/${ROOM_ID}/state`);
++       await update(stateRef, { fan });
++     } catch (error) {
++       console.error('Manual control failed:', error);
++       alert('Control failed - check Firebase connection');
++     }
++   };
++ 
++   const handleBoostMode = async () => {
++     if (!state) return;
++     
++     try {
++       const stateRef = ref(database, `/climate/${ROOM_ID}/state`);
++       await update(stateRef, { boostMode: !state.boostMode });
++     } catch (error) {
++       console.error('Boost mode failed:', error);
++       alert('Boost mode failed - check Firebase connection');
++     }
++   };
++ 
++   const getTemperatureStatus = (temp: number): 'success' | 'warning' | 'error' => {
++     if (temp <= TEMP_LOW_MAX) return 'success';
++     if (temp <= TEMP_MED_MAX) return 'warning';
++     return 'error';
++   };
++ 
++   const getAirQualityStatus = (aqRaw: number): 'success' | 'warning' | 'error' => {
++     if (aqRaw <= AQ_GOOD_MAX) return 'success';
++     if (aqRaw <= AQ_MODERATE_MAX) return 'warning';
++     return 'error';
++   };
++ 
++   const getFanSpeedLabel = (pwm: number): string => {
++     if (pwm === 0) return 'OFF';
++     if (pwm <= 85) return 'LOW';
++     if (pwm <= 170) return 'MEDIUM';
++     return 'HIGH';
++   };
++ 
++   if (!state) {
++     return (
++       <div className="dashboard loading">
++         <div className="loader">
++           <div className="spinner"></div>
++           <p>Initializing Smart Climate Control...</p>
++         </div>
++       </div>
++     );
++   }
+  
+    return (
+```
+
+**Chunk 2**
+Lines added: 8, lines removed: 2
+
+```diff
+@@ -10,8 +193,14 @@
+          <h1>🌡️ Smart Classroom Climate Control</h1>
+          <div className="connection-status">
+-           <div className="status-indicator disconnected"></div>
+-           <span>Coming Soon</span>
++           <div className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}></div>
++           <span>{isConnected ? 'Live Data' : 'Demo Mode'}</span>
+          </div>
+        </header>
++ 
++       {error && (
++         <div className="error-banner">
++           ⚠️ {error}
++         </div>
++       )}
+  
+        <nav className="dashboard-nav">
+```
+
+**Chunk 3**
+Lines added: 138, lines removed: 9
+
+```diff
+@@ -32,13 +221,142 @@
+        {activeTab === 'live' && (
+          <div className="live-control">
+-           <div style={{ 
+-             padding: '2rem', 
+-             textAlign: 'center', 
+-             background: 'rgba(255,255,255,0.1)', 
+-             borderRadius: '8px',
+-             margin: '2rem 0'
+-           }}>
+-             <h3>🚧 Climate Control - Coming Soon</h3>
+-             <p>This module will control temperature, humidity, and fan speed.</p>
++           {/* Status Tiles */}
++           <div className="status-tiles">
++             {/* Temperature Tile */}
++             <div className={`status-tile ${getTemperatureStatus(state.tempC)}`}>
++               <div className="tile-icon">🌡️</div>
++               <div className="tile-content">
++                 <h3>TEMPERATURE</h3>
++                 <div className="tile-value">{state.tempC.toFixed(1)}°C</div>
++                 <div className="tile-status">{state.comfortBand}</div>
++               </div>
++             </div>
++ 
++             {/* Air Quality Tile */}
++             <div className={`status-tile ${getAirQualityStatus(state.aqRaw)}`}>
++               <div className="tile-icon">🌬️</div>
++               <div className="tile-content">
++                 <h3>AIR QUALITY</h3>
++                 <div className="tile-value">{state.aqRaw}</div>
++                 <div className="tile-status">{state.aqStatus}</div>
++               </div>
++             </div>
++ 
++             {/* Fan Status Tile */}
++             <div className={`status-tile ${state.fan.on ? 'success' : 'default'}`}>
++               <div className="tile-icon">💨</div>
++               <div className="tile-content">
++                 <h3>FAN STATUS</h3>
++                 <div className="tile-value">{state.fan.on ? 'ON' : 'OFF'}</div>
++                 <div className="tile-status">PWM: {state.fan.pwm}</div>
++               </div>
++             </div>
++ 
++             {/* Mode Tile */}
++             <div className={`status-tile ${state.mode === 'auto' ? 'success' : 'warning'}`}>
++               <div className="tile-icon">⚙️</div>
++               <div className="tile-content">
++                 <h3>MODE</h3>
++                 <div className="tile-value">{state.mode.toUpperCase()}</div>
++                 <div className="tile-status">{state.systemActive ? 'ACTIVE' : 'IDLE'}</div>
++               </div>
++             </div>
++ 
++             {/* Last Update Tile */}
++             <div className="status-tile default">
++               <div className="tile-icon">🕐</div>
++               <div className="tile-content">
++                 <h3>LAST UPDATE</h3>
++                 <div className="tile-value">{new Date(state.ts).toLocaleTimeString()}</div>
++                 <div className="tile-status">
++                   {Math.round((Date.now() - state.ts) / 1000)}s ago
++                 </div>
++               </div>
++             </div>
++           </div>
++ 
++           {/* Presence Status */}
++           <div className="presence-status">
++             <div className={`presence-indicator ${state.presence ? 'detected' : 'none'}`}>
++               <span className="presence-icon">{state.presence ? '👥' : '🚫'}</span>
++               <span className="presence-text">
++                 {state.presence ? 'PRESENCE DETECTED' : 'NO PRESENCE'}
++               </span>
++               <span className="system-status">
++                 System: {state.systemActive ? 'ACTIVE' : 'IDLE'}
++               </span>
++             </div>
++           </div>
++ 
++           {/* Control Mode */}
++           <div className="mode-control">
++             <h3>Control Mode</h3>
++             <div className="mode-switch">
++               <button 
++                 className={state.mode === 'auto' ? 'active' : ''}
++                 onClick={() => handleModeChange('auto')}
++               >
++                 🤖 Automatic
++               </button>
++               <button 
++                 className={state.mode === 'manual' ? 'active' : ''}
++                 onClick={() => handleModeChange('manual')}
++               >
++                 🎛️ Manual
++               </button>
++             </div>
++           </div>
++ 
++           {/* Manual Controls */}
++           {state.mode === 'manual' && (
++             <div className="manual-controls">
++               <h3>Manual Fan Control</h3>
++               <div className="control-group">
++                 <div className="control-item">
++                   <label>
++                     <input
++                       type="checkbox"
++                       checked={state.fan.on}
++                       onChange={(e) => handleManualControl({ 
++                         on: e.target.checked, 
++                         pwm: e.target.checked ? state.fan.pwm || 128 : 0 
++                       })}
++                     />
++                     Fan Power
++                   </label>
++                 </div>
++                 {state.fan.on && (
++                   <div className="control-item">
++                     <label>
++                       Fan Speed: {getFanSpeedLabel(state.fan.pwm)} ({state.fan.pwm})
++                       <input
++                         type="range"
++                         min="30"
++                         max="255"
++                         value={state.fan.pwm}
++                         onChange={(e) => handleManualControl({ 
++                           on: true, 
++                           pwm: parseInt(e.target.value) 
++                         })}
++                       />
++                     </label>
++                   </div>
++                 )}
++               </div>
++             </div>
++           )}
++ 
++           {/* Boost Mode */}
++           <div className="boost-control">
++             <button 
++               className={`boost-button ${state.boostMode ? 'active' : ''}`}
++               onClick={handleBoostMode}
++               disabled={!state.systemActive}
++             >
++               🚀 {state.boostMode ? 'BOOST ACTIVE' : 'ACTIVATE BOOST'} (10 min)
++             </button>
++             {!state.systemActive && (
++               <p className="boost-note">⚠️ Boost requires presence detection</p>
++             )}
+            </div>
+          </div>
+```
+
+</details>
+
+---
+
+Now I need to add some CSS styles for the new components that aren't in the existing Dashboard.css. Let me add styles for the climate-specific elements:
+
+---
+
+Read file: undefined
+
+---
+
+Let me check if there are already styles for presence indicators and tiles, then add the missing climate-specific styles:
+
+---
+
+
+
+---
+
+I need to add the missing CSS styles for the climate control specific components. Let me append them to the Dashboard.css file:
+
+---
+
+Read file: undefined
+
+---
+
+<details><summary>Edit file: web/src/components/Dashboard.css</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 186, lines removed: 2
+
+```diff
+@@ -147,4 +148,188 @@
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+-   100% { transform: rotate(360deg); }
+- }
++ }
++ 
++ /* Climate Control Specific Styles */
++ 
++ /* Presence Status */
++ .presence-status {
++   margin: 1.5rem 0;
++   padding: 1rem;
++   background: rgba(255, 255, 255, 0.05);
++   border-radius: 8px;
++   border: 1px solid rgba(255, 255, 255, 0.1);
++ }
++ 
++ .presence-indicator {
++   display: flex;
++   align-items: center;
++   gap: 1rem;
++   padding: 0.5rem;
++   border-radius: 6px;
++   transition: all 0.3s ease;
++ }
++ 
++ .presence-indicator.detected {
++   background: rgba(46, 213, 115, 0.2);
++   border: 1px solid rgba(46, 213, 115, 0.4);
++ }
++ 
++ .presence-indicator.none {
++   background: rgba(255, 71, 87, 0.2);
++   border: 1px solid rgba(255, 71, 87, 0.4);
++ }
++ 
++ .presence-icon {
++   font-size: 1.5rem;
++ }
++ 
++ .presence-text {
++   color: white;
++   font-weight: 600;
++   font-size: 1rem;
++ }
++ 
++ .system-status {
++   color: rgba(255, 255, 255, 0.7);
++   font-size: 0.9rem;
++   margin-left: auto;
++ }
++ 
++ /* Manual Controls */
++ .manual-controls {
++   margin: 1.5rem 0;
++   padding: 1.5rem;
++   background: rgba(255, 255, 255, 0.05);
++   border-radius: 8px;
++   border: 1px solid rgba(255, 255, 255, 0.1);
++ }
++ 
++ .manual-controls h3 {
++   color: white;
++   margin: 0 0 1rem 0;
++   font-size: 1.2rem;
++ }
++ 
++ .control-group {
++   display: flex;
++   flex-direction: column;
++   gap: 1rem;
++ }
++ 
++ .control-item {
++   display: flex;
++   flex-direction: column;
++   gap: 0.5rem;
++ }
++ 
++ .control-item label {
++   color: white;
++   font-size: 0.95rem;
++   display: flex;
++   align-items: center;
++   gap: 0.5rem;
++ }
++ 
++ .control-item input[type="checkbox"] {
++   width: 18px;
++   height: 18px;
++   accent-color: #3742fa;
++ }
++ 
++ .control-item input[type="range"] {
++   width: 100%;
++   height: 6px;
++   background: rgba(255, 255, 255, 0.2);
++   border-radius: 3px;
++   outline: none;
++   margin-top: 0.5rem;
++ }
++ 
++ .control-item input[type="range"]::-webkit-slider-thumb {
++   appearance: none;
++   width: 20px;
++   height: 20px;
++   background: #3742fa;
++   border-radius: 50%;
++   cursor: pointer;
++   border: 2px solid white;
++   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
++ }
++ 
++ .control-item input[type="range"]::-moz-range-thumb {
++   width: 20px;
++   height: 20px;
++   background: #3742fa;
++   border-radius: 50%;
++   cursor: pointer;
++   border: 2px solid white;
++   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
++ }
++ 
++ /* Boost Control */
++ .boost-control {
++   margin: 1.5rem 0;
++   text-align: center;
++ }
++ 
++ .boost-button {
++   background: linear-gradient(135deg, #ff6b6b, #ee5a24);
++   color: white;
++   border: none;
++   padding: 1rem 2rem;
++   border-radius: 8px;
++   font-size: 1.1rem;
++   font-weight: 600;
++   cursor: pointer;
++   transition: all 0.3s ease;
++   min-width: 200px;
++ }
++ 
++ .boost-button:hover:not(:disabled) {
++   transform: translateY(-2px);
++   box-shadow: 0 8px 25px rgba(255, 107, 107, 0.4);
++ }
++ 
++ .boost-button:disabled {
++   background: rgba(255, 255, 255, 0.1);
++   color: rgba(255, 255, 255, 0.5);
++   cursor: not-allowed;
++ }
++ 
++ .boost-button.active {
++   background: linear-gradient(135deg, #2ed573, #20bf6b);
++   animation: pulse 2s infinite;
++ }
++ 
++ .boost-note {
++   color: rgba(255, 255, 255, 0.7);
++   margin-top: 0.5rem;
++   font-size: 0.9rem;
++ }
++ 
++ @keyframes pulse {
++   0% { transform: scale(1); }
++   50% { transform: scale(1.05); }
++   100% { transform: scale(1); }
++ }
++ 
++ /* Status Tile Enhancements for Climate */
++ .status-tile.default {
++   background: rgba(255, 255, 255, 0.1);
++   border: 1px solid rgba(255, 255, 255, 0.2);
++ }
++ 
++ .status-tile.success {
++   background: rgba(46, 213, 115, 0.2);
++   border: 1px solid rgba(46, 213, 115, 0.4);
++ }
++ 
++ .status-tile.warning {
++   background: rgba(255, 184, 0, 0.2);
++   border: 1px solid rgba(255, 184, 0, 0.4);
++ }
++ 
++ .status-tile.error {
++   background: rgba(255, 71, 87, 0.2);
++   border: 1px solid rgba(255, 71, 87, 0.4);
++ }
+```
+
+</details>
+
+---
+
+Now let me check for any compilation errors:
+
+---
+
+
+
+---
+
+Let me update the todo list:
+
+---
+
+## Todo List
+
+- [x] Create Climate Control UI with temperature, air quality, fan status, and mode components
+- [x] Add Firebase integration for climate data
+- [x] Add manual fan controls for manual mode
+- [x] Add presence indicator and system status
+
+---
+
+Perfect! Now let me also make sure the Climate Control component is accessible from the main app. Let me check the App.tsx file to see if there's routing:
+
+---
+
+Read file: undefined
+
+---
+
+Excellent! The Climate Control component is already integrated into the app with navigation. Now let me run a final check to make sure everything is working:
+
+---
+
+
+
+---
+
+## ✅ Successfully Created Climate Control UI!
+
+I have successfully implemented the complete UI for the Smart Climate Control and Air Quality Monitoring module in `ClimateControl.tsx`. Here's what was accomplished:
+
+### 🎨 **UI Components Created (Matching the Image):**
+
+## 1. **📊 Status Tiles Grid**
+```tsx
+// Five main tiles as shown in the image:
+├─ 🌡️ TEMPERATURE: 23.5°C (with comfort band: Low/Moderate/High)
+├─ 🌬️ AIR QUALITY: Raw reading + status (Good/Moderate/Poor)  
+├─ 💨 FAN STATUS: ON/OFF + PWM level display
+├─ ⚙️ MODE: AUTO/MANUAL + system status (ACTIVE/IDLE)
+└─ 🕐 LAST UPDATE: Real-time timestamp + seconds ago
+```
+
+## 2. **👥 Presence Detection Display**
+```tsx
+// Visual presence indicator with system status
+🟢 PRESENCE DETECTED / 🔴 NO PRESENCE
+└─ System: ACTIVE/IDLE (based on YOLO detection)
+```
+
+## 3. **🎛️ Control Mode Switch**
+```tsx
+// Toggle between automatic and manual modes
+[🤖 Automatic] [🎛️ Manual]
+```
+
+## 4. **⚙️ Manual Fan Controls** 
+```tsx
+// Only visible in manual mode:
+├─ ☑️ Fan Power (checkbox)
+├─ 🎚️ Fan Speed slider (30-255 PWM)
+└─ Speed labels: OFF/LOW/MEDIUM/HIGH
+```
+
+## 5. **🚀 Boost Mode Button**
+```tsx
+// 10-minute fan override (requires presence)
+[🚀 ACTIVATE BOOST (10 min)]
+├─ Disabled when no presence
+└─ Visual feedback when active
+```
+
+### 🔥 **Firebase Integration:**
+
+## **Data Structure** (matches ESP32 output):
+```typescript
+interface ClimateState {
+  tempC: number;           // DHT22 temperature 
+  humidity: number;        // DHT22 humidity
+  aqRaw: number;          // MQ-135 raw reading  
+  aqStatus: 'Good'|'Moderate'|'Poor';
+  fan: { on: boolean; pwm: number };
+  comfortBand: 'Low'|'Moderate'|'High'|'Idle';
+  presence: boolean;       // From YOLO
+  systemActive: boolean;   // Computed state
+  boostMode: boolean;      // 10-min override
+}
+```
+
+## **Real-time Updates:**
+- **Firebase Path**: `/climate/roomA/state`
+- **Auto-refresh**: Updates every time ESP32 writes data
+- **Fallback**: Demo data if no connection (23.5°C, Good AQ)
+- **Error Handling**: Shows connection status and error messages
+
+### 🎨 **Smart Visual Indicators:**
+
+## **Color-Coded Status:**
+```css
+🟢 Green (Success): Good temp, Good AQ, Fan running
+🟡 Yellow (Warning): Moderate temp/AQ, Manual mode  
+🔴 Red (Error): High temp, Poor AQ, System errors
+⚪ Gray (Default): Neutral states, timestamps
+```
+
+## **Dynamic Elements:**
+- **Presence**: Green background when detected, red when none
+- **Boost Button**: Pulses when active, disabled without presence  
+- **Sliders**: Custom styled range inputs for fan speed
+- **Status Tiles**: Real-time color changes based on sensor values
+
+### 🔧 **Temperature & Air Quality Logic:**
+
+## **Temperature Bands** (from instruction.md):
+```typescript
+≤25°C     → LOW band (Green)
+25.1-28°C → MODERATE band (Yellow) 
+≥28.1°C   → HIGH band (Red)
+```
+
+## **Air Quality Thresholds** (updated):
+```typescript  
+0-300     → Good (Green)
+301-400   → Moderate (Yellow)
+≥401      → Poor (Red)
+```
+
+### 🎯 **User Experience Features:**
+
+1. **✅ Presence-Aware**: Shows system idle when no YOLO presence
+2. **✅ Mode-Sensitive**: Manual controls only appear in manual mode  
+3. **✅ Real-time**: Live data updates with timestamp tracking
+4. **✅ Responsive**: Error handling with fallback demo data
+5. **✅ Accessible**: Clear visual feedback and status indicators
+6. **✅ Professional**: Consistent design with lighting dashboard
+
+### 📱 **Navigation Integration:**
+- Climate Control is accessible via the main app navigation: `🌡️ Climate Control`
+- Seamless switching between `💡 Lighting Control` and `🌡️ Climate Control`
+- Maintains state when switching between modules
+
+The UI is now ready to display real-time data from your `climate_control_complete.ino` ESP32 code and respond to the YOLO presence detection system!
+
+---
+
