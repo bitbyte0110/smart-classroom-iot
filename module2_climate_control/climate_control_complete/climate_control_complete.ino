@@ -47,7 +47,7 @@ DHT dht(DHT_PIN, DHT_TYPE);
 // MQTT Configuration (Raspberry Pi broker)
 const char* MQTT_HOST = "192.168.202.221"; // Your Pi IPv4
 const int   MQTT_PORT = 1883;
-const char* MQTT_CLIENT_ID = "esp32-climate-roomA";
+const char* MQTT_CLIENT_ID = "esp32-climate-roomA-v2";
 
 WiFiClient espClient;
 PubSubClient mqtt(espClient);
@@ -133,6 +133,9 @@ void setup() {
   // Configure time for Firebase
   configTime(0, 0, "pool.ntp.org");
   
+  // Test connectivity
+  testConnectivity();
+  
   Serial.println("✅ Climate Control System Ready!");
   Serial.println("🌡️ DHT22 + 🌬️ MQ-135 + 💨 Fan Control");
   Serial.println("🤖 AI Presence Integration Active");
@@ -141,6 +144,7 @@ void setup() {
   Serial.println("   • MQ-135: Always monitoring");
   Serial.println("   • DHT22: Only when presence detected");
   Serial.println("   • Fan: Only when presence detected");
+  Serial.println("🔍 Debug Mode: Enhanced presence tracking enabled");
   Serial.println();
 }
 
@@ -149,12 +153,15 @@ void loop() {
   
   // Maintain MQTT connection
   if (!mqtt.connected()) {
+    Serial.println("⚠️ MQTT disconnected - attempting reconnection");
     reconnectMqtt();
   }
   mqtt.loop();
   
   // Check presence status every 10 seconds
   if (now - lastPresenceCheck > PRESENCE_CHECK_INTERVAL) {
+    // Also read presence directly from Firebase as backup
+    readPresenceFromFirebase();
     checkPresenceStatus();
     lastPresenceCheck = now;
   }
@@ -230,6 +237,33 @@ void initializeMqtt() {
   Serial.println("🔗 MQTT configured");
 }
 
+void testConnectivity() {
+  Serial.println("🧪 Testing Connectivity...");
+  
+  // Test WiFi
+  Serial.println("📶 WiFi: " + String(WiFi.status() == WL_CONNECTED ? "✅ Connected" : "❌ Disconnected"));
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("   └─ IP: " + WiFi.localIP().toString());
+  }
+  
+  // Test MQTT
+  Serial.println("📡 MQTT: " + String(mqtt.connected() ? "✅ Connected" : "❌ Disconnected"));
+  if (!mqtt.connected()) {
+    Serial.println("   └─ Attempting MQTT connection...");
+    reconnectMqtt();
+  }
+  
+  // Test Firebase
+  HTTPClient http;
+  String testUrl = String(FIREBASE_URL) + "/test.json";
+  http.begin(testUrl);
+  int httpCode = http.GET();
+  Serial.println("🔥 Firebase: " + String(httpCode == 200 ? "✅ Accessible" : "❌ Error " + String(httpCode)));
+  http.end();
+  
+  Serial.println("🧪 Connectivity test complete\n");
+}
+
 void reconnectMqtt() {
   while (!mqtt.connected() && WiFi.status() == WL_CONNECTED) {
     Serial.print("Connecting to MQTT...");
@@ -237,15 +271,23 @@ void reconnectMqtt() {
       Serial.println(" connected!");
       
       // Subscribe to control topics
-      mqtt.subscribe("control/climate/mode");
-      mqtt.subscribe("control/climate/fan_on");
-      mqtt.subscribe("control/climate/fan_pwm");
-      mqtt.subscribe("control/climate/boost");
+      bool sub1 = mqtt.subscribe("control/climate/mode");
+      bool sub2 = mqtt.subscribe("control/climate/fan_on");
+      bool sub3 = mqtt.subscribe("control/climate/fan_pwm");
+      bool sub4 = mqtt.subscribe("control/climate/boost");
       
-      // Subscribe to AI presence
-      mqtt.subscribe("ai/presence/detection");
+      // Subscribe to AI presence (CRITICAL)
+      bool sub5 = mqtt.subscribe("ai/presence/detection");
       
-      Serial.println("📡 Subscribed to control topics");
+      Serial.println("📡 MQTT Subscriptions:");
+      Serial.println("  ├─ control/climate/* : " + String(sub1 && sub2 && sub3 && sub4 ? "✅" : "❌"));
+      Serial.println("  └─ ai/presence/detection : " + String(sub5 ? "✅" : "❌"));
+      
+      if (sub5) {
+        Serial.println("✅ AI presence subscription successful - ready to receive YOLO data");
+      } else {
+        Serial.println("❌ AI presence subscription FAILED - will use Firebase backup");
+      }
     } else {
       Serial.print(" failed, rc=");
       Serial.print(mqtt.state());
@@ -262,7 +304,12 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
     message += (char)payload[i];
   }
   
-  Serial.println("📨 MQTT: " + topicStr + " = " + message);
+  Serial.println("📨 MQTT Received: " + topicStr + " = " + message);
+  
+  // Special handling for AI presence
+  if (topicStr == "ai/presence/detection") {
+    Serial.println("🤖 YOLO AI Message Received!");
+  }
   
   if (topicStr == "control/climate/mode") {
     currentState.mode = (message == "manual") ? "manual" : "auto";
@@ -283,9 +330,38 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
   }
   else if (topicStr == "ai/presence/detection") {
     // ONLY source of presence: yolo_force_gpu.py AI detection
-    currentState.presence = (message == "true");
+    bool newPresence = (message == "true");
+    if (newPresence != currentState.presence) {
+      currentState.presence = newPresence;
+      Serial.println("🔄 PRESENCE CHANGED: " + String(currentState.presence ? "TRUE" : "FALSE"));
+    }
     // Let the 10-second check cycle handle fan/DHT activation logic
   }
+}
+
+void readPresenceFromFirebase() {
+  // Backup method to read presence directly from Firebase
+  if (WiFi.status() != WL_CONNECTED) return;
+  
+  HTTPClient http;
+  String url = String(FIREBASE_URL) + "/lighting/" + ROOM_ID + "/state/ai_presence.json";
+  
+  http.begin(url);
+  int httpCode = http.GET();
+  
+  if (httpCode == 200) {
+    String payload = http.getString();
+    bool firebasePresence = (payload == "true");
+    
+    if (firebasePresence != currentState.presence) {
+      currentState.presence = firebasePresence;
+      Serial.println("🔥 Firebase Presence Update: " + String(currentState.presence ? "TRUE" : "FALSE"));
+    }
+  } else {
+    Serial.println("⚠️ Firebase presence read failed: " + String(httpCode));
+  }
+  
+  http.end();
 }
 
 void checkPresenceStatus() {
@@ -294,6 +370,10 @@ void checkPresenceStatus() {
   
   // Direct mapping: presence from YOLO → system activation
   currentState.systemActive = currentState.presence;
+  
+  // Debug: Always show current presence state every 10 seconds
+  Serial.println("🔍 Presence Check: currentState.presence = " + String(currentState.presence ? "TRUE" : "FALSE"));
+  Serial.println("🔍 System Active: " + String(currentState.systemActive ? "TRUE" : "FALSE"));
   
   // Only print status when it changes to avoid flooding
   if (previousActive != currentState.systemActive) {
