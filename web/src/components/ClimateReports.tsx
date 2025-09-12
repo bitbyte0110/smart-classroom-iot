@@ -52,6 +52,7 @@ export default function ClimateReports() {
             humidity: rawLog.sensors?.humidity || rawLog.humidity || 0,
             aqRaw: rawLog.sensors?.airQuality || rawLog.aqRaw || 0,
             aqStatus: rawLog.aqStatus || 'Good',
+            aqAlert: rawLog.aqAlert || '',
             mode: rawLog.system?.mode || rawLog.mode || 'auto',
             fan: {
               on: rawLog.actuators?.fanOn || rawLog.fan?.on || false,

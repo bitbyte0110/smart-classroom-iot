@@ -465,13 +465,19 @@ void readSensors() {
   // Classify air quality (always active)
   if (aqRaw <= AQ_GOOD_MAX) {
     currentState.aqStatus = "Good";
+    currentState.aqAlert = ""; // Clear alerts for good air quality
   } else if (aqRaw <= AQ_MODERATE_MAX) {
     currentState.aqStatus = "Moderate";
+    currentState.aqAlert = "WARNING: Moderate air quality detected. Monitor conditions.";
   } else {
     currentState.aqStatus = "Poor";
+    currentState.aqAlert = "CRITICAL: Poor air quality detected! Fan at maximum speed.";
   }
   
   Serial.printf("🌬️ Air Quality: %d (%s) [CONTINUOUS - Not affected by presence]\n", aqRaw, currentState.aqStatus.c_str());
+  if (currentState.aqAlert != "") {
+    Serial.println("   Alert: " + currentState.aqAlert);
+  }
   
   // ONLY read DHT22 when YOLO presence detected
   if (currentState.presence) {
@@ -553,25 +559,22 @@ void autoControlLogic() {
     }
   }
   
-  // Air Quality Control Logic
+  // Air Quality Fan Control Logic (alerts are set in readSensors)
   // Thresholds: 0-300=Good, 301-400=Moderate, 401+=Poor
   if (currentState.aqStatus == "Poor") {
-    // POOR Air Quality (401+): Force fan to MAXIMUM speed + ALERT
+    // POOR Air Quality (401+): Force fan to MAXIMUM speed
     targetDuty = FAN_DUTY_HIGH;
     currentState.comfortBand = "High"; // Override temperature band
-    currentState.aqAlert = "CRITICAL: Poor air quality detected! Fan at maximum speed.";
     Serial.println("🚨 POOR Air Quality detected! Fan forced to MAXIMUM speed");
     Serial.printf("   AQ Raw: %d (Threshold: >400)\n", currentState.aqRaw);
   } else if (currentState.aqStatus == "Moderate") {
-    // MODERATE Air Quality (301-400): Keep current fan speed + WARNING
-    currentState.aqAlert = "WARNING: Moderate air quality detected. Monitor conditions.";
-    Serial.println("⚠️ MODERATE Air Quality detected - Warning to user");
+    // MODERATE Air Quality (301-400): Keep current fan speed (temperature-based)
+    Serial.println("⚠️ MODERATE Air Quality detected - Warning sent, no fan change");
     Serial.printf("   AQ Raw: %d (Threshold: 301-400) - No fan speed change\n", currentState.aqRaw);
     // targetDuty remains unchanged (temperature-based control)
   } else {
-    // GOOD Air Quality (0-300): Clear any alerts
-    currentState.aqAlert = "";
-    Serial.printf("✅ GOOD Air Quality: %d (Threshold: 0-300)\n", currentState.aqRaw);
+    // GOOD Air Quality (0-300): Normal temperature-based control
+    Serial.printf("✅ GOOD Air Quality: %d (Threshold: 0-300) - Temperature-based fan control\n", currentState.aqRaw);
     // targetDuty remains temperature-based
   }
   

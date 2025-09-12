@@ -33,6 +33,7 @@ export default function ClimateControl() {
             humidity: 45.0,
             aqRaw: 250,
             aqStatus: 'Good',
+            aqAlert: '',
             mode: 'auto' as const,
             fan: { on: false, pwm: 0 },
             comfortBand: 'Moderate',
@@ -61,6 +62,7 @@ export default function ClimateControl() {
           humidity: 45.0,
           aqRaw: 250,
           aqStatus: 'Good',
+          aqAlert: '',
           mode: 'auto',
           fan: { on: false, pwm: 0 },
           comfortBand: 'Moderate',
@@ -95,6 +97,7 @@ export default function ClimateControl() {
         humidity: Number.isFinite(value.humidity) ? value.humidity : 0,
         aqRaw: Number.isFinite(value.aqRaw) ? value.aqRaw : 0,
         aqStatus: (value.aqStatus || 'Good') as 'Good' | 'Moderate' | 'Poor',
+        aqAlert: value.aqAlert || '',
         mode: (value.mode === 'manual' ? 'manual' : 'auto') as 'auto' | 'manual',
         fan: {
           on: Boolean(value.fan?.on),
@@ -105,6 +108,11 @@ export default function ClimateControl() {
       };
 
       console.log('Setting climate state:', merged); // Debug log
+      
+      // Debug air quality alerts
+      if (merged.aqAlert) {
+        console.log(`🚨 Air Quality Alert: ${merged.aqStatus} - ${merged.aqAlert}`);
+      }
       setState(merged);
       setIsConnected(!isStale);
       setError(isStale ? `Live data is stale (${Math.round(timeDiff/1000)}s old). Check ESP32 time sync or Firebase connection.` : '');
@@ -120,6 +128,7 @@ export default function ClimateControl() {
         humidity: 45.0,
         aqRaw: 250,
         aqStatus: 'Good',
+        aqAlert: '',
         mode: 'auto',
         fan: { on: false, pwm: 0 },
         comfortBand: 'Moderate',
