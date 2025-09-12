@@ -42,17 +42,24 @@ export default function ClimateReports() {
       console.log('📊 Raw climate log data from Firebase:', data);
       
       if (data) {
+        const classifyAQ = (raw: number) => {
+          if (raw >= 401) return { aqStatus: 'Poor' as const, aqAlert: 'Alert, air quality poor' };
+          if (raw >= 301) return { aqStatus: 'Moderate' as const, aqAlert: 'Warning, air quality moderate' };
+          return { aqStatus: 'Good' as const, aqAlert: '' };
+        };
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const logsArray = Object.values(data).map((rawLog: any) => {
           // Handle ESP32 nested log structure
+          const aqRawVal = rawLog.sensors?.airQuality || rawLog.aqRaw || 0;
+          const derived = classifyAQ(aqRawVal);
           const processedLog: ClimateLog = {
             ts: rawLog.timestamp || rawLog.ts || Date.now(),
             presence: rawLog.ai?.presence || rawLog.presence || false,
             tempC: rawLog.sensors?.temperature || rawLog.tempC || 0,
             humidity: rawLog.sensors?.humidity || rawLog.humidity || 0,
-            aqRaw: rawLog.sensors?.airQuality || rawLog.aqRaw || 0,
-            aqStatus: rawLog.aqStatus || 'Good',
-            aqAlert: rawLog.aqAlert || '',
+            aqRaw: aqRawVal,
+            aqStatus: rawLog.aqStatus || derived.aqStatus,
+            aqAlert: rawLog.aqAlert || derived.aqAlert,
             mode: rawLog.system?.mode || rawLog.mode || 'auto',
             fan: {
               on: rawLog.actuators?.fanOn || rawLog.fan?.on || false,

@@ -90,14 +90,23 @@ export default function ClimateControl() {
       // Get presence from the same AI source (follows lighting module)
       const presenceValue = value.presence ?? false;
 
+      // Derive AQ status/alert if missing
+      const classifyAQ = (raw: number) => {
+        if (raw >= 401) return { aqStatus: 'Poor' as const, aqAlert: 'Alert, air quality poor' };
+        if (raw >= 301) return { aqStatus: 'Moderate' as const, aqAlert: 'Warning, air quality moderate' };
+        return { aqStatus: 'Good' as const, aqAlert: '' };
+      };
+      const aqRawVal = Number.isFinite(value.aqRaw) ? value.aqRaw : 0;
+      const derived = classifyAQ(aqRawVal);
+
       const merged: ClimateState = {
         ts: dataTimestamp,
         presence: presenceValue && !isStale,
         tempC: Number.isFinite(value.tempC) ? value.tempC : 0,
         humidity: Number.isFinite(value.humidity) ? value.humidity : 0,
-        aqRaw: Number.isFinite(value.aqRaw) ? value.aqRaw : 0,
-        aqStatus: (value.aqStatus || 'Good') as 'Good' | 'Moderate' | 'Poor',
-        aqAlert: value.aqAlert || '',
+        aqRaw: aqRawVal,
+        aqStatus: (value.aqStatus || derived.aqStatus),
+        aqAlert: (value.aqAlert ?? derived.aqAlert),
         mode: (value.mode === 'manual' ? 'manual' : 'auto') as 'auto' | 'manual',
         fan: {
           on: Boolean(value.fan?.on),

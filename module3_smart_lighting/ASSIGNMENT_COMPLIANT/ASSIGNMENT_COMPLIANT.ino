@@ -265,6 +265,19 @@ void publishMQTT() {
   
   // sensors/lighting/mode
   mqtt.publish("sensors/lighting/mode", currentData.mode.c_str(), true);
+
+  // sensors/lighting/state (combined for LCD)
+  StaticJsonDocument<256> j3;
+  j3["ts"] = (uint64_t)getEpochTime();
+  j3["presence"] = currentData.ai_presence;
+  j3["ldrRaw"] = currentData.ldrRaw;
+  j3["mode"] = currentData.mode;
+  JsonObject led = j3.createNestedObject("led");
+  led["on"] = currentData.ledOn;
+  led["pwm"] = currentData.ledPwm;
+  char b3[256];
+  size_t n3 = serializeJson(j3, b3);
+  mqtt.publish("sensors/lighting/state", (const uint8_t*)b3, n3, true);
 }
 
 void acquireSensorData() {

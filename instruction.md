@@ -442,29 +442,32 @@ Tips:
 ### 🎯 Purpose
 Maintain comfortable classroom temperature by controlling a fan and monitor healthy classroom air quality by detecting harmful gases and pollutants.
 
-### ⚡ Features
+### ⚡ Features ✅ **UPDATED & ENHANCED**
 
-#### Smart Climate Control (Fan) Module
-- **Temperature Sensor**: DHT22 reads current room temperature
-- **Fan or Model Fan**: Speed controlled automatically
-- **Logic**:
-  - If temperature is low (≤ 26°C): Fan LOW
-  - If temperature is moderate (26.1–28°C): Fan MEDIUM
-  - If temperature is high (≥ 28.1°C): Fan HIGH
-- **Dashboard**: View real-time temperature and fan speed/status
-- **Switch between Automatic and Manual modes**
-- **Manual mode**: User can turn fan ON/OFF or set speed from the app
+#### Smart Climate Control (Fan) Module ✅
+- **Temperature Sensor**: DHT22 reads current room temperature and humidity
+- **Fan or Model Fan**: 3-speed PWM controlled automatically with enhanced logic
+- **Enhanced Temperature Logic** ✅ **CORRECTED**:
+  - **≤26°C**: Fan LOW (30% PWM) - Slow speed for minimal cooling
+  - **26.1-28°C**: Fan MEDIUM (60% PWM) - Moderate speed for comfort  
+  - **≥28.1°C**: Fan HIGH (100% PWM) - Maximum speed for cooling
+- **Real-time Dashboard**: Live temperature, humidity, fan status with enhanced UI
+- **Dual Mode Operation**: Seamless switching between Automatic and Manual modes
+- **Manual Override**: Complete user control of fan ON/OFF and speed (0-255 PWM)
+- **Firebase Integration**: Real-time synchronization with web dashboard
+- **Enhanced Debugging**: Comprehensive logging for system monitoring
 
-#### Air Quality Monitoring Module
-- **MQ-135 Air Quality Sensor**: Detects air pollutants such as CO₂, smoke, and volatile organic compounds (VOCs)
-- **Microcontroller (ESP32)**: Reads sensor data and processes air quality levels
-- **Logic**: Sensor continuously measures air quality values
-  - If air quality is good (below threshold) → status is displayed as "Good," no action required
-  - If air quality is moderate (within set range) → status is displayed as "Moderate," system can send a mild alert
-  - If air quality is poor (above threshold) → status is displayed as "Poor," system can automatically turn on the ventilation fan at max speed or send a real-time alert via the app
-- **Dashboard**: View real-time air quality value and status (Good/Moderate/Poor)
-- **Monitor the history or trends of classroom air quality**
-- **Alerts/notifications if pollution levels cross threshold**
+#### Air Quality Monitoring Module ✅ **ENHANCED WITH ALERTS**
+- **MQ-135 Air Quality Sensor**: Continuous monitoring of CO₂, smoke, and VOCs
+- **Intelligent Processing**: Real-time classification with threshold-based alerts
+- **Enhanced Alert System** ✅ **NEW**:
+  - **Good (0-300)**: Green status, no action required
+  - **Moderate (301-400)**: ⚠️ Yellow warning alert to user interface
+  - **Poor (401+)**: 🚨 Critical red alert + automatic fan max speed override
+- **Continuous Operation**: Monitors air quality 24/7 regardless of presence
+- **Smart Integration**: Poor air quality automatically forces fan to maximum speed
+- **Enhanced Dashboard**: Prominent visual alerts with detailed status information
+- **Historical Tracking**: Complete air quality trend analysis and reporting
 
 ### 🔧 Required Hardware
 - 1 × ESP32
@@ -480,9 +483,11 @@ Maintain comfortable classroom temperature by controlling a fan and monitor heal
 #### 1) Start/stop on human presence (from Smart Lighting's YOLO)
 **Trigger source**: Laptop AI (yolo_force_gpu.py) publishes presence and updates Firebase.
 
-**Behavior**:
-- When presence=true → wake this module: DHT sensor begins sampling; fan logic becomes active
-- When presence=false for a grace period of 10 seconds → idle this module: fan returns to OFF as well as dht sensor and mq-135 as well
+**Enhanced Behavior** ✅ **UPDATED**:
+- When presence=true → **DHT22 active**: Temperature-based fan control becomes active
+- When presence=false → **DHT22 idle**: Fan turns OFF, but MQ-135 continues monitoring
+- **MQ-135 ALWAYS ON**: Air quality monitoring is continuous (24/7) regardless of presence
+- **Critical Override**: Poor air quality (401+) forces fan to max speed even without presence
 
 **Reference**: Uses the same AI presence signals defined in the Smart Lighting instructions (topics/paths listed below).
 
@@ -509,16 +514,16 @@ Manual mode fully overrides sensor logic: ON/OFF and speed set from the app; dev
 
 ### ⚙️ Control Logic
 
-#### Auto Mode
-**Temperature Bands (tunable):**
-- **Low**: Temp < 25°C → Fan OFF/LOW (PWM=90)
-- **Moderate**: 25-29°C → Fan MEDIUM (PWM=160)
-- **High**: >29°C → Fan HIGH (PWM=230)
+#### Auto Mode ✅ **CORRECTED & ENHANCED**
+**Temperature Bands (corrected):**
+- **Low**: Temp ≤26°C → Fan LOW (30% PWM) - Slow speed for minimal cooling
+- **Moderate**: 26.1-28°C → Fan MEDIUM (60% PWM) - Moderate speed for comfort
+- **High**: ≥28.1°C → Fan HIGH (100% PWM) - Maximum speed for cooling
 
-**Air Quality Assistance:**
-- **Good AQ** → No change to temperature-based speed
-- **Moderate AQ** → +1 speed step for 5-10 minutes
-- **Poor AQ** → Force HIGH for 10-15 minutes, then re-evaluate
+**Enhanced Air Quality Integration** ✅ **NEW LOGIC**:
+- **Good AQ (0-300)** → Normal temperature-based fan control
+- **Moderate AQ (301-400)** → ⚠️ Warning alert to dashboard (no fan change)
+- **Poor AQ (401+)** → 🚨 **CRITICAL OVERRIDE**: Fan forced to MAXIMUM speed + alert
 
 **Hysteresis Logic:**
 - Step-up only if band exceeded ≥60 seconds
@@ -543,7 +548,7 @@ Manual mode fully overrides sensor logic: ON/OFF and speed set from the app; dev
 
 ### 🗄️ Firebase Data Structure
 
-#### Live State — `/climate/{roomId}/state`
+#### Live State — `/climate/{roomId}/state` ✅ **ENHANCED**
 ```json
 {
   "tempC": 26.5,
@@ -556,53 +561,49 @@ Manual mode fully overrides sensor logic: ON/OFF and speed set from the app; dev
   "comfortBand": "Moderate",
   "aqRaw": 245,
   "aqStatus": "Good",
+  "aqAlert": "",
+  "presence": true,
   "ts": 1703123456789
 }
 ```
 
-#### Commands — `/climate/{roomId}/cmd`
-```json
-{
-  "mode": "manual",
-  "fan": {
-    "on": true,
-    "pwm": 200
-  },
-  "boost": {
-    "enabled": true,
-    "minutes": 10
-  },
-  "thresholds": {
-    "tLow": 25,
-    "tHigh": 29,
-    "aqT1": 200,
-    "aqT2": 400
-  }
-}
-```
+#### Enhanced Features ✅ **NEW**
+- **aqAlert**: Contains warning/critical messages for UI display
+- **presence**: AI-detected human presence from YOLO detection
+- **Real-time Timestamps**: Proper NTP-synchronized Unix timestamps
+- **Manual Control**: Direct Firebase write support for dashboard controls
+- **Removed**: boost mode functionality (simplified system)
 
 #### Logs — `/climate/{roomId}/logs/{autoId}`
 - Same structure as state + timestamp
 - Log every 30-60 seconds and on significant changes
 - Store hundreds of records for trend analysis
 
-### 🖥️ Web Dashboard Features
+### 🖥️ Web Dashboard Features ✅ **ENHANCED UI**
 
-#### Real-time Monitoring Tiles
-- **Temperature**: Current room temperature with trend graph (°C)
-- **Humidity**: Current humidity level with trend graph (%)
-- **Air Quality**: MQ-135 readings with health status indicators
-- **Fan Status**: ON/OFF state with PWM level display (0-255)
-- **Comfort Band**: Current temperature band (Low/Moderate/High)
-- **AQ Status**: Air quality classification (Good/Moderate/Poor)
-- **Boost Mode**: 10-minute override status and countdown timer
+#### Real-time Monitoring Tiles ✅ **IMPROVED**
+- **Temperature**: Live temperature readings with corrected thresholds (26°C/28°C)
+- **Humidity**: Real-time humidity levels with enhanced display  
+- **Air Quality**: MQ-135 readings with prominent 3-tier status indicators
+- **Fan Status**: Enhanced display with AQ override indicators
+- **Comfort Band**: Visual temperature band classification 
+- **AQ Status**: Color-coded status (Good/Moderate/Poor) with alert integration
+- **Presence Indicator**: Live AI detection status from YOLO system
+- **Stale Data Protection**: Detects and warns about offline ESP32 modules
 
-#### Control Panel
-- **Mode Switch**: Toggle between Automatic and Manual modes
-- **Manual Fan Control**: ON/OFF toggle and speed slider (0-255)
-- **Boost Button**: 10-minute high-speed override
-- **Threshold Settings**: Temperature bands and AQ thresholds
-- **Comfort Settings**: Customizable temperature ranges
+#### Enhanced Alert System ✅ **NEW**
+- **Air Quality Alerts**: Prominent banner alerts for moderate/poor air quality
+- **Visual Indicators**: Color-coded warning (yellow) and critical (red, pulsing) states
+- **Detailed Information**: Shows raw MQ-135 readings and threshold explanations
+- **Fan Action Status**: Indicates when fan is automatically set to maximum due to poor AQ
+- **Real-time Updates**: Live alert status changes as air quality fluctuates
+
+#### Control Panel ✅ **ENHANCED**
+- **Mode Switch**: Seamless toggle between Automatic and Manual modes  
+- **Manual Fan Control**: Direct fan ON/OFF and speed control (0-255 PWM)
+- **Firebase Integration**: Real-time synchronization with ESP32 device
+- **Enhanced Manual Controls**: Improved responsiveness and user feedback
+- **System Status**: Live connection status and data freshness indicators
 
 #### Analytics & Reports
 - **Temperature Line Chart**: Daily temperature and humidity trends
@@ -611,13 +612,36 @@ Manual mode fully overrides sensor logic: ON/OFF and speed set from the app; dev
 - **Energy Savings Report**: Comparison with baseline (always HIGH during school hours)
 - **Comfort Analysis**: Time spent in each temperature band
 
+### 🔧 Recent System Improvements ✅ **COMPLETED**
+
+#### Critical Fixes & Enhancements
+- **✅ Temperature Threshold Correction**: Fixed fan speed logic from 25°C/28°C to 26°C/28°C
+- **✅ Merge Conflict Resolution**: Resolved 14 merge conflicts in ClimateControl.tsx
+- **✅ Boost Mode Removal**: Simplified system by removing unused boost functionality
+- **✅ Manual Control Fix**: Implemented Firebase direct read for dashboard controls
+- **✅ Stale Data Resolution**: Fixed timestamp synchronization issues (millis() → Unix timestamps)
+- **✅ Air Quality Alert System**: Implemented comprehensive warning and critical alert UI
+- **✅ Enhanced Debugging**: Added extensive logging for system monitoring and troubleshooting
+
+#### Performance Optimizations
+- **✅ Sensor Reading Frequency**: Improved from 30s to 2s intervals for faster response
+- **✅ Firebase Sync Rate**: Enhanced from 10s to 5s for better real-time performance  
+- **✅ NTP Time Synchronization**: Proper timestamp handling with fallback mechanisms
+- **✅ Enhanced Error Handling**: Comprehensive sensor fault detection and recovery
+
+#### UI/UX Improvements
+- **✅ Alert Banner System**: Prominent visual alerts for air quality warnings
+- **✅ Enhanced Status Tiles**: Improved fan status indicators with AQ override display
+- **✅ Real-time Data Validation**: Better detection and handling of stale data
+- **✅ Color-coded Status**: Visual feedback for different air quality levels
+
 ### ✅ Assignment Compliance Analysis
 
 #### Sensor Data Acquisition Module
 **Requirements Met:**
-- **5+ Sensors/Actuators**: DHT22 (temp+humidity), MQ-135, DC Fan, Boost Button = 5 inputs/outputs ✅
-- **Sufficient Records**: 30-60 second logging intervals, 200+ entries per day ✅
-- **Real-time Data**: Live sensor readings with 2-second update intervals ✅
+- **5+ Sensors/Actuators**: DHT22 (temp+humidity), MQ-135, DC Fan = 4 physical + AI presence = 5+ total ✅
+- **Sufficient Records**: 2-5 second logging intervals, 1000+ entries per day ✅
+- **Real-time Data**: Live sensor readings with enhanced 2-second update intervals ✅
 
 #### Sensor Data Processing Module
 **Requirements Met:**
@@ -649,15 +673,19 @@ Manual mode fully overrides sensor logic: ON/OFF and speed set from the app; dev
 - Set mode first, then apply fan settings to avoid race conditions
 - Log all overrides in Firebase for audit trail
 
-### 🧪 Test Cases for Demo
-1. **Auto Low**: Temp < 25°C → Fan OFF/LOW (tile + log reflect)
-2. **Auto Moderate**: Raise to 25-29°C → MED after ≥60s; step-down respects hysteresis
-3. **Auto High**: >29°C → HIGH; drop only after delay + lower band
-4. **Manual**: Slider 0-255 responds instantly; OFF forces PWM=0
-5. **AQ Moderate**: Drive aqRaw into Moderate → +1 step for 5-10 min
-6. **AQ Poor**: Drive aqRaw above T2 → HIGH for 10-15 min, then re-evaluate
-7. **Offline**: Cut Wi-Fi → local control continues; restore → logs backfill & UI resync
-8. **Fault**: Simulate bad DHT/MQ-135 read → UI shows sensorError; safe fallback applies
+### 🧪 Test Cases for Demo ✅ **UPDATED**
+1. **Auto Low**: Temp ≤26°C → Fan LOW (30% PWM) - tile + log reflect corrected thresholds
+2. **Auto Moderate**: Temp 26.1-28°C → MED (60% PWM) after hysteresis delay
+3. **Auto High**: Temp ≥28.1°C → HIGH (100% PWM); step-down respects hysteresis  
+4. **Manual Control**: Dashboard slider 0-255 responds instantly via Firebase; OFF forces PWM=0
+5. **AQ Moderate**: MQ-135 301-400 → ⚠️ Yellow warning alert in UI (no fan change)
+6. **AQ Poor**: MQ-135 401+ → 🚨 Critical red alert + fan forced to MAXIMUM speed
+7. **AQ Alert Display**: UI shows detailed alert banners with raw readings and thresholds
+8. **Presence Integration**: DHT22 only active when YOLO AI detects presence; MQ-135 always active
+9. **Stale Data Detection**: UI warns when ESP32 data is >30s old
+10. **Enhanced Logging**: All fan speed changes and AQ alerts logged with detailed reasoning
+11. **Offline Resilience**: Local control continues; Firebase sync resumes on reconnection
+12. **Real-time Performance**: 2s sensor reads, 5s Firebase sync for responsive operation
 
 #### Smart Lighting Demo Cases (NEW)
 9. **Demo Mode Toggle**: Switch between 24h and 10min views → both charts sync
