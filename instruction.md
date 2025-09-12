@@ -19,29 +19,19 @@
 ### 🏗️ System Architecture
 
 ```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   ESP32 Device  │    │  Laptop/PC      │    │  Web Dashboard  │
-│                 │    │                 │    │                 │
-<<<<<<< HEAD
-│ • Manual Controls│◄──►│ • AI Detection  │◄──►│ • React App     │
-│ • LDR Sensor    │    │ • Integrated    │    │ • Firebase UI   │
-│ • LED Control   │    │   Camera        │    │ • Analytics     │
-│                 │    │ • Firebase Sync │    │ • Reports       │
-=======
-│ MODULE 3:       │◄──►│ • MQTT Broker   │◄──►│ • React App     │
-│ • PIR Sensor    │    │ • Data Logger   │    │ • Firebase UI   │
-│ • LDR Sensor    │    │ • AI Detection  │    │ • Analytics     │
-│ • LED Control   │    │ • Camera Stream │    │ • Reports       │
-│ • Temperature   │    │                 │    │                 │
-│ • Air Quality   │    │                 │    │                 │
-│                 │    │                 │    │                 │
-│ MODULE 2:       │    │                 │    │                 │
-│ • DHT22 Temp    │    │                 │    │                 │
-│ • MQ-135 AQ     │    │                 │    │                 │
-│ • DC Fan PWM    │    │                 │    │                 │
-│ • Boost Button  │    │                 │    │                 │
->>>>>>> 91f274ab1c25be0933d5944378579967c37a7719
-└─────────────────┘    └─────────────────┘    └─────────────────┘
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   ESP32 Module  │    │  Laptop/PC      │    │  Raspberry Pi   │    │  Web Dashboard  │
+│                 │    │                 │    │                 │    │                 │
+│ MODULE 3:       │◄──►│ • AI Detection  │◄──►│ • MQTT Broker   │◄──►│ • React App     │
+│ • LDR Sensor    │    │ • Integrated    │    │ • Grove LCD     │    │ • Firebase UI   │
+│ • LED Control   │    │   Camera        │    │ • Dashboard     │    │ • Analytics     │
+│                 │    │ • Firebase Sync │    │   Display       │    │ • Reports       │
+│ MODULE 2:       │    │                 │    │                 │    │                 │
+│ • DHT22 Temp    │    │                 │    │                 │    │                 │
+│ • DHT22 Humidity│    │                 │    │                 │    │                 │
+│ • MQ-135 AQ     │    │                 │    │                 │    │                 │
+│ • DC Fan PWM    │    │                 │    │                 │    │                 │
+└─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          └───────────────────────┼───────────────────────┘
                                  │
@@ -97,8 +87,24 @@
 - `control/climate/boost` - Boost mode activation (10-minute override)
 - `control/climate/thresholds` - Temperature and AQ threshold updates
 
-#### Raspberry Pi (Publisher & Subscriber)
->>>>>>> 91f274ab1c25be0933d5944378579967c37a7719
+#### Raspberry Pi (MQTT Broker & LCD Display)
+**MQTT Broker Functions:**
+- Hosts MQTT broker (Mosquitto) for ESP32 and Laptop communication
+- Bridges MQTT data to Firebase (optional, can use existing bridge)
+
+**LCD Display Functions:**
+**Subscribes to:**
+- `sensors/lighting/state` - Combined lighting data from ESP32
+- `sensors/climate/state` - Combined climate data from ESP32  
+- `sensors/air/aq` - Air quality data from ESP32 (if using separate publisher)
+
+**Display Output:**
+- Grove 16x2 RGB LCD with rotating pages (3 seconds each)
+- Page 1: Lighting status (LDR, LED, presence)
+- Page 2: Climate status (temperature, humidity, fan)
+- Page 3: Air quality status (MQ-135, alerts)
+
+#### Laptop/PC (AI Processing & Publisher)
 **Publishes to:**
 - `ai/presence/detection` - AI camera human detection results
 - `ai/presence/count` - Number of people detected
@@ -123,19 +129,14 @@
 
 #### ESP32 (Edge Device - Sensor Hub)
 **Primary Functions:**
-<<<<<<< HEAD
-- **Sensor Data Collection**: LDR, Temperature, Air Quality
-- **Actuator Control**: LED PWM control, Fan speed control
-- **Local Processing**: Sensor filtering, debouncing, validation
-=======
-- **Sensor Data Collection**: PIR, LDR, Temperature, Humidity, Air Quality
+- **Sensor Data Collection**: LDR, DHT22 (Temperature + Humidity), MQ-135 (Air Quality)
 - **Actuator Control**: LED PWM control, Fan speed control (PWM)
 - **Local Processing**: Sensor filtering, debouncing, validation, hysteresis logic
->>>>>>> 91f274ab1c25be0933d5944378579967c37a7719
-- **MQTT Publishing**: Real-time sensor data to cloud
+- **MQTT Publishing**: Real-time sensor data to Raspberry Pi MQTT broker
+- **Firebase Integration**: Direct cloud synchronization for web dashboard
 - **Offline Operation**: Continues working without internet
 - **Hardware Interface**: Direct GPIO control of sensors/actuators
-- **Climate Logic**: Temperature band control, AQ assistance, boost mode
+- **Climate Logic**: Temperature band control, AQ assistance with automatic fan override
 
 **Technical Specifications:**
 - **CPU**: Dual-core 32-bit processor @ 240MHz
@@ -326,40 +327,61 @@ system/
 │   └── laptop             # Laptop/PC health
 ```
 
-### 🧩 Raspberry Pi MQTT Broker (Mosquitto) — Setup & Run
+### 🧩 Raspberry Pi MQTT Broker & LCD Display — Setup & Run
 
-Use your Raspberry Pi as the MQTT hub so ESP32 and Laptop AI can exchange data reliably.
+Use your Raspberry Pi as the MQTT hub for ESP32 and Laptop AI communication, plus display live data on Grove LCD.
 
-1) Install Mosquitto broker and clients
+#### 1) Install MQTT Broker (Mosquitto)
 ```bash
 sudo apt update
 sudo apt install -y mosquitto mosquitto-clients
 ```
 
-2) Allow LAN access (listen on all interfaces)
+#### 2) Allow LAN access (listen on all interfaces)
 ```bash
 echo "listener 1883 0.0.0.0" | sudo tee /etc/mosquitto/conf.d/lan.conf
 echo "allow_anonymous true"   | sudo tee -a /etc/mosquitto/conf.d/lan.conf
 sudo systemctl restart mosquitto
 sudo systemctl enable mosquitto
 ```
-- Your Pi IP (from user): `192.168.0.102` (use this in ESP32 and AI script)
+- Your Pi IP: `192.168.202.221` (use this in ESP32 and AI script)
 - Optional: replace `allow_anonymous true` with username/password for security.
 
-3) Test from the Pi (or any LAN device)
+#### 3) Install Grove Base Hat & LCD Dependencies
+```bash
+# Enable I2C interface
+sudo raspi-config
+# Navigate to: Interface Options → I2C → Enable
+
+# Install Grove.py library
+pip3 install grove.py paho-mqtt
+```
+
+#### 4) Test MQTT Communication
 ```bash
 # Terminal 1 (subscriber)
-mosquitto_sub -h 192.168.0.102 -t 'sensors/lighting/#' -v
+mosquitto_sub -h localhost -t 'sensors/lighting/#' -v
 
 # Terminal 2 (publisher)
-mosquitto_pub -h 192.168.0.102 -t 'sensors/lighting/brightness' -m '{"ldrRaw":1234}'
+mosquitto_pub -h localhost -t 'sensors/lighting/state' -m '{"ldrRaw":1234,"led":{"on":true,"pwm":128}}'
 ```
 
-4) Run the Pi bridge (mirrors MQTT → Firebase)
+#### 5) Run LCD Dashboard
 ```bash
-python3 /home/pi/pi_mqtt_firebase_bridge.py --mqtt-host 192.168.0.102 --room roomA
+# Copy the LCD dashboard script to Pi
+python3 pi_lcd_dashboard.py
 ```
-Keep this running during demos so the web dashboard stays in sync.
+
+#### 6) Optional: Firebase Bridge
+```bash
+# If you want to mirror MQTT → Firebase
+python3 pi_mqtt_firebase_bridge.py --mqtt-host localhost --room roomA
+```
+
+**Data Flow:**
+1. **ESP32** → **MQTT (Pi)** → **LCD Display**
+2. **ESP32** → **Firebase** → **Web Dashboard** (direct)
+3. **Laptop AI** → **Firebase** → **ESP32** (presence data)
 
 ### 🤖 Laptop-Based AI Camera Setup
 
@@ -470,13 +492,20 @@ Maintain comfortable classroom temperature by controlling a fan and monitor heal
 - **Historical Tracking**: Complete air quality trend analysis and reporting
 
 ### 🔧 Required Hardware
-- 1 × ESP32
-- 1 × Temperature Sensor (DHT22 to gpio 4)
-- 1 × DC Fan (5V DC fan)
-- 1 × NPN Transistor (2N2222) to gpio 5
-- 1 × MQ-135 Gas Sensor to gpio 32
-- Fan control transistor for linking air quality to fan activation
-- Jumper wires, breadboard, power supply (if fan needs >5V)
+
+#### ESP32 Climate Module Components
+- 1 × ESP32 (main microcontroller)
+- 1 × DHT22 Temperature/Humidity Sensor (GPIO 22)
+- 1 × MQ-135 Air Quality Sensor (GPIO 32 ADC)
+- 1 × DC Fan (5V, PWM controlled)
+- 1 × NPN Transistor (2N2222) for fan control (GPIO 19)
+- 1 × Flyback diode for fan protection
+- Jumper wires, breadboard, power supply
+
+#### Raspberry Pi LCD Display
+- 1 × Raspberry Pi 4 (with Grove Base Hat)
+- 1 × Grove 16x2 RGB LCD (I2C connection)
+- MicroSD card with Raspberry Pi OS
 
 ### ✅ Updates: AI-triggered activation, MQTT/Firebase sync, and Raspberry Pi LCD
 

@@ -6,7 +6,7 @@ Displays rotating pages with lighting, climate, and air quality data
 Requirements:
 - Grove Base Hat for Raspberry Pi
 - Grove 16x2 RGB LCD connected to I2C
-- pip install grove.py paho-mqtt
+- pip install grove_rgb_lcd paho-mqtt
 
 Hardware Setup:
 - Grove 16x2 RGB LCD → Grove Base Hat I2C port
@@ -25,9 +25,10 @@ import paho.mqtt.client as mqtt
 from datetime import datetime
 
 try:
-    from grove.display.jhd1802 import JHD1802
+    # Lightweight LCD helper without mraa dependency
+    from grove_rgb_lcd import setText_norefresh, setRGB
 except ImportError:
-    print("ERROR: grove.py not installed. Run: pip install grove.py")
+    print("ERROR: grove_rgb_lcd not installed. Run: pip install grove_rgb_lcd")
     exit(1)
 
 # Configuration
@@ -52,13 +53,12 @@ logger = logging.getLogger(__name__)
 
 class SmartClassroomLCD:
     def __init__(self):
-        self.lcd = None
         self.current_page = 0
         self.last_page_change = 0
         self.alert_blink_state = False
         self.last_blink_time = 0
         
-        # System state from MQTT
+        # System state from MQTT (all data comes from ESP32 modules)
         self.state = {
             "lighting": {
                 "presence": 0,
@@ -70,11 +70,9 @@ class SmartClassroomLCD:
                 "tempC": 0.0,
                 "humidity": 0.0,
                 "mode": "auto",
-                "fan": {"on": False, "pwm": 0}
-            },
-            "air": {
+                "fan": {"on": False, "pwm": 0},
                 "aqRaw": 0,
-                "aqStatus": "Good",
+                "aqStatus": "Good", 
                 "aqAlert": ""
             }
         }
@@ -87,16 +85,9 @@ class SmartClassroomLCD:
     def initialize(self):
         """Initialize LCD and MQTT connection"""
         try:
-            # Initialize LCD
-            self.lcd = JHD1802()
-            logger.info("✅ Grove LCD initialized")
-            
             # Show startup message
-            self.lcd.setCursor(0, 0)
-            self.lcd.print("Smart Classroom")
-            self.lcd.setCursor(0, 1) 
-            self.lcd.print("IoT Dashboard...")
-            self.lcd.setRGB(*COLORS["blue"])
+            self.lcd_write("Smart Classroom", "IoT Dashboard...")
+            self.set_lcd_color("blue")
             time.sleep(2)
             
         except Exception as e:
@@ -117,11 +108,10 @@ class SmartClassroomLCD:
     def on_mqtt_connect(self, client, userdata, flags, rc):
         if rc == 0:
             logger.info("📡 Connected to MQTT broker")
-            # Subscribe to all sensor topics
+            # Subscribe to ESP32 sensor topics
             topics = [
                 ("sensors/lighting/state", 1),
-                ("sensors/climate/state", 1), 
-                ("sensors/air/aq", 1)
+                ("sensors/climate/state", 1)
             ]
             for topic, qos in topics:
                 client.subscribe(topic, qos)
@@ -148,11 +138,7 @@ class SmartClassroomLCD:
                     "tempC": data.get("tempC", 0),
                     "humidity": data.get("humidity", 0),
                     "mode": data.get("mode", "auto"),
-                    "fan": data.get("fan", self.state["climate"]["fan"])
-                })
-                
-            elif topic == "sensors/air/aq":
-                self.state["air"].update({
+                    "fan": data.get("fan", self.state["climate"]["fan"]),
                     "aqRaw": data.get("aqRaw", 0),
                     "aqStatus": data.get("aqStatus", "Good"),
                     "aqAlert": data.get("aqAlert", "")
@@ -163,8 +149,13 @@ class SmartClassroomLCD:
     
     def set_lcd_color(self, color_name):
         """Set LCD backlight color"""
-        if self.lcd and color_name in COLORS:
-            self.lcd.setRGB(*COLORS[color_name])
+        if color_name in COLORS:
+            r, g, b = COLORS[color_name]
+            setRGB(r, g, b)
+
+    def lcd_write(self, line1: str, line2: str):
+        """Write two lines to the LCD safely within 16 chars each"""
+        setText_norefresh(f"{line1[:16].ljust(16)}\n{line2[:16].ljust(16)}")
     
     def display_page_lighting(self):
         """Display lighting information page"""
@@ -184,10 +175,7 @@ class SmartClassroomLCD:
         if len(line2) > 16:
             line2 = f"LED:{led_state} {pwm}{mode_indicator}"
         
-        self.lcd.setCursor(0, 0)
-        self.lcd.print(line1.ljust(16))
-        self.lcd.setCursor(0, 1)
-        self.lcd.print(line2.ljust(16))
+        self.lcd_write(line1.ljust(16), line2.ljust(16))
         self.set_lcd_color("blue")
     
     def display_page_climate(self):
@@ -204,18 +192,15 @@ class SmartClassroomLCD:
         fan_pwm = climate['fan']['pwm']
         line2 = f"{mode} Fan:{fan_pwm}"
         
-        self.lcd.setCursor(0, 0)
-        self.lcd.print(line1.ljust(16))
-        self.lcd.setCursor(0, 1)
-        self.lcd.print(line2.ljust(16))
+        self.lcd_write(line1.ljust(16), line2.ljust(16))
         self.set_lcd_color("cyan")
     
     def display_page_air_quality(self):
         """Display air quality information page"""
-        air = self.state["air"]
-        aq_raw = air['aqRaw']
-        aq_status = air['aqStatus']
-        aq_alert = air['aqAlert']
+        climate = self.state["climate"]
+        aq_raw = climate['aqRaw']
+        aq_status = climate['aqStatus']
+        aq_alert = climate['aqAlert']
         
         # Line 1: AQ reading and status
         line1 = f"AQ:{aq_raw} {aq_status}"
@@ -231,10 +216,7 @@ class SmartClassroomLCD:
             line2 = "OK"
             color = "green"
         
-        self.lcd.setCursor(0, 0)
-        self.lcd.print(line1.ljust(16))
-        self.lcd.setCursor(0, 1)
-        self.lcd.print(line2.ljust(16))
+        self.lcd_write(line1.ljust(16), line2.ljust(16))
         
         # Handle blinking for critical alerts
         if aq_status == "Poor":
@@ -296,12 +278,8 @@ class SmartClassroomLCD:
     def cleanup(self):
         """Clean up resources"""
         try:
-            if self.lcd:
-                self.lcd.setCursor(0, 0)
-                self.lcd.print("System Stopped  ")
-                self.lcd.setCursor(0, 1)
-                self.lcd.print("Goodbye!        ")
-                self.set_lcd_color("blue")
+            self.lcd_write("System Stopped", "Goodbye!")
+            self.set_lcd_color("blue")
                 
             self.mqtt_client.loop_stop()
             self.mqtt_client.disconnect()

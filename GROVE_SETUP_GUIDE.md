@@ -8,25 +8,24 @@
 - **MicroSD card** (32GB+) with Raspberry Pi OS
 - **Power supply** (5V 3A for Pi 4)
 
-### Grove Modules
-- **Grove 16x2 RGB LCD** (I2C interface)
-- **Grove MQ-135 Air Quality Sensor** (Analog)
-- **Grove cables** (included with modules)
+### Grove Modules  
+- **Grove 16x2 RGB LCD** (I2C interface) - connected to Raspberry Pi
 
-### ESP32 Modules (existing)
+### ESP32 Modules
 - **ESP32 DevKit** for lighting control (LDR + LED)
-- **ESP32 DevKit** for climate control (DHT22 + Fan)
+- **ESP32 DevKit** for climate control (DHT22 + Fan + MQ-135)
+- **MQ-135 Air Quality Sensor** - connected to ESP32 climate module
 
 ## Hardware Connections
 
 ### Raspberry Pi + Grove Base Hat
 ```
 Grove Base Hat Connections:
-├── I2C Port → Grove 16x2 RGB LCD
-├── A0 Port → Grove MQ-135 Air Quality Sensor  
-├── A1 Port → (Available for expansion)
-├── A2 Port → (Available for expansion)
+├── I2C Port → Grove 16x2 RGB LCD (ONLY)
+├── A0-A2 Ports → (Available for expansion)
 └── Digital Ports → (Available for expansion)
+
+Note: MQ-135 is on ESP32, not on Raspberry Pi
 ```
 
 ### ESP32 Lighting Module (existing)
@@ -42,9 +41,11 @@ ESP32 Connections:
 ```
 ESP32 Connections:
 ├── GPIO 22 → DHT22 Data Pin
+├── GPIO 32 (ADC) → MQ-135 Air Quality Sensor
 ├── GPIO 19 (PWM) → Fan Control
 ├── 5V → Fan VCC (if needed)
-└── GND → Sensors/Fan GND
+├── 3.3V → DHT22 VCC, MQ-135 VCC
+└── GND → All sensor/fan GND
 ```
 
 ## Software Installation
@@ -84,21 +85,19 @@ python3 -c "from grove.adc import ADC; print('Grove.py installed successfully')"
 
 ### 3. Smart Classroom Scripts
 ```bash
-# Copy the Python scripts to your Pi
-scp pi_mq135_publisher.py pi@your-pi-ip:~/
+# Copy the LCD dashboard script to your Pi
 scp pi_lcd_dashboard.py pi@your-pi-ip:~/
 
-# Make scripts executable
-chmod +x ~/pi_mq135_publisher.py
+# Make script executable
 chmod +x ~/pi_lcd_dashboard.py
 ```
 
 ## Configuration
 
-### 1. Update Firebase URL
-Edit both Python scripts and update your Firebase URL:
+### 1. Update MQTT Host
+Edit the LCD dashboard script and update your Pi's IP:
 ```python
-FIREBASE_URL = "https://your-project-default-rtdb.region.firebasedatabase.app"
+MQTT_HOST = "localhost"  # Or your Pi's IP if running from external device
 ```
 
 ### 2. Network Configuration
@@ -139,13 +138,13 @@ lcd.setRGB(0, 255, 0)
 
 ### 3. Test MQ-135 Sensor
 ```bash
-# Monitor MQ-135 readings
+# Test if Grove Base Hat ADC is working (not used for MQ-135)  
 python3 -c "
 from grove.adc import ADC
 import time
 adc = ADC()
-for i in range(10):
-    print(f'MQ-135: {adc.read(0)}')
+for i in range(5):
+    print(f'A0: {adc.read(0)}, A1: {adc.read(1)}')
     time.sleep(1)
 "
 ```
@@ -154,14 +153,10 @@ for i in range(10):
 
 ### 1. Start Services on Raspberry Pi
 ```bash
-# Terminal 1: Start MQ-135 Publisher
-python3 ~/pi_mq135_publisher.py
-
-# Terminal 2: Start LCD Dashboard  
+# Start LCD Dashboard  
 python3 ~/pi_lcd_dashboard.py
 
 # Or run in background with nohup
-nohup python3 ~/pi_mq135_publisher.py > mq135.log 2>&1 &
 nohup python3 ~/pi_lcd_dashboard.py > lcd.log 2>&1 &
 ```
 
@@ -181,28 +176,28 @@ npm run dev
 │   ESP32 #1      │    │   ESP32 #2      │    │ Raspberry Pi    │
 │   (Lighting)    │    │   (Climate)     │    │                 │
 │ ┌─────────────┐ │    │ ┌─────────────┐ │    │ ┌─────────────┐ │
-│ │ LDR + LED   │ │    │ │ DHT22 + Fan │ │    │ │ MQ-135      │ │
-│ └─────────────┘ │    │ └─────────────┘ │    │ │ (Grove A0)  │ │
-│       │         │    │       │         │    │ └─────────────┘ │
+│ │ LDR + LED   │ │    │ │DHT22+MQ135  │ │    │ │ Grove LCD   │ │
+│ └─────────────┘ │    │ │   + Fan     │ │    │ │ (I2C Only)  │ │
+│       │         │    │ └─────────────┘ │    │ └─────────────┘ │
 │   ┌───▼───┐     │    │   ┌───▼───┐     │    │ ┌─────────────┐ │
-│   │ WiFi  │     │    │   │ WiFi  │     │    │ │ 16x2 LCD    │ │
-│   │ MQTT  │     │    │   │ MQTT  │     │    │ │ (Grove I2C) │ │
+│   │ WiFi  │     │    │   │ WiFi  │     │    │ │ MQTT Broker │ │
+│   │ MQTT  │     │    │   │ MQTT  │     │    │ │ (mosquitto) │ │
 │   └───────┘     │    │   └───────┘     │    │ └─────────────┘ │
-└─────────────────┘    └─────────────────┘    │ ┌─────────────┐ │
-         │                       │             │ │ MQTT Broker │ │
-         │                       │             │ │ (mosquitto) │ │
-         └───────────┬───────────┘             │ └─────────────┘ │
-                     │                         └─────────────────┘
-                 ┌───▼───┐                              │
-                 │ WiFi  │                              │
-                 │Router │                              │
-                 └───┬───┘                              │
-                     │                                  │
-              ┌──────▼──────┐                          │
-              │   Laptop    │                          │
-              │ ┌─────────┐ │                          │
-              │ │AI Camera│ │                          │
-              │ │Firebase │ │ ◄────────────────────────┘
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         │                       │                       │
+         └───────────┬───────────┼───────────────────────┘
+                     │           │
+                 ┌───▼───┐       │
+                 │ WiFi  │       │
+                 │Router │       │
+                 └───┬───┘       │
+                     │           │
+              ┌──────▼──────┐    │
+              │   Laptop    │    │
+              │ ┌─────────┐ │    │
+              │ │AI Camera│ │    │
+              │ │Firebase │ │ ◄──┘
               │ │Web UI   │ │
               │ └─────────┘ │
               └─────────────┘
@@ -245,8 +240,8 @@ Warning
 - `sensors/climate/fan` - Fan state
 - `sensors/climate/state` - Combined state for LCD
 
-### Published by Pi MQ-135
-- `sensors/air/aq` - Air quality readings + status
+### Published by ESP32 Climate (includes air quality)
+- `sensors/climate/state` - Combined climate + air quality data
 
 ### Control Topics
 - `control/lighting/mode` - Set lighting mode
