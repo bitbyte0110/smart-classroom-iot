@@ -1,18 +1,174 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { ref, onValue, update } from 'firebase/database';
+import { database } from '../firebase';
+import type { ClimateState } from '../types';
+import { ROOM_ID } from '../types';
+import ClimateStatusTiles from './ClimateStatusTiles';
+import ClimateManualControls from './ClimateManualControls';
+import ClimateReports from './ClimateReports';
 import './Dashboard.css'; // Reuse the same styles
 
 export default function ClimateControl() {
+  const [state, setState] = useState<ClimateState | null>(null);
   const [activeTab, setActiveTab] = useState<'live' | 'reports'>('live');
+  const [isConnected, setIsConnected] = useState(false);
+  const [error, setError] = useState<string>('');
+
+  useEffect(() => {
+    console.log('🚀 Climate Control component mounted, connecting to Firebase...');
+    console.log('🎯 Target path:', `/climate/${ROOM_ID}/state`);
+    const stateRef = ref(database, `/climate/${ROOM_ID}/state`);
+
+    // Loading timeout: show error if no data after 3 seconds
+    const loadingTimer = setTimeout(() => {
+      setState(prevState => {
+        if (!prevState) {
+          setError('No Firebase data found. Check ESP32 Climate Module is running and writing to Firebase.');
+          setIsConnected(false);
+          // Return fallback state instead of null
+          return {
+            ts: Date.now(),
+            presence: false,
+            tempC: 26.5,
+            humidity: 45.0,
+            aqRaw: 250,
+            aqStatus: 'Good',
+            mode: 'auto' as const,
+            fan: { on: false, pwm: 0 },
+            comfortBand: 'Moderate',
+            sensorError: 'No data - Timeout'
+          };
+        }
+        return prevState;
+      });
+    }, 3000);
+
+    const unsubscribe = onValue(stateRef, (snapshot) => {
+      clearTimeout(loadingTimer);
+      
+      const value = snapshot.val();
+      console.log('🔥 Firebase snapshot received (Climate):', value); // Debug log
+      console.log('📍 Firebase path:', `/climate/${ROOM_ID}/state`); // Debug path
+      
+      if (!value) {
+        setIsConnected(false);
+        setError('No live data. Ensure ESP32 Climate Module is running.');
+        setState({
+          ts: Date.now(),
+          presence: false,
+          tempC: 26.5,
+          humidity: 45.0,
+          aqRaw: 250,
+          aqStatus: 'Good',
+          mode: 'auto',
+          fan: { on: false, pwm: 0 },
+          comfortBand: 'Moderate',
+          sensorError: 'No data - Demo mode'
+        });
+        return;
+      }
+
+      const dataTimestamp = value.ts ?? Date.now();
+      const isStale = (Date.now() - dataTimestamp) > 15000; // >15s considered stale for climate
+
+      // Get presence from the same AI source (follows lighting module)
+      const presenceValue = value.presence ?? false;
+
+      const merged = {
+        ts: dataTimestamp,
+        presence: presenceValue && !isStale,
+        tempC: Number.isFinite(value.tempC) ? value.tempC : 0,
+        humidity: Number.isFinite(value.humidity) ? value.humidity : 0,
+        aqRaw: Number.isFinite(value.aqRaw) ? value.aqRaw : 0,
+        aqStatus: (value.aqStatus || 'Good') as 'Good' | 'Moderate' | 'Poor',
+        mode: (value.mode === 'manual' ? 'manual' : 'auto') as 'auto' | 'manual',
+        fan: {
+          on: Boolean(value.fan?.on),
+          pwm: Number.isFinite(value.fan?.pwm) ? value.fan.pwm : 0
+        },
+        comfortBand: (value.comfortBand || 'Moderate') as 'Low' | 'Moderate' | 'High',
+        sensorError: value.sensorError ?? null
+      } as const;
+
+      console.log('Setting climate state:', merged); // Debug log
+      setState(merged);
+      setIsConnected(!isStale);
+      setError(isStale ? 'Live data is stale (>15s). Check ESP32 Climate Module.' : '');
+    }, (err) => {
+      clearTimeout(loadingTimer);
+      console.error('Firebase connection error (Climate):', err);
+      setIsConnected(false);
+      setError(`Connection failed: ${err.message}`);
+      setState({
+        ts: Date.now(),
+        presence: false,
+        tempC: 26.5,
+        humidity: 45.0,
+        aqRaw: 250,
+        aqStatus: 'Good',
+        mode: 'auto',
+        fan: { on: false, pwm: 0 },
+        comfortBand: 'Moderate',
+        sensorError: 'Connection failed - Demo mode'
+      });
+    });
+
+    return () => {
+      clearTimeout(loadingTimer);
+      unsubscribe();
+    };
+  }, []);
+
+  const handleModeChange = async (newMode: 'auto' | 'manual') => {
+    if (!state) return;
+    
+    try {
+      const stateRef = ref(database, `/climate/${ROOM_ID}/state`);
+      await update(stateRef, { mode: newMode });
+    } catch (error) {
+      console.error('Mode change failed:', error);
+      alert('Mode change failed - check Firebase connection');
+    }
+  };
+
+  const handleManualControl = async (fan: { on: boolean; pwm: number }) => {
+    if (!state || state.mode !== 'manual') return;
+    
+    try {
+      const stateRef = ref(database, `/climate/${ROOM_ID}/state`);
+      await update(stateRef, { fan });
+    } catch (error) {
+      console.error('Manual control failed:', error);
+      alert('Control failed - check Firebase connection');
+    }
+  };
+
+  if (!state) {
+    return (
+      <div className="dashboard loading">
+        <div className="loader">
+          <div className="spinner"></div>
+          <p>Initializing Smart Climate Control System...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard">
       <header className="dashboard-header">
         <h1>🌡️ Smart Classroom Climate Control</h1>
         <div className="connection-status">
-          <div className="status-indicator disconnected"></div>
-          <span>Coming Soon</span>
+          <div className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}></div>
+          <span>{isConnected ? 'Live Data' : 'Offline Mode'}</span>
         </div>
       </header>
+
+      {error && (
+        <div className="error-banner">
+          ⚠️ {error}
+        </div>
+      )}
 
       <nav className="dashboard-nav">
         <button 
@@ -31,30 +187,37 @@ export default function ClimateControl() {
 
       {activeTab === 'live' && (
         <div className="live-control">
-          <div style={{ 
-            padding: '2rem', 
-            textAlign: 'center', 
-            background: 'rgba(255,255,255,0.1)', 
-            borderRadius: '8px',
-            margin: '2rem 0'
-          }}>
-            <h3>🚧 Climate Control - Coming Soon</h3>
-            <p>This module will control temperature, humidity, and fan speed.</p>
+          <ClimateStatusTiles state={state} />
+          
+          <div className="mode-control">
+            <h3>Control Mode</h3>
+            <div className="mode-switch">
+              <button 
+                className={state.mode === 'auto' ? 'active' : ''}
+                onClick={() => handleModeChange('auto')}
+              >
+                🤖 Automatic
+              </button>
+              <button 
+                className={state.mode === 'manual' ? 'active' : ''}
+                onClick={() => handleModeChange('manual')}
+              >
+                🎛️ Manual
+              </button>
+            </div>
           </div>
+
+          {state.mode === 'manual' && (
+            <ClimateManualControls 
+              fan={state.fan}
+              onControlChange={handleManualControl}
+            />
+          )}
         </div>
       )}
 
       {activeTab === 'reports' && (
-        <div style={{ 
-          padding: '2rem', 
-          textAlign: 'center', 
-          background: 'rgba(255,255,255,0.1)', 
-          borderRadius: '8px',
-          margin: '2rem 0'
-        }}>
-          <h3>📊 Climate Analytics - Coming Soon</h3>
-          <p>This section will show temperature trends, humidity charts, and fan usage analytics.</p>
-        </div>
+        <ClimateReports />
       )}
     </div>
   );
