@@ -437,42 +437,63 @@ Tips:
 
 ---
 
-<<<<<<< HEAD
-## Module 3 — Smart Lighting Control (ESP32 + LDR AO + LED + Camera AI)
-=======
-## Module 2 — Smart Climate Control (ESP32 + DHT22 + MQ-135 + DC Fan)
+## Module 2: Smart Climate Control (Fan) Module and Air Quality Monitoring Module
 
-### 🎯 Purpose & Scope
-Maintain classroom comfort by controlling a DC fan from temperature (DHT22) and assisting ventilation from air quality (MQ-135), with manual override and real-time monitoring via Firebase.
+### 🎯 Purpose
+Maintain comfortable classroom temperature by controlling a fan and monitor healthy classroom air quality by detecting harmful gases and pollutants.
 
 ### ⚡ Features
-- **DHT22 Temperature & Humidity Sensor (GPIO4)**: Reads room temperature and humidity
-- **MQ-135 Air Quality Sensor (GPIO35)**: Monitors air quality for ventilation assistance
-- **DC Fan with PWM Control (GPIO18)**: Variable speed fan control via NPN transistor
-- **Boost Button (GPIO27)**: Optional 10-minute high-speed override
-- **Firebase Integration**: Real-time data logging and web dashboard control
 
-### 🔧 Hardware Requirements
-**Core Components:**
-- 1 × ESP32 development board (Wi-Fi)
-- 1 × DHT22 temperature & humidity sensor
-- 1 × MQ-135 gas sensor (AO output)
-- 1 × DC fan (5–12V)
-- 1 × NPN transistor (2N2222/S8050) as low-side switch
-- 1 × Diode (1N4007) across fan for back-EMF protection
-- 1 × Push button for "Boost 10 min" override (optional)
-- Breadboard, jumper wires, suitable power supply
+#### Smart Climate Control (Fan) Module
+- **Temperature Sensor**: DHT22 reads current room temperature
+- **Fan or Model Fan**: Speed controlled automatically
+- **Logic**:
+  - If temperature is low (≤ 26°C): Fan LOW
+  - If temperature is moderate (26.1–28°C): Fan MEDIUM
+  - If temperature is high (≥ 28.1°C): Fan HIGH
+- **Dashboard**: View real-time temperature and fan speed/status
+- **Switch between Automatic and Manual modes**
+- **Manual mode**: User can turn fan ON/OFF or set speed from the app
 
-### 🔌 Wiring (ESP32)
-**DHT22 Temperature & Humidity:**
-- VCC → 3.3V
-- GND → GND
-- DATA → GPIO4 (with 10kΩ pull-up to 3.3V)
+#### Air Quality Monitoring Module
+- **MQ-135 Air Quality Sensor**: Detects air pollutants such as CO₂, smoke, and volatile organic compounds (VOCs)
+- **Microcontroller (ESP32)**: Reads sensor data and processes air quality levels
+- **Logic**: Sensor continuously measures air quality values
+  - If air quality is good (below threshold) → status is displayed as "Good," no action required
+  - If air quality is moderate (within set range) → status is displayed as "Moderate," system can send a mild alert
+  - If air quality is poor (above threshold) → status is displayed as "Poor," system can automatically turn on the ventilation fan at max speed or send a real-time alert via the app
+- **Dashboard**: View real-time air quality value and status (Good/Moderate/Poor)
+- **Monitor the history or trends of classroom air quality**
+- **Alerts/notifications if pollution levels cross threshold**
 
-**MQ-135 Air Quality:**
-- VCC → 5V
-- GND → GND
-- AO → GPIO35 (ADC input)
+### 🔧 Required Hardware
+- 1 × ESP32
+- 1 × Temperature Sensor (DHT22 to gpio 4)
+- 1 × DC Fan (5V DC fan)
+- 1 × NPN Transistor (2N2222) to gpio 5
+- 1 × MQ-135 Gas Sensor to gpio 32
+- Fan control transistor for linking air quality to fan activation
+- Jumper wires, breadboard, power supply (if fan needs >5V)
+
+### ✅ Updates: AI-triggered activation, MQTT/Firebase sync, and Raspberry Pi LCD
+
+#### 1) Start/stop on human presence (from Smart Lighting's YOLO)
+**Trigger source**: Laptop AI (yolo_force_gpu.py) publishes presence and updates Firebase.
+
+**Behavior**:
+- When presence=true → wake this module: DHT sensor begins sampling; fan logic becomes active
+- When presence=false for a grace period of 10 seconds → idle this module: fan returns to OFF as well as dht sensor and mq-135 as well
+
+**Reference**: Uses the same AI presence signals defined in the Smart Lighting instructions (topics/paths listed below).
+
+#### 2) Fan logic (clarified & demo-ready mappings)
+Keep your original ranges, with LOW never 0% (to avoid stall when <25 °C).
+
+- **LOW**: 30% PWM
+- **MEDIUM**: 60% PWM
+- **HIGH**: 100% PWM
+
+Manual mode fully overrides sensor logic: ON/OFF and speed set from the app; device writes the final state back to Firebase.
 
 **DC Fan Control:**
 - GPIO18 → 220Ω → NPN transistor base
@@ -664,7 +685,6 @@ Maintain classroom comfort by controlling a DC fan from temperature (DHT22) and 
 ---
 
 ## Module 3 — Smart Lighting Control (ESP32 + PIR + LDR AO + LED)
->>>>>>> 91f274ab1c25be0933d5944378579967c37a7719
 🎯 Purpose
 Automate classroom lighting based on presence and ambient brightness, with monitoring and manual control via Firebase.
 
