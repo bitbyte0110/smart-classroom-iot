@@ -14,7 +14,7 @@
  * 🤖 PRESENCE: Only follows yolo_force_gpu.py results (ai/presence/detection)
  * 🌡️ DHT22: ON only when YOLO presence detected, OFF when no presence
  * 💨 FAN: ON only when YOLO presence detected, follows temperature bands:
- *      ≤25°C → LOW (30% PWM), 25.1-28°C → MED (60% PWM), ≥28.1°C → HIGH (100% PWM)
+ *      ≤26°C → LOW (30% PWM), 26.1-28°C → MED (60% PWM), ≥28.1°C → HIGH (100% PWM)
  * 🌬️ MQ-135: ALWAYS ON (continuous monitoring, not affected by presence)
  * 🚨 AIR QUALITY: Good/Moderate = no fan change, Poor = force fan to MAX speed
  * 
@@ -54,9 +54,9 @@ PubSubClient mqtt(espClient);
 
 // System Configuration
 const String ROOM_ID = "roomA";
-const unsigned long SENSOR_INTERVAL = 30000;     // 30 seconds
+const unsigned long SENSOR_INTERVAL = 2000;     // 30 seconds
 const unsigned long MQTT_INTERVAL = 5000;        // 5 seconds
-const unsigned long FIREBASE_INTERVAL = 10000;   // 10 seconds
+const unsigned long FIREBASE_INTERVAL = 5000;   // 10 seconds
 const unsigned long PRESENCE_CHECK_INTERVAL = 10000; // Check presence every 10 seconds
 
 // Fan PWM Configuration (LEDC new API)
@@ -69,10 +69,10 @@ const int FAN_DUTY_LOW  = (int)(MAX_DUTY * 0.30);  // 30% PWM
 const int FAN_DUTY_MED  = (int)(MAX_DUTY * 0.60);  // 60% PWM  
 const int FAN_DUTY_HIGH = MAX_DUTY;                // 100% PWM
 
-// Temperature Bands (updated per instruction.md)
-const float TEMP_LOW_MAX = 25.0;    // ≤25°C → LOW band
-const float TEMP_MED_MAX = 28.0;    // 25.1-28°C → MED band
-                                    // ≥28.1°C → HIGH band
+// Temperature Bands (corrected per user requirements)
+const float TEMP_LOW_MAX = 26.0;    // ≤26°C → LOW band (slow fan)
+const float TEMP_MED_MAX = 28.0;    // 26.1-28°C → MED band (medium fan)
+                                    // ≥28.1°C → HIGH band (max fan)
 
 // Air Quality Thresholds (configurable)
 const int AQ_GOOD_MAX = 300;        // 0-300 → Good
@@ -536,15 +536,25 @@ void autoControlLogic() {
   String newBand = currentState.comfortBand;
   int targetDuty = currentDuty;
   
+  // Temperature-based fan control logic
   if (currentState.temperature <= TEMP_LOW_MAX) {
+    // ≤26°C → LOW band (slow fan - 30% PWM)
     newBand = "Low";
     targetDuty = FAN_DUTY_LOW;
+    Serial.printf("🌡️ Temperature %.1f°C ≤ %.1f°C → LOW band (30%% PWM)\n", 
+                 currentState.temperature, TEMP_LOW_MAX);
   } else if (currentState.temperature <= TEMP_MED_MAX) {
+    // 26.1-28°C → MED band (medium fan - 60% PWM)
     newBand = "Moderate";
     targetDuty = FAN_DUTY_MED;
+    Serial.printf("🌡️ Temperature %.1f°C (%.1f-%.1f°C) → MED band (60%% PWM)\n", 
+                 currentState.temperature, TEMP_LOW_MAX + 0.1, TEMP_MED_MAX);
   } else {
+    // ≥28.1°C → HIGH band (max fan - 100% PWM)
     newBand = "High";
     targetDuty = FAN_DUTY_HIGH;
+    Serial.printf("🌡️ Temperature %.1f°C ≥ %.1f°C → HIGH band (100%% PWM)\n", 
+                 currentState.temperature, TEMP_MED_MAX + 0.1);
   }
   
   // Apply hysteresis - only change after delay
@@ -560,21 +570,26 @@ void autoControlLogic() {
   }
   
   // Air Quality Fan Control Logic (alerts are set in readSensors)
-  // Thresholds: 0-300=Good, 301-400=Moderate, 401+=Poor
+  // MQ-135 Thresholds: 0-300=Good, 301-400=Moderate, 401+=Poor
   if (currentState.aqStatus == "Poor") {
     // POOR Air Quality (401+): Force fan to MAXIMUM speed
+    int previousDuty = targetDuty;
     targetDuty = FAN_DUTY_HIGH;
     currentState.comfortBand = "High"; // Override temperature band
-    Serial.println("🚨 POOR Air Quality detected! Fan forced to MAXIMUM speed");
-    Serial.printf("   AQ Raw: %d (Threshold: >400)\n", currentState.aqRaw);
+    Serial.println("🚨 CRITICAL: POOR Air Quality detected! Fan forced to MAXIMUM speed");
+    Serial.printf("   AQ Raw: %d (Threshold: >400 = Poor)\n", currentState.aqRaw);
+    Serial.printf("   Fan Duty: %d → %d (MAXIMUM)\n", previousDuty, targetDuty);
+    Serial.printf("   Fan PWM: Will be set to %d/255\n", map(targetDuty, 0, MAX_DUTY, 0, 255));
   } else if (currentState.aqStatus == "Moderate") {
     // MODERATE Air Quality (301-400): Keep current fan speed (temperature-based)
-    Serial.println("⚠️ MODERATE Air Quality detected - Warning sent, no fan change");
-    Serial.printf("   AQ Raw: %d (Threshold: 301-400) - No fan speed change\n", currentState.aqRaw);
+    Serial.println("⚠️ WARNING: MODERATE Air Quality detected");
+    Serial.printf("   AQ Raw: %d (Threshold: 301-400 = Moderate)\n", currentState.aqRaw);
+    Serial.printf("   Fan Control: Temperature-based (no change due to AQ)\n");
     // targetDuty remains unchanged (temperature-based control)
   } else {
     // GOOD Air Quality (0-300): Normal temperature-based control
-    Serial.printf("✅ GOOD Air Quality: %d (Threshold: 0-300) - Temperature-based fan control\n", currentState.aqRaw);
+    Serial.printf("✅ GOOD Air Quality: %d (Threshold: 0-300 = Good)\n", currentState.aqRaw);
+    Serial.printf("   Fan Control: Normal temperature-based operation\n");
     // targetDuty remains temperature-based
   }
   
@@ -584,6 +599,13 @@ void autoControlLogic() {
   // Update state
   currentState.fanOn = (targetDuty > 0);
   currentState.fanPwm = map(targetDuty, 0, MAX_DUTY, 0, 255);
+  
+  // Debug: Show final fan state
+  Serial.printf("💨 Final Fan State: %s, PWM: %d, Duty: %d, Band: %s\n", 
+               currentState.fanOn ? "ON" : "OFF", 
+               currentState.fanPwm, 
+               targetDuty, 
+               currentState.comfortBand.c_str());
 }
 
 void setFanDuty(int duty) {

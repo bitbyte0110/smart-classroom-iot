@@ -7,9 +7,9 @@ interface ClimateStatusTilesProps {
 
 export default function ClimateStatusTiles({ state }: ClimateStatusTilesProps) {
   const getTemperatureStatus = (tempC: number) => {
-    if (tempC < 25) return { label: 'Cool', status: 'success' as const };
-    if (tempC > 29) return { label: 'Hot', status: 'warning' as const };
-    return { label: 'Comfortable', status: 'success' as const };
+    if (tempC <= 26) return { label: 'Cool', status: 'success' as const };
+    if (tempC <= 28) return { label: 'Comfortable', status: 'success' as const };
+    return { label: 'Hot', status: 'warning' as const };
   };
 
   const getAirQualityStatus = (aqStatus: string) => {
@@ -72,7 +72,12 @@ export default function ClimateStatusTiles({ state }: ClimateStatusTilesProps) {
           <div className={`tile-value ${state.fan.on ? 'active' : ''}`}>
             {state.fan.on ? 'ON' : 'OFF'}
           </div>
-          <div className="tile-subtitle">PWM: {state.fan.pwm}</div>
+          <div className="tile-subtitle">
+            PWM: {state.fan.pwm}
+            {state.aqStatus === 'Poor' && state.fan.on && state.fan.pwm > 200 && (
+              <span className="aq-override"> 🚨 AQ Override</span>
+            )}
+          </div>
         </div>
       </div>
 

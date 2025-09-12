@@ -196,7 +196,28 @@ export default function ClimateControl() {
 
       {state?.aqAlert && (
         <div className={`alert-banner ${state.aqStatus === 'Poor' ? 'critical' : 'warning'}`}>
-          {state.aqStatus === 'Poor' ? '🚨' : '⚠️'} {state.aqAlert}
+          <div className="alert-content">
+            <span className="alert-icon">
+              {state.aqStatus === 'Poor' ? '🚨' : '⚠️'}
+            </span>
+            <div className="alert-details">
+              <div className="alert-title">
+                {state.aqStatus === 'Poor' ? 'CRITICAL AIR QUALITY ALERT' : 'AIR QUALITY WARNING'}
+              </div>
+              <div className="alert-message">{state.aqAlert}</div>
+              <div className="alert-reading">
+                MQ-135 Reading: {state.aqRaw} 
+                {state.aqStatus === 'Poor' ? ' (>400 - Critical)' : 
+                 state.aqStatus === 'Moderate' ? ' (301-400 - Moderate)' : ' (0-300 - Good)'}
+              </div>
+              {state.aqStatus === 'Poor' && state.presence && (
+                <div className="alert-action">✅ Fan automatically set to MAXIMUM speed</div>
+              )}
+              {state.aqStatus === 'Poor' && !state.presence && (
+                <div className="alert-action">⚠️ Fan control requires presence detection</div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

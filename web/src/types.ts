@@ -63,7 +63,7 @@ export const DARK_THRESHOLD = 3200;
 export const ROOM_ID = 'roomA';
 
 // Climate control constants (from instruction.md)
-export const TEMP_LOW_MAX = 25.0;  // ≤25°C → LOW
-export const TEMP_MED_MAX = 28.0;  // 25.1-28°C → MED, ≥28.1°C → HIGH
+export const TEMP_LOW_MAX = 26.0;  // ≤26°C → LOW
+export const TEMP_MED_MAX = 28.0;  // 26.1-28°C → MED, ≥28.1°C → HIGH
 export const AQ_GOOD_MAX = 300;    // 0-300 → Good
 export const AQ_MODERATE_MAX = 400; // 301-400 → Moderate, ≥401 → Poor
