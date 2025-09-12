@@ -43,6 +43,7 @@ export interface ClimateState {
   humidity: number; // DHT22 humidity
   aqRaw: number; // MQ-135 air quality raw value
   aqStatus: 'Good' | 'Moderate' | 'Poor';
+  aqAlert?: string; // Air quality alert message
   mode: 'auto' | 'manual';
   fan: {
     on: boolean;

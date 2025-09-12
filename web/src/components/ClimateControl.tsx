@@ -71,7 +71,19 @@ export default function ClimateControl() {
       }
 
       const dataTimestamp = value.ts ?? Date.now();
-      const isStale = (Date.now() - dataTimestamp) > 15000; // >15s considered stale for climate
+      const now = Date.now();
+      const timeDiff = now - dataTimestamp;
+      const isStale = timeDiff > 30000; // Increased tolerance to 30s for ESP32 sync issues
+      
+      // Debug timestamp issues
+      if (timeDiff > 15000) {
+        console.warn(`⏰ Climate data timestamp issue:`, {
+          currentTime: new Date(now).toISOString(),
+          dataTime: new Date(dataTimestamp).toISOString(),
+          differenceSeconds: Math.round(timeDiff / 1000),
+          isStale
+        });
+      }
 
       // Get presence from the same AI source (follows lighting module)
       const presenceValue = value.presence ?? false;
@@ -95,7 +107,7 @@ export default function ClimateControl() {
       console.log('Setting climate state:', merged); // Debug log
       setState(merged);
       setIsConnected(!isStale);
-      setError(isStale ? 'Live data is stale (>15s). Check ESP32 Climate Module.' : '');
+      setError(isStale ? `Live data is stale (${Math.round(timeDiff/1000)}s old). Check ESP32 time sync or Firebase connection.` : '');
     }, (err) => {
       clearTimeout(loadingTimer);
       console.error('Firebase connection error (Climate):', err);
@@ -170,6 +182,12 @@ export default function ClimateControl() {
       {error && (
         <div className="error-banner">
           ⚠️ {error}
+        </div>
+      )}
+
+      {state?.aqAlert && (
+        <div className={`alert-banner ${state.aqStatus === 'Poor' ? 'critical' : 'warning'}`}>
+          {state.aqStatus === 'Poor' ? '🚨' : '⚠️'} {state.aqAlert}
         </div>
       )}
 

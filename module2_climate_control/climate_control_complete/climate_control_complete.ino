@@ -95,6 +95,7 @@ struct ClimateState {
   bool presence = false;
   // bool systemActive = false; // Removed - using presence directly
   String lastStatusMessage = "";
+  String aqAlert = ""; // Air quality alert message for UI
 } currentState;
 
 // Timing Variables
@@ -128,24 +129,28 @@ void setup() {
   // Initialize MQTT
   initializeMqtt();
   
-  // Configure time for Firebase
-  configTime(0, 0, "pool.ntp.org");
+  // Configure time for Firebase (UTC timezone)
+  configTime(0, 0, "pool.ntp.org", "time.nist.gov");
   
   // Wait for time synchronization
   Serial.print("⏰ Synchronizing time");
   int timeoutCount = 0;
-  while (time(nullptr) < 1000000000 && timeoutCount < 20) {
+  while (time(nullptr) < 1000000000 && timeoutCount < 30) {
     delay(500);
     Serial.print(".");
     timeoutCount++;
   }
-  if (time(nullptr) > 1000000000) {
+  
+  time_t now = time(nullptr);
+  if (now > 1000000000) {
     Serial.println(" ✅ Time synchronized");
-    time_t currentTime = time(nullptr);
-    Serial.printf("   Current time: %s", ctime(&currentTime));
+    Serial.printf("   Unix timestamp: %ld\n", now);
+    Serial.printf("   Milliseconds: %lld\n", (long long)now * 1000);
+    Serial.printf("   Current UTC time: %s", ctime(&now));
   } else {
-    Serial.println(" ⚠️ Time sync failed, using millis() fallback");
+    Serial.println(" ⚠️ Time sync failed, will use fallback");
   }
+  
   
   // Test connectivity
   testConnectivity();
@@ -548,16 +553,27 @@ void autoControlLogic() {
     }
   }
   
-  // Air Quality assistance (updated per instruction.md)
+  // Air Quality Control Logic
+  // Thresholds: 0-300=Good, 301-400=Moderate, 401+=Poor
   if (currentState.aqStatus == "Poor") {
-    // Force HIGH (max) for poor air quality only
+    // POOR Air Quality (401+): Force fan to MAXIMUM speed + ALERT
     targetDuty = FAN_DUTY_HIGH;
-    Serial.println("⚠️ POOR Air Quality - Fan forced to MAX speed");
+    currentState.comfortBand = "High"; // Override temperature band
+    currentState.aqAlert = "CRITICAL: Poor air quality detected! Fan at maximum speed.";
+    Serial.println("🚨 POOR Air Quality detected! Fan forced to MAXIMUM speed");
+    Serial.printf("   AQ Raw: %d (Threshold: >400)\n", currentState.aqRaw);
   } else if (currentState.aqStatus == "Moderate") {
-    // Moderate AQ: No fan change, just warning (as per instruction.md)
-    Serial.println("⚠️ MODERATE Air Quality - Warning sent to UI");
+    // MODERATE Air Quality (301-400): Keep current fan speed + WARNING
+    currentState.aqAlert = "WARNING: Moderate air quality detected. Monitor conditions.";
+    Serial.println("⚠️ MODERATE Air Quality detected - Warning to user");
+    Serial.printf("   AQ Raw: %d (Threshold: 301-400) - No fan speed change\n", currentState.aqRaw);
+    // targetDuty remains unchanged (temperature-based control)
+  } else {
+    // GOOD Air Quality (0-300): Clear any alerts
+    currentState.aqAlert = "";
+    Serial.printf("✅ GOOD Air Quality: %d (Threshold: 0-300)\n", currentState.aqRaw);
+    // targetDuty remains temperature-based
   }
-  // Good AQ: No changes to temperature-based fan speed
   
   // Apply fan control
   setFanDuty(targetDuty);
@@ -648,16 +664,21 @@ void syncFirebase() {
   doc["comfortBand"] = currentState.comfortBand;
   doc["aqRaw"] = currentState.aqRaw;
   doc["aqStatus"] = currentState.aqStatus;
+  doc["aqAlert"] = currentState.aqAlert;
   doc["presence"] = currentState.presence;
   // doc["systemActive"] removed - using presence directly
   // doc["boostMode"] removed - not using boost mode
   // Use proper timestamp if available, otherwise use millis() + offset
   time_t now = time(nullptr);
   if (now > 1000000000) {
-    doc["ts"] = now * 1000; // Unix timestamp in milliseconds
+    long long timestamp = (long long)now * 1000;
+    doc["ts"] = timestamp;
+    Serial.printf("   Using NTP timestamp: %lld\n", timestamp);
   } else {
     // Fallback: Use millis() + approximate timestamp
-    doc["ts"] = 1726000000000 + millis(); // Approximate current time
+    long long fallbackTime = 1726000000000LL + millis();
+    doc["ts"] = fallbackTime;
+    Serial.printf("   Using fallback timestamp: %lld\n", fallbackTime);
   }
   
   String payload;
@@ -700,6 +721,7 @@ void logToFirebase() {
   doc["humidity"] = currentState.humidity;
   doc["aqRaw"] = currentState.aqRaw;
   doc["aqStatus"] = currentState.aqStatus;
+  doc["aqAlert"] = currentState.aqAlert;
   doc["comfortBand"] = currentState.comfortBand;
   doc["fanOn"] = currentState.fanOn;
   doc["fanPwm"] = currentState.fanPwm;
@@ -709,10 +731,14 @@ void logToFirebase() {
   // Use proper timestamp if available, otherwise use millis() + offset
   time_t now = time(nullptr);
   if (now > 1000000000) {
-    doc["ts"] = now * 1000; // Unix timestamp in milliseconds
+    long long timestamp = (long long)now * 1000;
+    doc["ts"] = timestamp;
+    Serial.printf("   Using NTP timestamp: %lld\n", timestamp);
   } else {
     // Fallback: Use millis() + approximate timestamp
-    doc["ts"] = 1726000000000 + millis(); // Approximate current time
+    long long fallbackTime = 1726000000000LL + millis();
+    doc["ts"] = fallbackTime;
+    Serial.printf("   Using fallback timestamp: %lld\n", fallbackTime);
   }
   
   String payload;

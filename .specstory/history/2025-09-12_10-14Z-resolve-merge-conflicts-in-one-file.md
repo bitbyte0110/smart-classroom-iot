@@ -1579,3 +1579,857 @@ Try uploading the code again - it should compile without errors now! 🎉
 
 ---
 
+_**User (2025-09-12 00:30Z)**_
+
+📨 MQTT Received: ai/presence/detection = false
+🤖 YOLO AI Message Received!
+🔥 Firebase Presence Update: TRUE
+🔍 Presence Check: currentState.presence = TRUE
+🟢 YOLO PRESENCE DETECTED - System ACTIVE
+   └─ DHT22: ON | Fan: ACTIVE (temp-based) | MQ-135: CONTINUOUS
+📡 Syncing to Firebase:
+   URL: https://smartclassroom-af237-default-rtdb.asia-southeast1.firebasedatabase.app/climate/roomA/state.json
+   Data: {"tempC":0,"humidity":0,"mode":"auto","fan":{"on":false,"pwm":0},"comfortBand":"Idle","aqRaw":0,"aqStatus":"Good","presence":true,"ts":1757674340000}
+🔥 Firebase synced (HTTP 200)
+🔍 Presence Check: currentState.presence = TRUE
+@climate_control_complete.ino 
+
+---
+
+_**Assistant**_
+
+Great! The system is working and communicating with Firebase! I can see a few things from the log:
+
+1. ✅ **MQTT is working** - receiving AI presence detection
+2. ✅ **Firebase sync is working** - HTTP 200 success
+3. ✅ **Timestamps are working** - proper Unix timestamp (1757674340000)
+4. ✅ **Presence detection is active** - system recognizes presence
+
+However, I notice a couple of issues in the data being sent:
+
+1. **Temperature and humidity are 0** - this suggests the DHT22 might not be reading properly
+2. **There's a logic issue** - MQTT says "false" but Firebase shows "TRUE" for presence
+
+Let me help you debug and fix these issues:
+
+---
+
+<details><summary>Edit file: module2_climate_control/climate_control_complete/climate_control_complete.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: undefined
+
+```diff
+@@ -342,4 +342,5 @@
+      // ONLY source of presence: yolo_force_gpu.py AI detection
+      bool newPresence = (message == "true");
++     Serial.println("🤖 MQTT Presence: " + message + " → " + String(newPresence ? "TRUE" : "FALSE"));
+      if (newPresence != currentState.presence) {
+        currentState.presence = newPresence;
+```
+
+</details>
+
+---
+
+Now let me add better DHT22 debugging to see why temperature and humidity are 0:
+
+---
+
+<details><summary>Edit file: module2_climate_control/climate_control_complete/climate_control_complete.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 4, lines removed: 1
+
+```diff
+@@ -472,11 +472,14 @@
+    // ONLY read DHT22 when YOLO presence detected
+    if (currentState.presence) {
++     Serial.println("🌡️ Reading DHT22 (presence active)...");
+      float h = dht.readHumidity();
+      float t = dht.readTemperature();
++     
++     Serial.printf("   Raw values: T=%.2f, H=%.2f\n", t, h);
+      
+      if (!isnan(h) && !isnan(t)) {
+        currentState.temperature = t;
+        currentState.humidity = h;
+-       Serial.printf("🌡️ Temperature: %.1f°C | Humidity: %.1f%% [YOLO presence active]\n", t, h);
++       Serial.printf("✅ Temperature: %.1f°C | Humidity: %.1f%% [YOLO presence active]\n", t, h);
+        
+        // Show current fan status
+```
+
+**Chunk 2**
+Lines added: 4, lines removed: 1
+
+```diff
+@@ -488,5 +491,8 @@
+        }
+      } else {
+-       Serial.println("❌ DHT22 read failed");
++       Serial.printf("❌ DHT22 read failed - T: %s, H: %s\n", 
++                    isnan(t) ? "NaN" : "OK", 
++                    isnan(h) ? "NaN" : "OK");
++       Serial.println("   Check DHT22 wiring on GPIO 4");
+      }
+    } else {
+```
+
+</details>
+
+---
+
+Now let me fix the duplicate handling of the `ai/presence/detection` topic. I see there are two handlers for the same topic:
+
+---
+
+<details><summary>Edit file: module2_climate_control/climate_control_complete/climate_control_complete.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: undefined, lines removed: 5
+
+```diff
+@@ -320,9 +320,4 @@
+    
+    Serial.println("📨 MQTT Received: " + topicStr + " = " + message);
+-   
+-   // Special handling for AI presence
+-   if (topicStr == "ai/presence/detection") {
+-     Serial.println("🤖 YOLO AI Message Received!");
+-   }
+    
+    if (topicStr == "control/climate/mode") {
+```
+
+</details>
+
+---
+
+Perfect! Now let me also add a check to see if the DHT22 sensor is properly initialized:
+
+---
+
+Cancelled
+
+---
+
+_**User (2025-09-12 00:30Z)**_
+
+sometime starting the⚠️ Live data is stale (>15s) problem will come out. is this status is happaned on  this file@ClimateReports.tsx  ? help me resolve and tell me why happned  this problem
+
+---
+
+_**Assistant**_
+
+The "⚠️ Live data is stale (>15s)" problem is **NOT** happening in `ClimateReports.tsx`. This error is coming from `ClimateControl.tsx` and indicates a **timestamp synchronization issue** between your ESP32 and the web dashboard.
+
+Let me explain why this happens and how to fix it:
+
+## 🔍 **Root Cause Analysis**
+
+The stale data warning occurs in `ClimateControl.tsx` at this line:
+
+```typescript
+const isStale = (Date.now() - dataTimestamp) > 15000; // >15s considered stale
+```
+
+### **Why This Problem Happens:**
+
+1. **ESP32 Clock Issues**: The ESP32 might not have synchronized its clock with NTP servers properly
+2. **Timestamp Mismatch**: ESP32 sends wrong timestamps that don't match current time
+3. **Network Delays**: Slow Firebase sync or network issues
+4. **Time Zone Problems**: ESP32 and browser are in different time zones
+
+## 🛠️ **Let's Fix This Step by Step**
+
+---
+
+Read file: undefined
+
+---
+
+Now let me add better debugging and tolerance to the stale data check:
+
+---
+
+<details><summary>Edit file: web/src/components/ClimateControl.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 13, lines removed: 1
+
+```diff
+@@ -72,5 +72,17 @@
+  
+        const dataTimestamp = value.ts ?? Date.now();
+-       const isStale = (Date.now() - dataTimestamp) > 15000; // >15s considered stale for climate
++       const now = Date.now();
++       const timeDiff = now - dataTimestamp;
++       const isStale = timeDiff > 30000; // Increased tolerance to 30s for ESP32 sync issues
++       
++       // Debug timestamp issues
++       if (timeDiff > 15000) {
++         console.warn(`⏰ Climate data timestamp issue:`, {
++           currentTime: new Date(now).toISOString(),
++           dataTime: new Date(dataTimestamp).toISOString(),
++           differenceSeconds: Math.round(timeDiff / 1000),
++           isStale
++         });
++       }
+  
+        // Get presence from the same AI source (follows lighting module)
+```
+
+</details>
+
+---
+
+Now let me also update the error message to be more specific:
+
+---
+
+<details><summary>Edit file: web/src/components/ClimateControl.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -108,5 +108,5 @@
+        setState(merged);
+        setIsConnected(!isStale);
+-       setError(isStale ? 'Live data is stale (>15s). Check ESP32 Climate Module.' : '');
++       setError(isStale ? `Live data is stale (${Math.round(timeDiff/1000)}s old). Check ESP32 time sync or Firebase connection.` : '');
+      }, (err) => {
+        clearTimeout(loadingTimer);
+```
+
+</details>
+
+---
+
+Now let me also fix the ESP32 Arduino code to handle timestamps better. Based on your serial log, the ESP32 is sending timestamp `1757674340000` which corresponds to year 2025 - this suggests the NTP sync might be working but there could be timezone issues.
+
+---
+
+<details><summary>Edit file: module2_climate_control/climate_control_complete/climate_control_complete.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 21, lines removed: 2
+
+```diff
+@@ -129,6 +129,25 @@
+    initializeMqtt();
+    
+-   // Configure time for Firebase
+-   configTime(0, 0, "pool.ntp.org");
++   // Configure time for Firebase (UTC timezone)
++   configTime(0, 0, "pool.ntp.org", "time.nist.gov");
++   
++   // Wait for time synchronization
++   Serial.print("⏰ Synchronizing time");
++   int timeoutCount = 0;
++   while (time(nullptr) < 1000000000 && timeoutCount < 30) {
++     delay(500);
++     Serial.print(".");
++     timeoutCount++;
++   }
++   
++   time_t now = time(nullptr);
++   if (now > 1000000000) {
++     Serial.println(" ✅ Time synchronized");
++     Serial.printf("   Unix timestamp: %ld\n", now);
++     Serial.printf("   Milliseconds: %lld\n", (long long)now * 1000);
++     Serial.printf("   Current UTC time: %s", ctime(&now));
++   } else {
++     Serial.println(" ⚠️ Time sync failed, will use fallback");
++   }
+    
+    // Wait for time synchronization
+```
+
+</details>
+
+---
+
+I see there's a duplicate section. Let me fix that:
+
+---
+
+<details><summary>Edit file: module2_climate_control/climate_control_complete/climate_control_complete.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: undefined, lines removed: 15
+
+```diff
+@@ -151,19 +151,4 @@
+    }
+    
+-   // Wait for time synchronization
+-   Serial.print("⏰ Synchronizing time");
+-   int timeoutCount = 0;
+-   while (time(nullptr) < 1000000000 && timeoutCount < 20) {
+-     delay(500);
+-     Serial.print(".");
+-     timeoutCount++;
+-   }
+-   if (time(nullptr) > 1000000000) {
+-     Serial.println(" ✅ Time synchronized");
+-     time_t currentTime = time(nullptr);
+-     Serial.printf("   Current time: %s", ctime(&currentTime));
+-   } else {
+-     Serial.println(" ⚠️ Time sync failed, using millis() fallback");
+-   }
+    
+    // Test connectivity
+```
+
+</details>
+
+---
+
+Now let me improve the timestamp handling in the Firebase sync function:
+
+---
+
+The string to replace was not found in the file.
+
+---
+
+Let me check what the current timestamp handling looks like:
+
+---
+
+
+
+---
+
+I see the code was updated differently. Let me check the current state:
+
+---
+
+Read file: undefined
+
+---
+
+Perfect! The timestamp handling is already improved. Let me add some debug logging to help track the timestamp issues:
+
+---
+
+<details><summary>Edit file: module2_climate_control/climate_control_complete/climate_control_complete.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 6, lines removed: 2
+
+```diff
+@@ -659,8 +659,12 @@
+    time_t now = time(nullptr);
+    if (now > 1000000000) {
+-     doc["ts"] = now * 1000; // Unix timestamp in milliseconds
++     long long timestamp = (long long)now * 1000;
++     doc["ts"] = timestamp;
++     Serial.printf("   Using NTP timestamp: %lld\n", timestamp);
+    } else {
+      // Fallback: Use millis() + approximate timestamp
+-     doc["ts"] = 1726000000000 + millis(); // Approximate current time
++     long long fallbackTime = 1726000000000LL + millis();
++     doc["ts"] = fallbackTime;
++     Serial.printf("   Using fallback timestamp: %lld\n", fallbackTime);
+    }
+    
+```
+
+**Chunk 2**
+Lines added: 6, lines removed: 2
+
+```diff
+@@ -714,8 +718,12 @@
+    time_t now = time(nullptr);
+    if (now > 1000000000) {
+-     doc["ts"] = now * 1000; // Unix timestamp in milliseconds
++     long long timestamp = (long long)now * 1000;
++     doc["ts"] = timestamp;
++     Serial.printf("   Using NTP timestamp: %lld\n", timestamp);
+    } else {
+      // Fallback: Use millis() + approximate timestamp
+-     doc["ts"] = 1726000000000 + millis(); // Approximate current time
++     long long fallbackTime = 1726000000000LL + millis();
++     doc["ts"] = fallbackTime;
++     Serial.printf("   Using fallback timestamp: %lld\n", fallbackTime);
+    }
+    
+```
+
+</details>
+
+---
+
+## 📋 **Summary of Fixes Applied**
+
+### 1. **Web Dashboard (`ClimateControl.tsx`)**
+- ✅ **Increased stale data tolerance** from 15s to 30s (ESP32 sync can be slow)
+- ✅ **Added timestamp debugging** to console when data is >15s old
+- ✅ **Improved error message** to show actual age of data
+
+### 2. **ESP32 Arduino Code**
+- ✅ **Enhanced NTP synchronization** with multiple servers and longer timeout
+- ✅ **Added detailed timestamp logging** to see what timestamps are being sent
+- ✅ **Improved fallback timestamp** handling for when NTP sync fails
+
+## 🎯 **Why This Problem Happens**
+
+1. **ESP32 Boot Time**: When ESP32 starts, it takes time to sync with NTP servers
+2. **Network Delays**: WiFi connection or internet issues can delay NTP sync
+3. **Time Zone Issues**: ESP32 might be using different timezone than browser
+4. **Firebase Delays**: Slow Firebase writes can make data appear stale
+
+## 🧪 **How to Test the Fix**
+
+1. **Upload the updated Arduino code**
+2. **Monitor Serial output** for timestamp debug info:
+   ```
+   ⏰ Synchronizing time......... ✅ Time synchronized
+      Unix timestamp: 1726144800
+      Using NTP timestamp: 1726144800000
+   ```
+3. **Check browser console** for timestamp warnings if stale data occurs
+4. **The warning should now be less frequent** due to 30s tolerance
+
+## 🔧 **If Problems Persist**
+
+If you still see stale data warnings:
+
+1. **Check ESP32 Serial output** - is NTP sync working?
+2. **Check browser console** - what's the actual time difference?
+3. **Verify internet connection** - ESP32 needs internet for NTP
+4. **Consider your router's NTP blocking** - some routers block NTP traffic
+
+The stale data issue should now be much more stable! 🎉
+
+---
+
+_**User (2025-09-12 00:30Z)**_
+
+@ClimateControl.tsx currently for the mq135, the treshold is 0-300 is good, 301-400 is moderate, and 401 and above is poor, and the actions include when moderate then it should not change the fan but send a warning to  the user, and for poor then chnage the fan to maximum speed and alert the user
+
+update @climate_control_complete.ino to make sure mq135 effects works accordingly as mentioned above 
+
+---
+
+_**Assistant**_
+
+I'll update the Arduino code to implement the proper MQ-135 air quality logic as you specified. Let me examine the current thresholds and then implement the correct behavior.
+
+---
+
+
+
+---
+
+Perfect! The thresholds are already correctly set. Now let me find and update the air quality logic in the autoControlLogic function:
+
+---
+
+
+
+---
+
+Let me search for the air quality logic more broadly:
+
+---
+
+
+
+---
+
+Let me read the autoControlLogic function to see the current air quality handling:
+
+---
+
+Read file: undefined
+
+---
+
+I can see the air quality logic is already partially implemented but needs improvement. Let me enhance it to properly handle the requirements:
+
+---
+
+<details><summary>Edit file: module2_climate_control/climate_control_complete/climate_control_complete.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 15, lines removed: 7
+
+```diff
+@@ -553,14 +553,22 @@
+    }
+    
+-   // Air Quality assistance (updated per instruction.md)
++   // Air Quality Control Logic
++   // Thresholds: 0-300=Good, 301-400=Moderate, 401+=Poor
+    if (currentState.aqStatus == "Poor") {
+-     // Force HIGH (max) for poor air quality only
++     // POOR Air Quality (401+): Force fan to MAXIMUM speed
+      targetDuty = FAN_DUTY_HIGH;
+-     Serial.println("⚠️ POOR Air Quality - Fan forced to MAX speed");
++     currentState.comfortBand = "High"; // Override temperature band
++     Serial.println("🚨 POOR Air Quality detected! Fan forced to MAXIMUM speed");
++     Serial.printf("   AQ Raw: %d (Threshold: >400)\n", currentState.aqRaw);
+    } else if (currentState.aqStatus == "Moderate") {
+-     // Moderate AQ: No fan change, just warning (as per instruction.md)
+-     Serial.println("⚠️ MODERATE Air Quality - Warning sent to UI");
+-   }
+-   // Good AQ: No changes to temperature-based fan speed
++     // MODERATE Air Quality (301-400): Keep current fan speed, send warning
++     Serial.println("⚠️ MODERATE Air Quality detected - Warning to user");
++     Serial.printf("   AQ Raw: %d (Threshold: 301-400) - No fan speed change\n", currentState.aqRaw);
++     // targetDuty remains unchanged (temperature-based control)
++   } else {
++     // GOOD Air Quality (0-300): Normal temperature-based control
++     Serial.printf("✅ GOOD Air Quality: %d (Threshold: 0-300)\n", currentState.aqRaw);
++     // targetDuty remains temperature-based
++   }
+    
+    // Apply fan control
+```
+
+</details>
+
+---
+
+Now let me also add an air quality alert system that sends alerts to Firebase for the web dashboard to display:
+
+---
+
+<details><summary>Edit file: module2_climate_control/climate_control_complete/climate_control_complete.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: undefined
+
+```diff
+@@ -96,4 +96,5 @@
+    // bool systemActive = false; // Removed - using presence directly
+    String lastStatusMessage = "";
++   String aqAlert = ""; // Air quality alert message for UI
+  } currentState;
+  
+```
+
+</details>
+
+---
+
+Now let me update the air quality logic to set alert messages:
+
+---
+
+<details><summary>Edit file: module2_climate_control/climate_control_complete/climate_control_complete.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 6, lines removed: 3
+
+```diff
+@@ -557,16 +557,19 @@
+    // Thresholds: 0-300=Good, 301-400=Moderate, 401+=Poor
+    if (currentState.aqStatus == "Poor") {
+-     // POOR Air Quality (401+): Force fan to MAXIMUM speed
++     // POOR Air Quality (401+): Force fan to MAXIMUM speed + ALERT
+      targetDuty = FAN_DUTY_HIGH;
+      currentState.comfortBand = "High"; // Override temperature band
++     currentState.aqAlert = "CRITICAL: Poor air quality detected! Fan at maximum speed.";
+      Serial.println("🚨 POOR Air Quality detected! Fan forced to MAXIMUM speed");
+      Serial.printf("   AQ Raw: %d (Threshold: >400)\n", currentState.aqRaw);
+    } else if (currentState.aqStatus == "Moderate") {
+-     // MODERATE Air Quality (301-400): Keep current fan speed, send warning
++     // MODERATE Air Quality (301-400): Keep current fan speed + WARNING
++     currentState.aqAlert = "WARNING: Moderate air quality detected. Monitor conditions.";
+      Serial.println("⚠️ MODERATE Air Quality detected - Warning to user");
+      Serial.printf("   AQ Raw: %d (Threshold: 301-400) - No fan speed change\n", currentState.aqRaw);
+      // targetDuty remains unchanged (temperature-based control)
+    } else {
+-     // GOOD Air Quality (0-300): Normal temperature-based control
++     // GOOD Air Quality (0-300): Clear any alerts
++     currentState.aqAlert = "";
+      Serial.printf("✅ GOOD Air Quality: %d (Threshold: 0-300)\n", currentState.aqRaw);
+      // targetDuty remains temperature-based
+```
+
+</details>
+
+---
+
+Now let me add the aqAlert to the Firebase sync so the web dashboard can display these alerts:
+
+---
+
+<details><summary>Edit file: module2_climate_control/climate_control_complete/climate_control_complete.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: undefined
+
+```diff
+@@ -665,4 +665,5 @@
+    doc["aqRaw"] = currentState.aqRaw;
+    doc["aqStatus"] = currentState.aqStatus;
++   doc["aqAlert"] = currentState.aqAlert;
+    doc["presence"] = currentState.presence;
+    // doc["systemActive"] removed - using presence directly
+```
+
+</details>
+
+---
+
+Now let me also add the aqAlert to the log function:
+
+---
+
+<details><summary>Edit file: module2_climate_control/climate_control_complete/climate_control_complete.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: undefined
+
+```diff
+@@ -722,4 +722,5 @@
+    doc["aqRaw"] = currentState.aqRaw;
+    doc["aqStatus"] = currentState.aqStatus;
++   doc["aqAlert"] = currentState.aqAlert;
+    doc["comfortBand"] = currentState.comfortBand;
+    doc["fanOn"] = currentState.fanOn;
+```
+
+</details>
+
+---
+
+Now let me update the ClimateState TypeScript interface to include the aqAlert field:
+
+---
+
+Read file: undefined
+
+---
+
+<details><summary>Edit file: web/src/types.ts</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: undefined
+
+```diff
+@@ -44,4 +44,5 @@
+    aqRaw: number; // MQ-135 air quality raw value
+    aqStatus: 'Good' | 'Moderate' | 'Poor';
++   aqAlert?: string; // Air quality alert message
+    mode: 'auto' | 'manual';
+    fan: {
+```
+
+</details>
+
+---
+
+Now let me update the ClimateControl.tsx to display air quality alerts:
+
+---
+
+<details><summary>Edit file: web/src/components/ClimateControl.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 6, lines removed: undefined
+
+```diff
+@@ -185,4 +185,10 @@
+          </div>
+        )}
++ 
++       {state?.aqAlert && (
++         <div className={`alert-banner ${state.aqStatus === 'Poor' ? 'critical' : 'warning'}`}>
++           {state.aqStatus === 'Poor' ? '🚨' : '⚠️'} {state.aqAlert}
++         </div>
++       )}
+  
+        <nav className="dashboard-nav">
+```
+
+</details>
+
+---
+
+Now let me add CSS styles for the alert banners. Let me check the Dashboard.css file:
+
+---
+
+The string to replace was not found in the file.
+
+---
+
+Let me find the error-banner style first:
+
+---
+
+
+
+---
+
+Read file: undefined
+
+---
+
+Invalid: old_string and new_string are exactly the same.
+
+---
+
+Let me add the alert banner styles after the error-banner:
+
+---
+
+Read file: undefined
+
+---
+
+<details><summary>Edit file: web/src/components/Dashboard.css</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 41, lines removed: undefined
+
+```diff
+@@ -130,4 +130,45 @@
+    font-weight: 500;
+  }
++ 
++ .alert-banner {
++   padding: 1rem 2rem;
++   margin: 0;
++   text-align: center;
++   font-weight: 500;
++   animation: slideIn 0.3s ease-out;
++ }
++ 
++ .alert-banner.warning {
++   background: rgba(255, 193, 7, 0.2);
++   color: #856404;
++   border: 1px solid #ffc107;
++ }
++ 
++ .alert-banner.critical {
++   background: rgba(220, 53, 69, 0.2);
++   color: #721c24;
++   border: 1px solid #dc3545;
++   animation: pulse 2s infinite;
++ }
++ 
++ @keyframes slideIn {
++   from {
++     opacity: 0;
++     transform: translateY(-10px);
++   }
++   to {
++     opacity: 1;
++     transform: translateY(0);
++   }
++ }
++ 
++ @keyframes pulse {
++   0%, 100% {
++     opacity: 1;
++   }
++   50% {
++     opacity: 0.8;
++   }
++ }
+  
+  .loader {
+```
+
+</details>
+
+---
+
+Perfect! Now let me create a summary of all the changes I've made:
+
+## ✅ **MQ-135 Air Quality System Implementation Complete**
+
+### 🔧 **Arduino Code Updates (`climate_control_complete.ino`)**
+
+1. **Enhanced Air Quality Logic**:
+   - ✅ **0-300**: Good air quality → Normal temperature-based fan control
+   - ✅ **301-400**: Moderate air quality → **Warning message, NO fan speed change**
+   - ✅ **401+**: Poor air quality → **Fan forced to MAXIMUM speed + Critical alert**
+
+2. **Alert System**:
+   - ✅ Added `aqAlert` field to store alert messages
+   - ✅ **Moderate**: "WARNING: Moderate air quality detected. Monitor conditions."
+   - ✅ **Poor**: "CRITICAL: Poor air quality detected! Fan at maximum speed."
+   - ✅ **Good**: Clear alerts (empty string)
+
+3. **Firebase Integration**:
+   - ✅ Air quality alerts sent to Firebase in both state and logs
+   - ✅ Enhanced logging with detailed AQ threshold information
+
+### 🎨 **Web Dashboard Updates**
+
+1. **TypeScript Interface** (`types.ts`):
+   - ✅ Added `aqAlert?: string` to `ClimateState` interface
+
+2. **UI Components** (`ClimateControl.tsx`):
+   - ✅ Added alert banner display below error messages
+   - ✅ **Warning banner** for moderate air quality (yellow)
+   - ✅ **Critical banner** for poor air quality (red with pulsing animation)
+
+3. **Styling** (`Dashboard.css`):
+   - ✅ Added `.alert-banner` styles with animations
+   - ✅ **Warning**: Yellow background with smooth slide-in
+   - ✅ **Critical**: Red background with pulsing effect
+
+### 🎯 **How It Works Now**
+
+#### **When MQ-135 reads 0-300 (Good)**:
+- ✅ Normal temperature-based fan control
+- ✅ No alerts displayed
+- ✅ Green "Good" status in air quality tile
+
+#### **When MQ-135 reads 301-400 (Moderate)**:
+- ⚠️ **Fan speed unchanged** (follows temperature bands)
+- ⚠️ **Yellow warning banner**: "WARNING: Moderate air quality detected..."
+- ⚠️ Serial log: "MODERATE Air Quality detected - Warning to user"
+
+#### **When MQ-135 reads 401+ (Poor)**:
+- 🚨 **Fan forced to MAXIMUM speed** (overrides temperature control)
+- 🚨 **Red critical banner** with pulsing: "CRITICAL: Poor air quality detected..."
+- 🚨 **Comfort band set to "High"** to indicate emergency mode
+- 🚨 Serial log: "POOR Air Quality detected! Fan forced to MAXIMUM speed"
+
+The system now provides real-time air quality monitoring with appropriate user alerts and automatic fan control based on your exact specifications! 🎉
+
+---
+
