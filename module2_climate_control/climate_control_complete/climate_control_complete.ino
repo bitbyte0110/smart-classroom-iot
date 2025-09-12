@@ -75,8 +75,8 @@ const float TEMP_MED_MAX = 28.0;    // 25.1-28°C → MED band
                                     // ≥28.1°C → HIGH band
 
 // Air Quality Thresholds (configurable)
-const int AQ_GOOD_MAX = 200;        // 0-200 → Good
-const int AQ_MODERATE_MAX = 400;    // 201-400 → Moderate
+const int AQ_GOOD_MAX = 300;        // 0-300 → Good
+const int AQ_MODERATE_MAX = 400;    // 301-400 → Moderate
                                     // ≥401 → Poor
 
 // Hysteresis Control (prevent oscillation)
