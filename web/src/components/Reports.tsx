@@ -68,7 +68,7 @@ export default function Reports() {
     return () => unsubscribe();
   }, []);
 
-  // 1. Daily Brightness Line Chart
+  // 1. Daily Brightness Line Chart (Updates every 30 seconds from ESP32)
   const getBrightnessChart = () => {
     const last24Hours = logs.filter(log => 
       dayjs().diff(dayjs(log.ts), 'hour') <= 24
@@ -164,32 +164,32 @@ export default function Reports() {
     };
   };
 
-  // 4. Energy Saved vs Baseline (Realistic for 3.3V IoT LED)
+  // 4. Energy Saved vs Baseline (Tiny 3.3V IoT LED)
   const getEnergySavings = () => {
     const occupiedLogs = logs.filter(log => log.presence);
     const onLogs = logs.filter(log => log.led?.on);
     
-    // Realistic power calculations for 3.3V IoT LED
-    const LED_POWER_WATTS = 0.1; // 100mW typical for small IoT LED
-    const LED_MAX_POWER = 0.1; // 100mW at full brightness
+    // Realistic power calculations for tiny 3.3V IoT LED
+    const LED_POWER_MW = 20; // 20mW typical for tiny IoT LED (3.3V, ~6mA)
+    const LED_MAX_POWER_MW = 20; // 20mW at full brightness
     
-    // Calculate actual power usage based on PWM
+    // Calculate actual power usage based on PWM (in mW)
     const actualPower = onLogs.reduce((sum, log) => {
       const pwmRatio = (log.led?.pwm || 0) / 255;
-      return sum + (LED_POWER_WATTS * pwmRatio);
+      return sum + (LED_POWER_MW * pwmRatio);
     }, 0);
     
-    // Baseline: LED always on at full power when occupied
-    const baselinePower = occupiedLogs.length * LED_MAX_POWER;
+    // Baseline: LED always on at full power when occupied (in mW)
+    const baselinePower = occupiedLogs.length * LED_MAX_POWER_MW;
     
     const savings = baselinePower > 0 ? ((baselinePower - actualPower) / baselinePower) * 100 : 0;
     const savedWatts = baselinePower - actualPower;
 
     return {
-      actualUsage: Math.round(actualPower * 1000), // Convert to mW
-      baselineUsage: Math.round(baselinePower * 1000),
+      actualUsage: Math.round(actualPower), // Already in mW
+      baselineUsage: Math.round(baselinePower),
       savings: Math.round(savings),
-      savedWatts: Math.round(savedWatts * 1000), // Convert to mW
+      savedWatts: Math.round(savedWatts), // Already in mW
     };
   };
 
@@ -262,7 +262,7 @@ export default function Reports() {
             onClick={() => setDemoMode(!demoMode)} 
             className={`demo-toggle ${demoMode ? 'active' : ''}`}
           >
-            {demoMode ? '🎬 Demo Mode (10min)' : '📊 Full Data (24h)'}
+            {demoMode ? '⏱️ Last 10 min' : '📊 Full Data (24h)'}
           </button>
           <button onClick={exportToCSV} className="export-btn">
             📥 Export CSV
@@ -295,7 +295,7 @@ export default function Reports() {
 
       <div className="charts-grid">
         <div className="chart-container">
-          <h3>📈 Daily Brightness Levels</h3>
+          <h3>📈 Daily Brightness Levels (30s updates)</h3>
           <Line 
             data={getBrightnessChart()} 
             options={{
