@@ -28,18 +28,17 @@ int currentDuty = 0;
 DHT dht(DHTPIN, DHTTYPE);
 
 // ================== MQ-135 ==================
-const int MQ_PIN = 34;   // ADC1_6 on many ESP32 boards
+const int MQ_PIN = 32;   // ADC1_6 on many ESP32 boards
 // Helper to print a very rough ppm estimate (optional)
 static inline float mq135_ppm_from_raw(int raw) {
   return (2000.0f * raw) / 4095.0f;  // rough placeholder
 }
 
-// ---- Air quality thresholds (per your spec) ----
-// Good:     raw < 1000   (~< 600 ppm)
-// Moderate: 1000–2000    (~600–1000 ppm)
-// Poor:     > 2000       (~> 1000 ppm)
-const int AQ_ADC_GOOD_MAX = 1000;
-const int AQ_ADC_POOR_MIN = 2000;
+// ---- Air quality thresholds (new spec) ----
+const int AQ_LOW_MAX     = 200;   // 0–200 → LOW
+const int AQ_MEDIUM_MIN  = 201;   // 201–400 → MED
+const int AQ_MEDIUM_MAX  = 400;
+const int AQ_HIGH_MIN    = 401;   // ≥401 → HIGH
 
 // Rate-limit warnings so Serial/UI isn’t spammed
 unsigned long lastWarnMs   = 0;
@@ -125,25 +124,27 @@ void loop() {
     else                   baseDuty = FAN_DUTY_HIGH;  // ≥ 28.1 → HIGH
   }
 
-  // -------- Air quality effects --------
-  // Good: no effect
-  // Moderate: warn (no fan change)
-  // Poor: override to HIGH + danger
+  // -------- Air quality effects (new thresholds) --------
   unsigned long now = millis();
   bool overrideHigh = false;
 
-  if (raw > AQ_ADC_POOR_MIN) {
+  if (raw >= AQ_HIGH_MIN) {
+    // High pollution → force fan HIGH + danger msg
     overrideHigh = true;
     if (now - lastDangerMs > DANGER_COOLDOWN_MS) {
-      uiDanger("Air quality POOR (ADC > 2000, ~CO2 > 1000 ppm). Fan forced to MAX!");
+      uiDanger("Air quality HIGH (ADC ≥ 401). Fan forced to MAX!");
       lastDangerMs = now;
     }
-  } else if (raw >= AQ_ADC_GOOD_MAX) {
+  } 
+  else if (raw >= AQ_MEDIUM_MIN && raw <= AQ_MEDIUM_MAX) {
+    // Medium pollution → warning only, fan unchanged
     if (now - lastWarnMs > WARN_COOLDOWN_MS) {
-      uiWarning("Air quality MODERATE (ADC 1000–2000, ~CO2 600–1000 ppm). Consider ventilation.");
+      uiWarning("Air quality MEDIUM (ADC 201–400). Consider ventilation.");
       lastWarnMs = now;
     }
   }
+  // else (0–200) → Low → no action
+
   int targetDuty = overrideHigh ? FAN_DUTY_HIGH : baseDuty;
 
   // -------- Apply fan change if needed --------
