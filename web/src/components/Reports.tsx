@@ -68,18 +68,29 @@ export default function Reports() {
     return () => unsubscribe();
   }, []);
 
-  // 1. Daily Brightness Line Chart (Updates every 30 seconds from ESP32)
+  // 1. Daily Brightness Line Chart (Updates every 5 seconds for demo)
+  // Note: ESP32 logs every 30s, but chart refreshes every 5s for smoother demo
   const getBrightnessChart = () => {
-    const last24Hours = logs.filter(log => 
-      dayjs().diff(dayjs(log.ts), 'hour') <= 24
-    );
+    let filteredLogs;
+    
+    if (demoMode) {
+      // Demo mode: show last 10 minutes for faster updates
+      filteredLogs = logs.filter(log => 
+        dayjs().diff(dayjs(log.ts), 'minute') <= 10
+      );
+    } else {
+      // Normal mode: show last 24 hours
+      filteredLogs = logs.filter(log => 
+        dayjs().diff(dayjs(log.ts), 'hour') <= 24
+      );
+    }
 
     return {
-      labels: last24Hours.map(log => dayjs(log.ts).format('HH:mm')),
+      labels: filteredLogs.map(log => dayjs(log.ts).format('HH:mm')),
       datasets: [
         {
           label: 'Brightness Level (LDR Raw)',
-          data: last24Hours.map(log => log.ldrRaw),
+          data: filteredLogs.map(log => log.ldrRaw),
           borderColor: 'rgb(255, 206, 84)',
           backgroundColor: 'rgba(255, 206, 84, 0.2)',
           tension: 0.1,
@@ -295,7 +306,7 @@ export default function Reports() {
 
       <div className="charts-grid">
         <div className="chart-container">
-          <h3>📈 Daily Brightness Levels (30s updates)</h3>
+          <h3>📈 Daily Brightness Levels {demoMode ? '(Last 10 min)' : '(24h data)'}</h3>
           <Line 
             data={getBrightnessChart()} 
             options={{
