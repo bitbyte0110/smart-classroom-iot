@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ref, onValue, update } from 'firebase/database';
-import { database } from '../firebase';
+import { db as database } from '../firebase';
 import type { LightingState } from '../types';
 import { ROOM_ID } from '../types';
 import StatusTiles from './StatusTiles';
@@ -45,6 +45,18 @@ export default function Dashboard() {
       const value = snapshot.val();
       console.log('🔥 Firebase snapshot received:', value); // Debug log
       console.log('📍 Firebase path:', `/lighting/${ROOM_ID}/state`); // Debug path
+      console.log('🔍 Data structure check:', {
+        hasAiPresence: 'ai_presence' in value,
+        hasPresence: 'presence' in value,
+        hasLdrRaw: 'ldrRaw' in value,
+        hasLed: 'led' in value,
+        hasMode: 'mode' in value,
+        aiPresence: value.ai_presence,
+        presence: value.presence,
+        ldrRaw: value.ldrRaw,
+        led: value.led,
+        mode: value.mode
+      });
       
       if (!value) {
         setIsConnected(false);
@@ -63,7 +75,9 @@ export default function Dashboard() {
       const dataTimestamp = value.ai_timestamp ?? value.timestamp ?? value.ts ?? Date.now();
       const isStale = (Date.now() - dataTimestamp) > 10000; // >10s considered stale
 
-      const presenceFromAI = typeof value.ai_presence === 'boolean' ? value.ai_presence : false;
+      // Handle both old and new data structures
+      const presenceFromAI = typeof value.ai_presence === 'boolean' ? value.ai_presence : 
+                            typeof value.presence === 'boolean' ? value.presence : false;
       const uiPresence = presenceFromAI && !isStale;
 
       const merged = {

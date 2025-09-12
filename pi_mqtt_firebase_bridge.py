@@ -10,7 +10,7 @@ Subscribes to MQTT topics and patches merged state to Firebase:
   - ai/presence/confidence       (float)
 
 Usage:
-  python3 pi_mqtt_firebase_bridge.py --mqtt-host 192.168.0.102 --room roomA
+  python3 pi_mqtt_firebase_bridge.py --mqtt-host 192.168.202.221 --room roomA
 """
 
 import json
@@ -23,7 +23,7 @@ import paho.mqtt.client as mqtt
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--mqtt-host', default='192.168.0.102')
+    parser.add_argument('--mqtt-host', default='192.168.202.221')
     parser.add_argument('--mqtt-port', type=int, default=1883)
     parser.add_argument('--firebase-url', default='https://smartclassroom-af237-default-rtdb.asia-southeast1.firebasedatabase.app')
     parser.add_argument('--room', default='roomA')

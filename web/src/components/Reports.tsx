@@ -13,7 +13,7 @@ import {
   Legend,
 } from 'chart.js';
 import dayjs from 'dayjs';
-import { database } from '../firebase';
+import { db as database } from '../firebase';
 import type { LightingLog } from '../types';
 import { ROOM_ID } from '../types';
 import './Reports.css';
@@ -43,10 +43,10 @@ export default function Reports() {
       
       if (data) {
         const logsArray = Object.values(data).map((rawLog: any) => {
-          // Handle ESP32 nested log structure
+          // Handle both old ESP32 nested structure and new MQTT bridge structure
           const log: LightingLog = {
             ts: rawLog.timestamp || rawLog.ts || Date.now(),
-            presence: rawLog.ai?.presence || rawLog.presence || false,
+            presence: rawLog.ai?.presence || rawLog.ai_presence || rawLog.presence || false,
             ldrRaw: rawLog.sensors?.ldr || rawLog.ldrRaw || 0,
             mode: rawLog.system?.mode || rawLog.mode || 'auto',
             led: {

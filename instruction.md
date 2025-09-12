@@ -317,21 +317,21 @@ echo "allow_anonymous true"   | sudo tee -a /etc/mosquitto/conf.d/lan.conf
 sudo systemctl restart mosquitto
 sudo systemctl enable mosquitto
 ```
-- Your Pi IP (from user): `192.168.0.102` (use this in ESP32 and AI script)
+- Your Pi IP (from user): `192.168.202.221` (use this in ESP32 and AI script)
 - Optional: replace `allow_anonymous true` with username/password for security.
 
 3) Test from the Pi (or any LAN device)
 ```bash
 # Terminal 1 (subscriber)
-mosquitto_sub -h 192.168.0.102 -t 'sensors/lighting/#' -v
+mosquitto_sub -h 192.168.202.221 -t 'sensors/lighting/#' -v
 
 # Terminal 2 (publisher)
-mosquitto_pub -h 192.168.0.102 -t 'sensors/lighting/brightness' -m '{"ldrRaw":1234}'
+mosquitto_pub -h 192.168.202.221 -t 'sensors/lighting/brightness' -m '{"ldrRaw":1234}'
 ```
 
 4) Run the Pi bridge (mirrors MQTT → Firebase)
 ```bash
-python3 /home/pi/pi_mqtt_firebase_bridge.py --mqtt-host 192.168.0.102 --room roomA
+python3 /home/pi/pi_mqtt_firebase_bridge.py --mqtt-host 192.168.202.221 --room roomA
 ```
 Keep this running during demos so the web dashboard stays in sync.
 
@@ -385,7 +385,7 @@ Laptop Integrated Camera → YOLO Detection → Firebase Update → ESP32 Respon
 - Upload to ESP32. Open Serial Monitor @115200 to confirm WiFi and status.
 
 2) Start MQTT Broker on the Pi
-Ensure Mosquitto is running on the Raspberry Pi at `192.168.0.102` (see section above).
+Ensure Mosquitto is running on the Raspberry Pi at `192.168.202.221` (see section above).
 
 3) Run the Camera AI on Laptop
 - Ensure Python 3.8+ installed.

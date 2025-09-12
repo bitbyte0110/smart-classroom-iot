@@ -1,20 +1,41 @@
-import { initializeApp } from "firebase/app";
-import { getDatabase } from "firebase/database";
+import { initializeApp } from 'firebase/app';
+import { getDatabase, Database } from 'firebase/database';
 
+// Firebase configuration from environment variables
 const firebaseConfig = {
-  apiKey: "AIzaSyDpAjEMP0MatqhwlLY_clqtpcfGVXkpsS8",
-  authDomain: "smartclassroom-af237.firebaseapp.com",
-  databaseURL: "https://smartclassroom-af237-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "smartclassroom-af237",
-  storageBucket: "smartclassroom-af237.firebasestorage.app",
-  messagingSenderId: "172327783054",
-  appId: "1:172327783054:web:b9bdddfb213ea0dd48d7df",
-  measurementId: "G-EHFTC93M2F"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  databaseURL: import.meta.env.VITE_FIREBASE_DB_URL,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-const app = initializeApp(firebaseConfig);
-export const database = getDatabase(app);
+// Validate required environment variables
+const requiredEnvVars = [
+  'VITE_FIREBASE_API_KEY',
+  'VITE_FIREBASE_AUTH_DOMAIN', 
+  'VITE_FIREBASE_DB_URL',
+  'VITE_FIREBASE_PROJECT_ID',
+  'VITE_FIREBASE_STORAGE_BUCKET',
+  'VITE_FIREBASE_MESSAGING_SENDER_ID',
+  'VITE_FIREBASE_APP_ID'
+];
 
-// Connect to real Firebase (for production with real hardware)
-console.log("🔥 Connected to Real Firebase Database");
-console.log("🎯 Ready for live ESP32 + AI data!");
+const missingVars = requiredEnvVars.filter(varName => !import.meta.env[varName]);
+
+if (missingVars.length > 0) {
+  throw new Error(
+    `Missing required Firebase environment variables: ${missingVars.join(', ')}\n` +
+    'Please create a .env.local file in the web directory with your Firebase configuration.'
+  );
+}
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+
+// Initialize Realtime Database and get a reference to the service
+export const db: Database = getDatabase(app);
+
+export default app;

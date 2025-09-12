@@ -11,7 +11,7 @@ from ultralytics import YOLO
 import paho.mqtt.client as mqtt
 
 class ForceGPUYOLODetector:
-    def __init__(self, firebase_url="https://smartclassroom-af237-default-rtdb.asia-southeast1.firebasedatabase.app", room_id="roomA", mqtt_host="192.168.0.102", mqtt_port=1883):
+    def __init__(self, firebase_url="https://smartclassroom-af237-default-rtdb.asia-southeast1.firebasedatabase.app", room_id="roomA", mqtt_host="192.168.202.221", mqtt_port=1883):
         """Initialize force GPU YOLO detector"""
         self.firebase_url = firebase_url
         self.room_id = room_id

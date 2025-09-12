@@ -40,7 +40,7 @@ const bool LDR_DEBUG = true;   // Enable for hardware debugging
 const String ROOM_ID = "roomA";
 
 // MQTT (Raspberry Pi broker)
-const char* MQTT_HOST = "192.168.0.102"; // Your Pi IPv4
+const char* MQTT_HOST = "192.168.202.221"; // Your Pi IPv4
 const int   MQTT_PORT = 1883;
 const char* MQTT_CLIENT_ID = "esp32-lighting-roomA";
 
