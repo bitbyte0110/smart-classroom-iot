@@ -49,7 +49,7 @@ const String ROOM_ID = "roomA";
 const unsigned long SENSOR_INTERVAL = 30000;     // 30 seconds
 const unsigned long MQTT_INTERVAL = 5000;        // 5 seconds
 const unsigned long FIREBASE_INTERVAL = 10000;   // 10 seconds
-const unsigned long PRESENCE_TIMEOUT = 10000;    // 10 seconds grace period
+const unsigned long PRESENCE_CHECK_INTERVAL = 10000; // Check presence every 10 seconds
 
 // Fan PWM Configuration (LEDC new API)
 const int PWM_FREQ = 500;    // 500 Hz for DC fans
@@ -85,10 +85,10 @@ struct ClimateState {
   int fanPwm = 0;
   String comfortBand = "Low";
   bool presence = false;
-  unsigned long presenceLastSeen = 0;
+  bool systemActive = false;   // Controlled by presence
   bool boostMode = false;
   unsigned long boostEndTime = 0;
-  bool systemActive = false;   // Controlled by presence
+  String lastStatusMessage = "";
 } currentState;
 
 // Timing Variables
@@ -97,6 +97,7 @@ unsigned long lastMqttPublish = 0;
 unsigned long lastFirebaseSync = 0;
 unsigned long lastBandChange = 0;
 unsigned long lastBoostCheck = 0;
+unsigned long lastPresenceCheck = 0;
 
 // Fan Control Variables
 bool pwmReady = false;
@@ -127,6 +128,11 @@ void setup() {
   Serial.println("✅ Climate Control System Ready!");
   Serial.println("🌡️ DHT22 + 🌬️ MQ-135 + 💨 Fan Control");
   Serial.println("🤖 AI Presence Integration Active");
+  Serial.println("⏰ Checking presence every 10 seconds");
+  Serial.println("📊 System Status:");
+  Serial.println("   • MQ-135: Always monitoring");
+  Serial.println("   • DHT22: Only when presence detected");
+  Serial.println("   • Fan: Only when presence detected");
   Serial.println();
 }
 
@@ -139,6 +145,12 @@ void loop() {
   }
   mqtt.loop();
   
+  // Check presence status every 10 seconds
+  if (now - lastPresenceCheck > PRESENCE_CHECK_INTERVAL) {
+    checkPresenceStatus();
+    lastPresenceCheck = now;
+  }
+  
   // Read sensors (every 30 seconds)
   if (now - lastSensorRead > SENSOR_INTERVAL) {
     readSensors();
@@ -148,24 +160,8 @@ void loop() {
   // Check boost mode timeout
   checkBoostMode();
   
-  // Update system state based on presence
-  updateSystemActivation();
-  
-  // Apply control logic (only when system is active)
-  if (currentState.systemActive) {
-    applyControlLogic();
-  } else {
-    // System idle - turn off fan completely
-    setFanDuty(0);
-    currentState.fanOn = false;
-    currentState.fanPwm = 0;
-    currentState.comfortBand = "Idle";
-    // Cancel boost mode when no presence
-    if (currentState.boostMode) {
-      currentState.boostMode = false;
-      Serial.println("🚀 BOOST MODE cancelled (no presence)");
-    }
-  }
+  // Apply control logic based on system state
+  applySystemLogic();
   
   // Publish to MQTT (every 5 seconds)
   if (now - lastMqttPublish > MQTT_INTERVAL) {
@@ -278,15 +274,45 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
     }
   }
   else if (topicStr == "ai/presence/detection") {
-    bool newPresence = (message == "true");
-    if (newPresence != currentState.presence) {
-      currentState.presence = newPresence;
-      if (currentState.presence) {
-        currentState.presenceLastSeen = millis();
-        Serial.println("👥 AI Presence: DETECTED - System will activate");
-      } else {
-        Serial.println("👥 AI Presence: NONE - 10s grace period started");
-      }
+    currentState.presence = (message == "true");
+    // Let the 10-second check cycle handle the logic
+  }
+}
+
+void checkPresenceStatus() {
+  // Check presence every 10 seconds and update system accordingly
+  bool previousActive = currentState.systemActive;
+  currentState.systemActive = currentState.presence;
+  
+  // Only print status when it changes to avoid flooding
+  if (previousActive != currentState.systemActive) {
+    if (currentState.systemActive) {
+      currentState.lastStatusMessage = "🟢 PRESENCE DETECTED - System ACTIVE";
+      Serial.println(currentState.lastStatusMessage);
+      Serial.println("   └─ DHT22: ON | Fan: ACTIVE | MQ-135: CONTINUOUS");
+    } else {
+      currentState.lastStatusMessage = "🔴 NO PRESENCE - System IDLE";
+      Serial.println(currentState.lastStatusMessage);
+      Serial.println("   └─ DHT22: OFF | Fan: OFF | MQ-135: CONTINUOUS");
+    }
+  }
+}
+
+void applySystemLogic() {
+  if (currentState.systemActive) {
+    // System active - apply normal control logic
+    applyControlLogic();
+  } else {
+    // System idle - turn off fan and DHT, keep MQ-135 active
+    setFanDuty(0);
+    currentState.fanOn = false;
+    currentState.fanPwm = 0;
+    currentState.comfortBand = "Idle";
+    
+    // Cancel boost mode when no presence
+    if (currentState.boostMode) {
+      currentState.boostMode = false;
+      Serial.println("🚀 BOOST MODE cancelled (no presence)");
     }
   }
 }
@@ -305,7 +331,7 @@ void readSensors() {
     currentState.aqStatus = "Poor";
   }
   
-  Serial.printf("🌬️ Air Quality: %d (%s)\n", aqRaw, currentState.aqStatus.c_str());
+  Serial.printf("🌬️ Air Quality: %d (%s) [Always monitoring]\n", aqRaw, currentState.aqStatus.c_str());
   
   // Only read DHT22 when system is active (presence detected)
   if (currentState.systemActive) {
@@ -315,13 +341,18 @@ void readSensors() {
     if (!isnan(h) && !isnan(t)) {
       currentState.temperature = t;
       currentState.humidity = h;
-      Serial.printf("🌡️ Temp: %.1f°C, Humidity: %.1f%%\n", t, h);
+      Serial.printf("🌡️ Temperature: %.1f°C | Humidity: %.1f%% [Active]\n", t, h);
+      
+      // Show current fan status
+      if (currentState.fanOn) {
+        Serial.printf("💨 Fan: %s (PWM: %d) - Band: %s\n", 
+                     currentState.fanOn ? "ON" : "OFF", 
+                     currentState.fanPwm, 
+                     currentState.comfortBand.c_str());
+      }
     } else {
       Serial.println("❌ DHT22 read failed");
     }
-  } else {
-    // System idle - DHT22 not sampled
-    Serial.println("💤 DHT22 idle (no presence)");
   }
   
   // Check boost button (only when system active)
@@ -330,55 +361,19 @@ void readSensors() {
   }
 }
 
-void updateSystemActivation() {
-  unsigned long now = millis();
-  
-  // System becomes active immediately when presence detected
-  if (currentState.presence) {
-    currentState.presenceLastSeen = now; // Update last seen time
-    if (!currentState.systemActive) {
-      Serial.println("🟢 System ACTIVATED - Presence detected");
-      Serial.println("🌡️ DHT22 sampling resumed");
-      Serial.println("💨 Fan control activated");
-    }
-    currentState.systemActive = true;
-  }
-  // System becomes idle after grace period without presence
-  else if (currentState.systemActive && (now - currentState.presenceLastSeen > PRESENCE_TIMEOUT)) {
-    Serial.println("🔴 System IDLE - No presence for 10 seconds");
-    Serial.println("🌡️ DHT22 sampling paused");
-    Serial.println("💨 Fan turned OFF");
-    Serial.println("🌬️ MQ-135 continues monitoring");
-    currentState.systemActive = false;
-  }
-  
-  // Debug info
-  if (!currentState.presence && currentState.systemActive) {
-    unsigned long timeLeft = PRESENCE_TIMEOUT - (now - currentState.presenceLastSeen);
-    if (timeLeft <= PRESENCE_TIMEOUT) {
-      Serial.printf("⏰ Grace period: %.1fs remaining\n", timeLeft / 1000.0);
-    }
-  }
-}
 
 void applyControlLogic() {
-  // Only apply control logic when system is active (presence detected)
-  if (!currentState.systemActive) {
-    return; // This should not be called when inactive, but safety check
-  }
-  
+  // This function only gets called when system is active
   if (currentState.mode == "manual") {
-    // Manual mode - use dashboard commands (only when presence detected)
+    // Manual mode - use dashboard commands
     currentState.fanOn = manualFanOn;
     if (manualFanOn) {
       currentState.fanPwm = manualFanPwm;
       int duty = map(manualFanPwm, 0, 255, 0, MAX_DUTY);
       setFanDuty(duty);
-      Serial.printf("💨 Manual Fan: ON at PWM %d\n", manualFanPwm);
     } else {
       currentState.fanPwm = 0;
       setFanDuty(0);
-      Serial.println("💨 Manual Fan: OFF");
     }
   } else {
     // Auto mode - temperature-based control with AQ assistance

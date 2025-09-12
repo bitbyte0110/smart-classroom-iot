@@ -1210,3 +1210,550 @@ The fan logic now properly follows the presence detection from `yolo_force_gpu.p
 
 ---
 
+_**User (2025-09-12 00:30Z)**_
+
+@climate_control_complete.ino 
+
+what is the current setup for the fan?
+
+it should be checking for presence every 10 seconds at @yolo_force_gpu.py and follow the actual reult of @yolo_force_gpu.py . if presence is true then the fan and dht should be on using their logic accordingly and if the presence is false at @yolo_force_gpu.py , then the fan and dht should be off accordingly but the mq 135 should be always on and display the reading according to its own logic. make sure the @climate_control_complete.ino check the presence status at @yolo_force_gpu.py every 10 seconds always but the output should show the relevent readings accordingly instead of flooding with text of no presence detected
+
+---
+
+_**Assistant**_
+
+Looking at the current setup, I can see the issue. The ESP32 is not actively checking presence every 10 seconds - it's only responding when it receives MQTT messages. Let me fix this to make it check presence status every 10 seconds and provide cleaner output.
+
+---
+
+## Todo List
+
+- [-] Implement 10-second presence checking cycle with clean output
+
+---
+
+Let me analyze the current setup and fix it:
+
+**Current Issues:**
+1. ESP32 only responds to MQTT messages, doesn't actively check every 10 seconds
+2. Too much debug output flooding the console
+3. Grace period logic is confusing - should be simpler
+
+Let me redesign this with a proper 10-second checking cycle:
+
+---
+
+<details><summary>Edit file: module2_climate_control/climate_control_complete/climate_control_complete.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -50,5 +50,5 @@
+  const unsigned long MQTT_INTERVAL = 5000;        // 5 seconds
+  const unsigned long FIREBASE_INTERVAL = 10000;   // 10 seconds
+- const unsigned long PRESENCE_TIMEOUT = 10000;    // 10 seconds grace period
++ const unsigned long PRESENCE_CHECK_INTERVAL = 10000; // Check presence every 10 seconds
+  
+  // Fan PWM Configuration (LEDC new API)
+```
+
+</details>
+
+---
+
+<details><summary>Edit file: module2_climate_control/climate_control_complete/climate_control_complete.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 2, lines removed: 2
+
+```diff
+@@ -86,8 +86,8 @@
+    String comfortBand = "Low";
+    bool presence = false;
+-   unsigned long presenceLastSeen = 0;
++   bool systemActive = false;   // Controlled by presence
+    bool boostMode = false;
+    unsigned long boostEndTime = 0;
+-   bool systemActive = false;   // Controlled by presence
++   String lastStatusMessage = "";
+  } currentState;
+  
+```
+
+</details>
+
+---
+
+<details><summary>Edit file: module2_climate_control/climate_control_complete/climate_control_complete.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: undefined
+
+```diff
+@@ -98,4 +98,5 @@
+  unsigned long lastBandChange = 0;
+  unsigned long lastBoostCheck = 0;
++ unsigned long lastPresenceCheck = 0;
+  
+  // Fan Control Variables
+```
+
+</details>
+
+---
+
+Now let me rewrite the main loop to implement the 10-second checking cycle:
+
+---
+
+<details><summary>Edit file: module2_climate_control/climate_control_complete/climate_control_complete.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 6, lines removed: undefined
+
+```diff
+@@ -140,4 +140,10 @@
+    }
+    mqtt.loop();
++   
++   // Check presence status every 10 seconds
++   if (now - lastPresenceCheck > PRESENCE_CHECK_INTERVAL) {
++     checkPresenceStatus();
++     lastPresenceCheck = now;
++   }
+    
+    // Read sensors (every 30 seconds)
+```
+
+**Chunk 2**
+Lines added: 2, lines removed: 18
+
+```diff
+@@ -150,22 +156,6 @@
+    checkBoostMode();
+    
+-   // Update system state based on presence
+-   updateSystemActivation();
+-   
+-   // Apply control logic (only when system is active)
+-   if (currentState.systemActive) {
+-     applyControlLogic();
+-   } else {
+-     // System idle - turn off fan completely
+-     setFanDuty(0);
+-     currentState.fanOn = false;
+-     currentState.fanPwm = 0;
+-     currentState.comfortBand = "Idle";
+-     // Cancel boost mode when no presence
+-     if (currentState.boostMode) {
+-       currentState.boostMode = false;
+-       Serial.println("🚀 BOOST MODE cancelled (no presence)");
+-     }
+-   }
++   // Apply control logic based on system state
++   applySystemLogic();
+    
+    // Publish to MQTT (every 5 seconds)
+```
+
+</details>
+
+---
+
+Now let me implement the new presence checking function and clean up the logic:
+
+---
+
+<details><summary>Edit file: module2_climate_control/climate_control_complete/climate_control_complete.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 2, lines removed: 10
+
+```diff
+@@ -270,14 +270,6 @@
+    }
+    else if (topicStr == "ai/presence/detection") {
+-     bool newPresence = (message == "true");
+-     if (newPresence != currentState.presence) {
+-       currentState.presence = newPresence;
+-       if (currentState.presence) {
+-         currentState.presenceLastSeen = millis();
+-         Serial.println("👥 AI Presence: DETECTED - System will activate");
+-       } else {
+-         Serial.println("👥 AI Presence: NONE - 10s grace period started");
+-       }
+-     }
++     currentState.presence = (message == "true");
++     // Let the 10-second check cycle handle the logic
+    }
+  }
+```
+
+</details>
+
+---
+
+Now let me add the new presence checking function and system logic:
+
+---
+
+Cancelled
+
+---
+
+
+
+---
+
+_**User (2025-09-12 00:30Z)**_
+
+continue
+
+---
+
+_**Assistant**_
+
+<details><summary>Edit file: module2_climate_control/climate_control_complete/climate_control_complete.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 38, lines removed: undefined
+
+```diff
+@@ -274,4 +274,42 @@
+    }
+  }
++ 
++ void checkPresenceStatus() {
++   // Check presence every 10 seconds and update system accordingly
++   bool previousActive = currentState.systemActive;
++   currentState.systemActive = currentState.presence;
++   
++   // Only print status when it changes to avoid flooding
++   if (previousActive != currentState.systemActive) {
++     if (currentState.systemActive) {
++       currentState.lastStatusMessage = "🟢 PRESENCE DETECTED - System ACTIVE";
++       Serial.println(currentState.lastStatusMessage);
++       Serial.println("   └─ DHT22: ON | Fan: ACTIVE | MQ-135: CONTINUOUS");
++     } else {
++       currentState.lastStatusMessage = "🔴 NO PRESENCE - System IDLE";
++       Serial.println(currentState.lastStatusMessage);
++       Serial.println("   └─ DHT22: OFF | Fan: OFF | MQ-135: CONTINUOUS");
++     }
++   }
++ }
++ 
++ void applySystemLogic() {
++   if (currentState.systemActive) {
++     // System active - apply normal control logic
++     applyControlLogic();
++   } else {
++     // System idle - turn off fan and DHT, keep MQ-135 active
++     setFanDuty(0);
++     currentState.fanOn = false;
++     currentState.fanPwm = 0;
++     currentState.comfortBand = "Idle";
++     
++     // Cancel boost mode when no presence
++     if (currentState.boostMode) {
++       currentState.boostMode = false;
++       Serial.println("🚀 BOOST MODE cancelled (no presence)");
++     }
++   }
++ }
+  
+  void readSensors() {
+```
+
+</details>
+
+---
+
+Now let me update the sensor reading logic to be cleaner:
+
+---
+
+<details><summary>Edit file: module2_climate_control/climate_control_complete/climate_control_complete.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -327,5 +327,5 @@
+    }
+    
+-   Serial.printf("🌬️ Air Quality: %d (%s)\n", aqRaw, currentState.aqStatus.c_str());
++   Serial.printf("🌬️ Air Quality: %d (%s) [Always monitoring]\n", aqRaw, currentState.aqStatus.c_str());
+    
+    // Only read DHT22 when system is active (presence detected)
+```
+
+**Chunk 2**
+Lines added: 9, lines removed: 4
+
+```diff
+@@ -337,11 +337,16 @@
+        currentState.temperature = t;
+        currentState.humidity = h;
+-       Serial.printf("🌡️ Temp: %.1f°C, Humidity: %.1f%%\n", t, h);
++       Serial.printf("🌡️ Temperature: %.1f°C | Humidity: %.1f%% [Active]\n", t, h);
++       
++       // Show current fan status
++       if (currentState.fanOn) {
++         Serial.printf("💨 Fan: %s (PWM: %d) - Band: %s\n", 
++                      currentState.fanOn ? "ON" : "OFF", 
++                      currentState.fanPwm, 
++                      currentState.comfortBand.c_str());
++       }
+      } else {
+        Serial.println("❌ DHT22 read failed");
+      }
+-   } else {
+-     // System idle - DHT22 not sampled
+-     Serial.println("💤 DHT22 idle (no presence)");
+    }
+    
+```
+
+</details>
+
+---
+
+Now let me remove the old `updateSystemActivation()` function since we've replaced it with `checkPresenceStatus()`:
+
+---
+
+<details><summary>Edit file: module2_climate_control/climate_control_complete/climate_control_complete.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: undefined, lines removed: 30
+
+```diff
+@@ -357,34 +357,4 @@
+  }
+  
+- void updateSystemActivation() {
+-   unsigned long now = millis();
+-   
+-   // System becomes active immediately when presence detected
+-   if (currentState.presence) {
+-     currentState.presenceLastSeen = now; // Update last seen time
+-     if (!currentState.systemActive) {
+-       Serial.println("🟢 System ACTIVATED - Presence detected");
+-       Serial.println("🌡️ DHT22 sampling resumed");
+-       Serial.println("💨 Fan control activated");
+-     }
+-     currentState.systemActive = true;
+-   }
+-   // System becomes idle after grace period without presence
+-   else if (currentState.systemActive && (now - currentState.presenceLastSeen > PRESENCE_TIMEOUT)) {
+-     Serial.println("🔴 System IDLE - No presence for 10 seconds");
+-     Serial.println("🌡️ DHT22 sampling paused");
+-     Serial.println("💨 Fan turned OFF");
+-     Serial.println("🌬️ MQ-135 continues monitoring");
+-     currentState.systemActive = false;
+-   }
+-   
+-   // Debug info
+-   if (!currentState.presence && currentState.systemActive) {
+-     unsigned long timeLeft = PRESENCE_TIMEOUT - (now - currentState.presenceLastSeen);
+-     if (timeLeft <= PRESENCE_TIMEOUT) {
+-       Serial.printf("⏰ Grace period: %.1fs remaining\n", timeLeft / 1000.0);
+-     }
+-   }
+- }
+  
+  void applyControlLogic() {
+```
+
+</details>
+
+---
+
+Now let me clean up the `applyControlLogic()` function since the system check is now handled elsewhere:
+
+---
+
+<details><summary>Edit file: module2_climate_control/climate_control_complete/climate_control_complete.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 2, lines removed: 8
+
+```diff
+@@ -359,21 +359,15 @@
+  
+  void applyControlLogic() {
+-   // Only apply control logic when system is active (presence detected)
+-   if (!currentState.systemActive) {
+-     return; // This should not be called when inactive, but safety check
+-   }
+-   
++   // This function only gets called when system is active
+    if (currentState.mode == "manual") {
+-     // Manual mode - use dashboard commands (only when presence detected)
++     // Manual mode - use dashboard commands
+      currentState.fanOn = manualFanOn;
+      if (manualFanOn) {
+        currentState.fanPwm = manualFanPwm;
+        int duty = map(manualFanPwm, 0, 255, 0, MAX_DUTY);
+        setFanDuty(duty);
+-       Serial.printf("💨 Manual Fan: ON at PWM %d\n", manualFanPwm);
+      } else {
+        currentState.fanPwm = 0;
+        setFanDuty(0);
+-       Serial.println("💨 Manual Fan: OFF");
+      }
+    } else {
+```
+
+</details>
+
+---
+
+Let me also add a summary display function to show the current system status clearly:
+
+---
+
+<details><summary>Edit file: module2_climate_control/climate_control_complete/climate_control_complete.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 5, lines removed: undefined
+
+```diff
+@@ -129,4 +129,9 @@
+    Serial.println("🌡️ DHT22 + 🌬️ MQ-135 + 💨 Fan Control");
+    Serial.println("🤖 AI Presence Integration Active");
++   Serial.println("⏰ Checking presence every 10 seconds");
++   Serial.println("📊 System Status:");
++   Serial.println("   • MQ-135: Always monitoring");
++   Serial.println("   • DHT22: Only when presence detected");
++   Serial.println("   • Fan: Only when presence detected");
+    Serial.println();
+  }
+```
+
+</details>
+
+---
+
+Now let me check for any compilation issues:
+
+---
+
+
+
+---
+
+Perfect! Let me update the todo status:
+
+---
+
+## Todo List
+
+- [x] Implement 10-second presence checking cycle with clean output
+
+---
+
+## ✅ Fixed! New 10-Second Presence Checking System
+
+I've completely redesigned the fan control system to meet your exact requirements:
+
+### **🔄 New System Architecture:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    ESP32 Climate Control                    │
+│                    10-Second Check Cycle                    │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Every 10 seconds: checkPresenceStatus()                   │
+│  ├─ Read current presence from yolo_force_gpu.py           │
+│  ├─ Update systemActive = presence                         │
+│  └─ Only show status when it CHANGES (no flooding)         │
+│                                                             │
+│  System Logic:                                              │
+│  ├─ IF presence = TRUE:                                     │
+│  │   ├─ DHT22: ON (reads temp/humidity)                    │
+│  │   ├─ Fan: ACTIVE (follows temperature logic)            │
+│  │   └─ MQ-135: CONTINUOUS                                 │
+│  │                                                         │
+│  └─ IF presence = FALSE:                                    │
+│      ├─ DHT22: OFF (no readings)                           │
+│      ├─ Fan: OFF (completely stopped)                      │
+│      └─ MQ-135: CONTINUOUS (always monitoring)             │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### **🎯 Key Improvements:**
+
+1. **🕐 10-Second Checking Cycle**: 
+   - `checkPresenceStatus()` runs every 10 seconds
+   - Directly follows `yolo_force_gpu.py` presence status
+   - No grace periods or delays - immediate response
+
+2. **🧹 Clean Output**: 
+   - Only prints status when it **CHANGES**
+   - No more flooding with "no presence detected"
+   - Clear, organized status messages
+
+3. **📊 Proper Sensor Management**:
+   - **MQ-135**: Always reads every 30s (continuous air quality monitoring)
+   - **DHT22**: Only reads when `systemActive = true` (presence detected)
+   - **Fan**: Only operates when `systemActive = true`
+
+4. **🎛️ Mode Handling**:
+   - **Auto Mode**: Temperature bands + AQ assistance (only when presence detected)
+   - **Manual Mode**: Dashboard control (only when presence detected)
+   - **Boost Mode**: Cancelled immediately when no presence
+
+### **📱 Sample Output:**
+
+```
+🟢 PRESENCE DETECTED - System ACTIVE
+   └─ DHT22: ON | Fan: ACTIVE | MQ-135: CONTINUOUS
+
+🌬️ Air Quality: 245 (Good) [Always monitoring]
+🌡️ Temperature: 26.5°C | Humidity: 61% [Active]
+💨 Fan: ON (PWM: 160) - Band: Moderate
+
+🔴 NO PRESENCE - System IDLE
+   └─ DHT22: OFF | Fan: OFF | MQ-135: CONTINUOUS
+
+🌬️ Air Quality: 251 (Good) [Always monitoring]
+```
+
+### **✅ Your Requirements Met:**
+
+- ✅ **10-second checking**: `checkPresenceStatus()` every 10 seconds
+- ✅ **Follows yolo_force_gpu.py**: Direct presence status mapping
+- ✅ **Fan logic**: ON only when presence detected
+- ✅ **DHT logic**: ON only when presence detected  
+- ✅ **MQ-135 always on**: Continuous air quality monitoring
+- ✅ **Clean output**: No flooding, only status changes shown
+- ✅ **Relevant readings**: Shows appropriate data for each state
+
+The system now operates exactly as you specified - checking presence every 10 seconds and responding immediately to the AI detection results!
+
+---
+
