@@ -166,15 +166,12 @@
 
 #### Web Dashboard Features
 **Real-time Monitoring Tiles:**
-<<<<<<< HEAD
-- **Presence Status**: AI detection (camera) with confidence indicators
-=======
 **Module 3 - Lighting:**
-- **Presence Status**: PIR + AI detection with confidence indicators
->>>>>>> 91f274ab1c25be0933d5944378579967c37a7719
+- **Presence Status**: AI detection (camera) with confidence indicators
 - **Brightness Level**: LDR readings with visual gauge (0-4095)
 - **LED Status**: ON/OFF state with PWM level display (0-255)
 - **System Mode**: Auto/Manual mode with visual toggle
+- **Live Data Indicator**: Shows "Live Data" or "Demo Mode" status
 
 **Module 2 - Climate:**
 - **Temperature**: Current room temperature with trend graph (°C)
@@ -201,10 +198,12 @@
 
 **Analytics & Reports:**
 **Module 3 - Lighting:**
-- **Daily Brightness Chart**: LDR readings over time with day/night cycles
-- **Presence Heatmap**: Hourly detection patterns and occupancy trends
+- **Daily Brightness Chart**: LDR readings over time with day/night cycles (30s updates, 5s refresh for demo)
+- **Presence Heatmap**: Hourly detection patterns and occupancy trends (with 10-minute demo mode)
 - **LED Runtime Analysis**: Usage statistics and energy consumption
-- **Energy Savings Report**: Comparison with baseline (always-on scenario)
+- **Energy Savings Report**: Realistic comparison for tiny 3.3V IoT LED (20mW power consumption)
+- **Demo Mode Toggle**: Switch between 24-hour view and 10-minute demo view for video recording
+- **Real-time Chart Updates**: Charts refresh every 5 seconds for smooth demo experience
 
 **Module 2 - Climate:**
 - **Temperature Line Chart**: Daily temperature and humidity trends
@@ -217,6 +216,14 @@
 - **CSV Download**: Complete sensor logs for analysis
 - **PDF Reports**: Formatted reports for submission
 - **Real-time Data**: Live streaming of all sensor values
+
+#### Demo Mode Features (NEW)
+**Module 3 - Lighting:**
+- **Demo Mode Toggle**: Switch between "Full Data (24h)" and "Last 10 min" views
+- **Faster Chart Updates**: Charts refresh every 5 seconds for smooth demo experience
+- **Synchronized Time Ranges**: Both brightness and presence charts show same time range
+- **Video Recording Ready**: Perfect for 1m 30s demo videos with real-time changes
+- **Realistic Energy Calculations**: Properly scaled for tiny 3.3V IoT LED (20mW power)
 
 ### 📊 Assignment Compliance Analysis
 
@@ -241,6 +248,25 @@
 - **Control Interface**: Manual override and system configuration ✅
 
 ### 🔧 Technical Implementation Details
+
+#### Smart Lighting Module Improvements (NEW)
+**Realistic Energy Calculations:**
+- **LED Power**: 20mW (tiny 3.3V IoT LED, ~6mA current)
+- **Energy Display**: Milliwatts (mW) instead of unrealistic watts
+- **Savings Calculation**: Properly scaled for small LED power consumption
+- **Baseline Comparison**: LED always ON at full power when occupied
+
+**Demo Mode Features:**
+- **Chart Refresh Rate**: 5 seconds (smooth for video recording)
+- **Time Range Toggle**: 24-hour view vs 10-minute demo view
+- **Synchronized Charts**: Both brightness and presence charts use same time range
+- **Real-time Updates**: ESP32 logs every 30s, charts refresh every 5s
+
+**Chart Improvements:**
+- **Daily Brightness Levels**: Shows LDR readings with 30s data updates, 5s chart refresh
+- **Presence Detection**: Hourly view or 10-minute demo view
+- **Data Points Counter**: Real Firebase log entries count
+- **Average PWM**: Calculated from actual LED ON states only
 
 #### Firebase Configuration
 ```javascript
@@ -612,12 +638,28 @@ Maintain classroom comfort by controlling a DC fan from temperature (DHT22) and 
 7. **Offline**: Cut Wi-Fi → local control continues; restore → logs backfill & UI resync
 8. **Fault**: Simulate bad DHT/MQ-135 read → UI shows sensorError; safe fallback applies
 
+#### Smart Lighting Demo Cases (NEW)
+9. **Demo Mode Toggle**: Switch between 24h and 10min views → both charts sync
+10. **Chart Refresh**: Verify charts update every 5 seconds for smooth demo
+11. **Energy Calculations**: Confirm realistic mW values for tiny LED (not watts)
+12. **Presence Detection**: AI camera detection shows in both hourly and 10min views
+13. **Brightness Chart**: LDR readings update in real-time with proper scaling
+14. **Data Points Counter**: Verify count matches actual Firebase log entries
+15. **PWM Calculation**: Confirm average PWM only includes LED ON states
+
 ### 📄 Submission Artifacts
 - **Videos (≤90s each)**: Auto vs Manual; AQ assist; offline/resync (with subtitles)
 - **Screenshots**: Live tiles, charts, Firebase paths
 - **Hardware Photos**: Wiring, fan driver (transistor + diode)
 - **Design Notes**: Block diagram, thresholds, hysteresis, assist timers, failure strategy
 - **CSV Export**: Sample of /logs for at least one full day
+
+#### Smart Lighting Demo Artifacts (NEW)
+- **Demo Mode Video**: Show 10-minute view toggle and 5-second chart updates
+- **Energy Savings Screenshot**: Realistic mW values for tiny LED
+- **Chart Synchronization**: Both brightness and presence charts in sync
+- **Real-time Updates**: Smooth chart refresh during demo
+- **Data Accuracy**: Verify data points counter and PWM calculations
 
 ---
 
