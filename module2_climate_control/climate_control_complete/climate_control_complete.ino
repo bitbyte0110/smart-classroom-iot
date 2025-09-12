@@ -141,7 +141,8 @@ void setup() {
   }
   if (time(nullptr) > 1000000000) {
     Serial.println(" ✅ Time synchronized");
-    Serial.printf("   Current time: %s", ctime(&(time_t){time(nullptr)}));
+    time_t currentTime = time(nullptr);
+    Serial.printf("   Current time: %s", ctime(&currentTime));
   } else {
     Serial.println(" ⚠️ Time sync failed, using millis() fallback");
   }

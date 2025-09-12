@@ -1522,3 +1522,60 @@ The **"Offline Mode"** and **"Stale Data"** warnings should now disappear once t
 
 ---
 
+_**User (2025-09-12 00:30Z)**_
+
+D:\Development\smart-classroom-iot\module2_climate_control\climate_control_complete\climate_control_complete.ino: In function 'void setup()':
+D:\Development\smart-classroom-iot\module2_climate_control\climate_control_complete\climate_control_complete.ino:144:57: error: lvalue required as unary '&' operand
+  144 |     Serial.printf("   Current time: %s", ctime(&(time_t){time(nullptr)}));
+      |                                                         ^~~~~~~~~~~~~~~
+exit status 1
+
+Compilation error: lvalue required as unary '&' operand@climate_control_complete.ino 
+
+---
+
+_**Assistant**_
+
+I see the compilation error! The issue is with the C++ syntax for taking the address of a temporary value. Let me fix this:
+
+---
+
+<details><summary>Edit file: module2_climate_control/climate_control_complete/climate_control_complete.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 2, lines removed: 1
+
+```diff
+@@ -142,5 +142,6 @@
+    if (time(nullptr) > 1000000000) {
+      Serial.println(" ✅ Time synchronized");
+-     Serial.printf("   Current time: %s", ctime(&(time_t){time(nullptr)}));
++     time_t currentTime = time(nullptr);
++     Serial.printf("   Current time: %s", ctime(&currentTime));
+    } else {
+      Serial.println(" ⚠️ Time sync failed, using millis() fallback");
+```
+
+</details>
+
+---
+
+Perfect! The compilation error is now fixed. The issue was that you can't take the address (`&`) of a temporary value created by the compound literal `(time_t){time(nullptr)}`. 
+
+The fix was to:
+1. Store the result of `time(nullptr)` in a proper variable `currentTime`
+2. Then take the address of that variable: `&currentTime`
+
+Now your Arduino code should compile successfully! The ESP32 will:
+- ✅ Properly synchronize time with NTP
+- ✅ Display the current time when sync is successful  
+- ✅ Use fallback timestamp if sync fails
+- ✅ Read manual control commands from Firebase every 10 seconds
+- ✅ Send properly timestamped data to Firebase
+
+Try uploading the code again - it should compile without errors now! 🎉
+
+---
+
