@@ -21,7 +21,7 @@
 #include <time.h>
 
 // Assignment Requirements - WiFi and Firebase
-#define WIFI_SSID "vivo x200 Ultra"
+#define WIFI_SSID "vivo X200 Ultra"
 #define WIFI_PASS "12345678"
 #define FIREBASE_URL "https://smartclassroom-af237-default-rtdb.asia-southeast1.firebasedatabase.app"
 
