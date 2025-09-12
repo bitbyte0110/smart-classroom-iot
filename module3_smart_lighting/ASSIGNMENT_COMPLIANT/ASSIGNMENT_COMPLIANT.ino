@@ -21,8 +21,8 @@
 #include <time.h>
 
 // Assignment Requirements - WiFi and Firebase
-#define WIFI_SSID "privacy_2.4G"
-#define WIFI_PASS "#RkRs#1920"
+#define WIFI_SSID "vivo X200 Ultra"
+#define WIFI_PASS "12345678"
 #define FIREBASE_URL "https://smartclassroom-af237-default-rtdb.asia-southeast1.firebasedatabase.app"
 
 // Pin definitions - Module 3 Smart Lighting (Camera-Only)
@@ -40,7 +40,7 @@ const bool LDR_DEBUG = true;   // Enable for hardware debugging
 const String ROOM_ID = "roomA";
 
 // MQTT (Raspberry Pi broker)
-const char* MQTT_HOST = "192.168.0.102"; // Your Pi IPv4
+const char* MQTT_HOST = "192.168.202.221"; // Your Pi IPv4
 const int   MQTT_PORT = 1883;
 const char* MQTT_CLIENT_ID = "esp32-lighting-roomA";
 
