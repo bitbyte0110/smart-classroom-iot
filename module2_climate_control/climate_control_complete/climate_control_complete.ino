@@ -10,8 +10,16 @@
  * ✅ User Interface: Web dashboard integration
  * ✅ AI Integration: Presence-triggered activation
  * 
+ * SYSTEM BEHAVIOR (Updated per instruction.md):
+ * 🤖 PRESENCE: Only follows yolo_force_gpu.py results (ai/presence/detection)
+ * 🌡️ DHT22: ON only when YOLO presence detected, OFF when no presence
+ * 💨 FAN: ON only when YOLO presence detected, follows temperature bands:
+ *      ≤25°C → LOW (30% PWM), 25.1-28°C → MED (60% PWM), ≥28.1°C → HIGH (100% PWM)
+ * 🌬️ MQ-135: ALWAYS ON (continuous monitoring, not affected by presence)
+ * 🚨 AIR QUALITY: Good/Moderate = no fan change, Poor = force fan to MAX speed
+ * 
  * SYSTEM ARCHITECTURE:
- * ESP32 (DHT22 + MQ-135 + Fan) + AI Presence + MQTT + Firebase + Web Dashboard
+ * ESP32 (DHT22 + MQ-135 + Fan) + YOLO AI Presence + MQTT + Firebase + Web Dashboard
  */
 
 #include <WiFi.h>
@@ -61,10 +69,10 @@ const int FAN_DUTY_LOW  = (int)(MAX_DUTY * 0.30);  // 30% PWM
 const int FAN_DUTY_MED  = (int)(MAX_DUTY * 0.60);  // 60% PWM  
 const int FAN_DUTY_HIGH = MAX_DUTY;                // 100% PWM
 
-// Temperature Bands (tunable thresholds)
+// Temperature Bands (updated per instruction.md)
 const float TEMP_LOW_MAX = 25.0;    // ≤25°C → LOW band
-const float TEMP_MED_MAX = 29.0;    // 25.1-29°C → MED band
-                                    // ≥29.1°C → HIGH band
+const float TEMP_MED_MAX = 28.0;    // 25.1-28°C → MED band
+                                    // ≥28.1°C → HIGH band
 
 // Air Quality Thresholds (configurable)
 const int AQ_GOOD_MAX = 200;        // 0-200 → Good
@@ -274,24 +282,27 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
     }
   }
   else if (topicStr == "ai/presence/detection") {
+    // ONLY source of presence: yolo_force_gpu.py AI detection
     currentState.presence = (message == "true");
-    // Let the 10-second check cycle handle the logic
+    // Let the 10-second check cycle handle fan/DHT activation logic
   }
 }
 
 void checkPresenceStatus() {
-  // Check presence every 10 seconds and update system accordingly
+  // Check presence every 10 seconds - ONLY follows yolo_force_gpu.py results
   bool previousActive = currentState.systemActive;
+  
+  // Direct mapping: presence from YOLO → system activation
   currentState.systemActive = currentState.presence;
   
   // Only print status when it changes to avoid flooding
   if (previousActive != currentState.systemActive) {
     if (currentState.systemActive) {
-      currentState.lastStatusMessage = "🟢 PRESENCE DETECTED - System ACTIVE";
+      currentState.lastStatusMessage = "🟢 YOLO PRESENCE DETECTED - System ACTIVE";
       Serial.println(currentState.lastStatusMessage);
-      Serial.println("   └─ DHT22: ON | Fan: ACTIVE | MQ-135: CONTINUOUS");
+      Serial.println("   └─ DHT22: ON | Fan: ACTIVE (temp-based) | MQ-135: CONTINUOUS");
     } else {
-      currentState.lastStatusMessage = "🔴 NO PRESENCE - System IDLE";
+      currentState.lastStatusMessage = "🔴 NO YOLO PRESENCE - System IDLE";
       Serial.println(currentState.lastStatusMessage);
       Serial.println("   └─ DHT22: OFF | Fan: OFF | MQ-135: CONTINUOUS");
     }
@@ -300,29 +311,29 @@ void checkPresenceStatus() {
 
 void applySystemLogic() {
   if (currentState.systemActive) {
-    // System active - apply normal control logic
+    // YOLO presence detected - apply temperature-based fan control
     applyControlLogic();
   } else {
-    // System idle - turn off fan and DHT, keep MQ-135 active
+    // NO YOLO presence - turn off fan and DHT, keep MQ-135 active
     setFanDuty(0);
     currentState.fanOn = false;
     currentState.fanPwm = 0;
     currentState.comfortBand = "Idle";
     
-    // Cancel boost mode when no presence
+    // Cancel boost mode when no YOLO presence
     if (currentState.boostMode) {
       currentState.boostMode = false;
-      Serial.println("🚀 BOOST MODE cancelled (no presence)");
+      Serial.println("🚀 BOOST MODE cancelled (no YOLO presence)");
     }
   }
 }
 
 void readSensors() {
-  // Always read MQ-135 (air quality monitoring should be continuous)
+  // ALWAYS read MQ-135 - air quality monitoring is continuous regardless of presence
   int aqRaw = analogRead(MQ135_PIN);
   currentState.aqRaw = aqRaw;
   
-  // Classify air quality
+  // Classify air quality (always active)
   if (aqRaw <= AQ_GOOD_MAX) {
     currentState.aqStatus = "Good";
   } else if (aqRaw <= AQ_MODERATE_MAX) {
@@ -331,9 +342,9 @@ void readSensors() {
     currentState.aqStatus = "Poor";
   }
   
-  Serial.printf("🌬️ Air Quality: %d (%s) [Always monitoring]\n", aqRaw, currentState.aqStatus.c_str());
+  Serial.printf("🌬️ Air Quality: %d (%s) [CONTINUOUS - Not affected by presence]\n", aqRaw, currentState.aqStatus.c_str());
   
-  // Only read DHT22 when system is active (presence detected)
+  // ONLY read DHT22 when YOLO presence detected (systemActive = true)
   if (currentState.systemActive) {
     float h = dht.readHumidity();
     float t = dht.readTemperature();
@@ -341,7 +352,7 @@ void readSensors() {
     if (!isnan(h) && !isnan(t)) {
       currentState.temperature = t;
       currentState.humidity = h;
-      Serial.printf("🌡️ Temperature: %.1f°C | Humidity: %.1f%% [Active]\n", t, h);
+      Serial.printf("🌡️ Temperature: %.1f°C | Humidity: %.1f%% [YOLO presence active]\n", t, h);
       
       // Show current fan status
       if (currentState.fanOn) {
@@ -353,6 +364,9 @@ void readSensors() {
     } else {
       Serial.println("❌ DHT22 read failed");
     }
+  } else {
+    // No YOLO presence - DHT22 is OFF
+    Serial.println("💤 DHT22: OFF (No YOLO presence detected)");
   }
   
   // Check boost button (only when system active)
@@ -363,7 +377,7 @@ void readSensors() {
 
 
 void applyControlLogic() {
-  // This function only gets called when system is active
+  // This function only gets called when YOLO presence detected (systemActive = true)
   if (currentState.mode == "manual") {
     // Manual mode - use dashboard commands
     currentState.fanOn = manualFanOn;
@@ -420,17 +434,16 @@ void autoControlLogic() {
     }
   }
   
-  // Air Quality assistance
+  // Air Quality assistance (updated per instruction.md)
   if (currentState.aqStatus == "Poor") {
-    // Force HIGH for poor air quality
+    // Force HIGH (max) for poor air quality only
     targetDuty = FAN_DUTY_HIGH;
-    Serial.println("⚠️ POOR Air Quality - Fan forced to HIGH");
+    Serial.println("⚠️ POOR Air Quality - Fan forced to MAX speed");
   } else if (currentState.aqStatus == "Moderate") {
-    // Increase by one step for moderate AQ
-    if (targetDuty == FAN_DUTY_LOW) targetDuty = FAN_DUTY_MED;
-    else if (targetDuty == FAN_DUTY_MED) targetDuty = FAN_DUTY_HIGH;
-    Serial.println("⚠️ MODERATE Air Quality - Fan speed increased");
+    // Moderate AQ: No fan change, just warning (as per instruction.md)
+    Serial.println("⚠️ MODERATE Air Quality - Warning sent to UI");
   }
+  // Good AQ: No changes to temperature-based fan speed
   
   // Apply fan control
   setFanDuty(targetDuty);
