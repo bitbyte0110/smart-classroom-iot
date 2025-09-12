@@ -32,6 +32,7 @@ ChartJS.register(
 export default function Reports() {
   const [logs, setLogs] = useState<LightingLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [demoMode, setDemoMode] = useState(false);
 
   useEffect(() => {
     const logsRef = ref(database, `/lighting/${ROOM_ID}/logs`);
@@ -87,30 +88,63 @@ export default function Reports() {
     };
   };
 
-  // 2. Presence Heatmap/Bar (detections per hour)
+  // 2. Presence Heatmap/Bar (detections per hour or minute for demo)
   const getPresenceChart = () => {
-    const hourlyPresence: { [hour: string]: number } = {};
+    const hourlyPresence: { [time: string]: number } = {};
     
-    logs.forEach(log => {
-      const hour = dayjs(log.ts).format('HH:00');
-      if (!hourlyPresence[hour]) hourlyPresence[hour] = 0;
-      if (log.presence) hourlyPresence[hour]++;
-    });
+    if (demoMode) {
+      // Demo mode: show detections per minute for last 10 minutes
+      const last10Minutes = logs.filter(log => 
+        dayjs().diff(dayjs(log.ts), 'minute') <= 10
+      );
+      
+      last10Minutes.forEach(log => {
+        const minute = dayjs(log.ts).format('HH:mm');
+        if (!hourlyPresence[minute]) hourlyPresence[minute] = 0;
+        if (log.presence) hourlyPresence[minute]++;
+      });
 
-    const hours = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, '0')}:00`);
-    
-    return {
-      labels: hours,
-      datasets: [
-        {
-          label: 'Presence Detections',
-          data: hours.map(hour => hourlyPresence[hour] || 0),
-          backgroundColor: 'rgba(54, 162, 235, 0.6)',
-          borderColor: 'rgba(54, 162, 235, 1)',
-          borderWidth: 1,
-        },
-      ],
-    };
+      // Generate last 10 minutes labels
+      const minutes = Array.from({ length: 10 }, (_, i) => {
+        const time = dayjs().subtract(9 - i, 'minute');
+        return time.format('HH:mm');
+      });
+      
+      return {
+        labels: minutes,
+        datasets: [
+          {
+            label: 'Presence Detections (Last 10 min)',
+            data: minutes.map(minute => hourlyPresence[minute] || 0),
+            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1,
+          },
+        ],
+      };
+    } else {
+      // Normal mode: show detections per hour
+      logs.forEach(log => {
+        const hour = dayjs(log.ts).format('HH:00');
+        if (!hourlyPresence[hour]) hourlyPresence[hour] = 0;
+        if (log.presence) hourlyPresence[hour]++;
+      });
+
+      const hours = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, '0')}:00`);
+      
+      return {
+        labels: hours,
+        datasets: [
+          {
+            label: 'Presence Detections',
+            data: hours.map(hour => hourlyPresence[hour] || 0),
+            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1,
+          },
+        ],
+      };
+    }
   };
 
   // 3. LED Runtime & Average PWM
@@ -126,22 +160,36 @@ export default function Reports() {
       totalMinutes: Math.round(totalMinutes),
       onMinutes: Math.round(onMinutes),
       avgPWM: Math.round(avgPWM),
-      runtimePercent: Math.round((onMinutes / totalMinutes) * 100),
+      runtimePercent: totalMinutes > 0 ? Math.round((onMinutes / totalMinutes) * 100) : 0,
     };
   };
 
-  // 4. Energy Saved vs Baseline
+  // 4. Energy Saved vs Baseline (Realistic for 3.3V IoT LED)
   const getEnergySavings = () => {
     const occupiedLogs = logs.filter(log => log.presence);
-    const actualUsage = logs.reduce((sum, log) => sum + (log.led?.on ? (log.led?.pwm || 0) / 255 : 0), 0);
-    const baselineUsage = occupiedLogs.length; // Always ON at PWM=255 when occupied
-    const savings = baselineUsage > 0 ? ((baselineUsage - actualUsage) / baselineUsage) * 100 : 0;
+    const onLogs = logs.filter(log => log.led?.on);
+    
+    // Realistic power calculations for 3.3V IoT LED
+    const LED_POWER_WATTS = 0.1; // 100mW typical for small IoT LED
+    const LED_MAX_POWER = 0.1; // 100mW at full brightness
+    
+    // Calculate actual power usage based on PWM
+    const actualPower = onLogs.reduce((sum, log) => {
+      const pwmRatio = (log.led?.pwm || 0) / 255;
+      return sum + (LED_POWER_WATTS * pwmRatio);
+    }, 0);
+    
+    // Baseline: LED always on at full power when occupied
+    const baselinePower = occupiedLogs.length * LED_MAX_POWER;
+    
+    const savings = baselinePower > 0 ? ((baselinePower - actualPower) / baselinePower) * 100 : 0;
+    const savedWatts = baselinePower - actualPower;
 
     return {
-      actualUsage: Math.round(actualUsage * 10), // Watts
-      baselineUsage: Math.round(baselineUsage * 10),
+      actualUsage: Math.round(actualPower * 1000), // Convert to mW
+      baselineUsage: Math.round(baselinePower * 1000),
       savings: Math.round(savings),
-      savedWatts: Math.round((baselineUsage - actualUsage) * 10),
+      savedWatts: Math.round(savedWatts * 1000), // Convert to mW
     };
   };
 
@@ -209,9 +257,17 @@ export default function Reports() {
     <div className="reports">
       <div className="reports-header">
         <h2>📊 Analytics & Reports</h2>
-        <button onClick={exportToCSV} className="export-btn">
-          📥 Export CSV
-        </button>
+        <div className="header-controls">
+          <button 
+            onClick={() => setDemoMode(!demoMode)} 
+            className={`demo-toggle ${demoMode ? 'active' : ''}`}
+          >
+            {demoMode ? '🎬 Demo Mode (10min)' : '📊 Full Data (24h)'}
+          </button>
+          <button onClick={exportToCSV} className="export-btn">
+            📥 Export CSV
+          </button>
+        </div>
       </div>
 
       <div className="stats-overview">
@@ -228,7 +284,7 @@ export default function Reports() {
         <div className="stat-card">
           <h3>💚 Energy Saved</h3>
           <div className="stat-value">{energyStats.savings}%</div>
-          <div className="stat-subtitle">{energyStats.savedWatts}W saved</div>
+          <div className="stat-subtitle">{energyStats.savedWatts}mW saved</div>
         </div>
         <div className="stat-card">
           <h3>📈 Data Points</h3>
@@ -256,7 +312,7 @@ export default function Reports() {
         </div>
 
         <div className="chart-container">
-          <h3>👤 Presence Detection by Hour</h3>
+          <h3>👤 Presence Detection {demoMode ? '(Last 10 min)' : 'by Hour'}</h3>
           <Bar 
             data={getPresenceChart()} 
             options={{

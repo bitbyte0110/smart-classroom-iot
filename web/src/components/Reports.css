@@ -10,6 +10,12 @@
   margin-bottom: 2rem;
 }
 
+.header-controls {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
 .reports-header h2 {
   margin: 0;
   font-size: 1.8rem;
@@ -29,6 +35,32 @@
 .export-btn:hover {
   background: #0099cc;
   transform: translateY(-1px);
+}
+
+.demo-toggle {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 0.8rem 1.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s ease;
+}
+
+.demo-toggle:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.demo-toggle.active {
+  background: #00d2ff;
+  border-color: #00d2ff;
+  color: white;
+}
+
+.demo-toggle.active:hover {
+  background: #0099cc;
 }
 
 .stats-overview {
