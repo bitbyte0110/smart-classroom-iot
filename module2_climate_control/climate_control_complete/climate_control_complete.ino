@@ -38,7 +38,7 @@
 #define DHT_PIN 4        // DHT22 Temperature & Humidity Sensor
 #define MQ135_PIN 32     // MQ-135 Air Quality Sensor (ADC input)
 #define FAN_PIN 5        // DC Fan PWM Control (via NPN transistor)
-#define BOOST_PIN 27     // Boost Button (10-minute override)
+// #define BOOST_PIN 27     // Boost Button (removed - not using boost mode)
 
 // DHT22 Configuration
 #define DHT_TYPE DHT22
@@ -93,9 +93,7 @@ struct ClimateState {
   int fanPwm = 0;
   String comfortBand = "Low";
   bool presence = false;
-  bool systemActive = false;   // Controlled by presence
-  bool boostMode = false;
-  unsigned long boostEndTime = 0;
+  // bool systemActive = false; // Removed - using presence directly
   String lastStatusMessage = "";
 } currentState;
 
@@ -104,7 +102,7 @@ unsigned long lastSensorRead = 0;
 unsigned long lastMqttPublish = 0;
 unsigned long lastFirebaseSync = 0;
 unsigned long lastBandChange = 0;
-unsigned long lastBoostCheck = 0;
+// unsigned long lastBoostCheck = 0; // Removed - no boost mode
 unsigned long lastPresenceCheck = 0;
 
 // Fan Control Variables
@@ -132,6 +130,21 @@ void setup() {
   
   // Configure time for Firebase
   configTime(0, 0, "pool.ntp.org");
+  
+  // Wait for time synchronization
+  Serial.print("⏰ Synchronizing time");
+  int timeoutCount = 0;
+  while (time(nullptr) < 1000000000 && timeoutCount < 20) {
+    delay(500);
+    Serial.print(".");
+    timeoutCount++;
+  }
+  if (time(nullptr) > 1000000000) {
+    Serial.println(" ✅ Time synchronized");
+    Serial.printf("   Current time: %s", ctime(&(time_t){time(nullptr)}));
+  } else {
+    Serial.println(" ⚠️ Time sync failed, using millis() fallback");
+  }
   
   // Test connectivity
   testConnectivity();
@@ -162,6 +175,8 @@ void loop() {
   if (now - lastPresenceCheck > PRESENCE_CHECK_INTERVAL) {
     // Also read presence directly from Firebase as backup
     readPresenceFromFirebase();
+    // Read manual control commands from Firebase
+    readManualControlFromFirebase();
     checkPresenceStatus();
     lastPresenceCheck = now;
   }
@@ -172,8 +187,7 @@ void loop() {
     lastSensorRead = now;
   }
   
-  // Check boost mode timeout
-  checkBoostMode();
+  // Boost mode check removed
   
   // Apply control logic based on system state
   applySystemLogic();
@@ -206,8 +220,7 @@ void initializeHardware() {
     Serial.println("❌ ERROR: ledcAttach failed");
   }
   
-  // Initialize boost button
-  pinMode(BOOST_PIN, INPUT_PULLUP);
+  // Boost button initialization removed - not using boost mode
   
   Serial.println("🔧 Hardware initialized");
 }
@@ -274,13 +287,13 @@ void reconnectMqtt() {
       bool sub1 = mqtt.subscribe("control/climate/mode");
       bool sub2 = mqtt.subscribe("control/climate/fan_on");
       bool sub3 = mqtt.subscribe("control/climate/fan_pwm");
-      bool sub4 = mqtt.subscribe("control/climate/boost");
+      // bool sub4 = mqtt.subscribe("control/climate/boost"); // Removed boost
       
       // Subscribe to AI presence (CRITICAL)
       bool sub5 = mqtt.subscribe("ai/presence/detection");
       
       Serial.println("📡 MQTT Subscriptions:");
-      Serial.println("  ├─ control/climate/* : " + String(sub1 && sub2 && sub3 && sub4 ? "✅" : "❌"));
+      Serial.println("  ├─ control/climate/* : " + String(sub1 && sub2 && sub3 ? "✅" : "❌"));
       Serial.println("  └─ ai/presence/detection : " + String(sub5 ? "✅" : "❌"));
       
       if (sub5) {
@@ -323,11 +336,7 @@ void onMqttMessage(char* topic, byte* payload, unsigned int length) {
     manualFanPwm = constrain(message.toInt(), 0, 255);
     Serial.println("🎛️ Manual PWM: " + String(manualFanPwm));
   }
-  else if (topicStr == "control/climate/boost") {
-    if (message == "true") {
-      activateBoostMode();
-    }
-  }
+  // Boost mode handling removed
   else if (topicStr == "ai/presence/detection") {
     // ONLY source of presence: yolo_force_gpu.py AI detection
     bool newPresence = (message == "true");
@@ -364,20 +373,59 @@ void readPresenceFromFirebase() {
   http.end();
 }
 
+void readManualControlFromFirebase() {
+  // Read manual control commands from Firebase dashboard
+  if (WiFi.status() != WL_CONNECTED) return;
+  
+  HTTPClient http;
+  String url = String(FIREBASE_URL) + "/climate/" + ROOM_ID + "/state.json";
+  
+  http.begin(url);
+  int httpCode = http.GET();
+  
+  if (httpCode == 200) {
+    String payload = http.getString();
+    
+    // Parse JSON response
+    DynamicJsonDocument doc(1024);
+    DeserializationError error = deserializeJson(doc, payload);
+    
+    if (!error) {
+      // Check for mode changes
+      String firebaseMode = doc["mode"] | "auto";
+      if (firebaseMode != currentState.mode) {
+        currentState.mode = firebaseMode;
+        Serial.println("🔥 Firebase Mode Update: " + currentState.mode);
+      }
+      
+      // Check for manual fan control
+      if (currentState.mode == "manual") {
+        bool firebaseFanOn = doc["fan"]["on"] | false;
+        int firebaseFanPwm = doc["fan"]["pwm"] | 0;
+        
+        if (firebaseFanOn != manualFanOn || firebaseFanPwm != manualFanPwm) {
+          manualFanOn = firebaseFanOn;
+          manualFanPwm = firebaseFanPwm;
+          Serial.printf("🔥 Firebase Manual Control: Fan %s, PWM %d\n", 
+                       manualFanOn ? "ON" : "OFF", manualFanPwm);
+        }
+      }
+    }
+  }
+  
+  http.end();
+}
+
 void checkPresenceStatus() {
   // Check presence every 10 seconds - ONLY follows yolo_force_gpu.py results
-  bool previousActive = currentState.systemActive;
-  
-  // Direct mapping: presence from YOLO → system activation
-  currentState.systemActive = currentState.presence;
+  static bool previousPresence = false;
   
   // Debug: Always show current presence state every 10 seconds
   Serial.println("🔍 Presence Check: currentState.presence = " + String(currentState.presence ? "TRUE" : "FALSE"));
-  Serial.println("🔍 System Active: " + String(currentState.systemActive ? "TRUE" : "FALSE"));
   
   // Only print status when it changes to avoid flooding
-  if (previousActive != currentState.systemActive) {
-    if (currentState.systemActive) {
+  if (previousPresence != currentState.presence) {
+    if (currentState.presence) {
       currentState.lastStatusMessage = "🟢 YOLO PRESENCE DETECTED - System ACTIVE";
       Serial.println(currentState.lastStatusMessage);
       Serial.println("   └─ DHT22: ON | Fan: ACTIVE (temp-based) | MQ-135: CONTINUOUS");
@@ -386,11 +434,12 @@ void checkPresenceStatus() {
       Serial.println(currentState.lastStatusMessage);
       Serial.println("   └─ DHT22: OFF | Fan: OFF | MQ-135: CONTINUOUS");
     }
+    previousPresence = currentState.presence;
   }
 }
 
 void applySystemLogic() {
-  if (currentState.systemActive) {
+  if (currentState.presence) {
     // YOLO presence detected - apply temperature-based fan control
     applyControlLogic();
   } else {
@@ -399,12 +448,6 @@ void applySystemLogic() {
     currentState.fanOn = false;
     currentState.fanPwm = 0;
     currentState.comfortBand = "Idle";
-    
-    // Cancel boost mode when no YOLO presence
-    if (currentState.boostMode) {
-      currentState.boostMode = false;
-      Serial.println("🚀 BOOST MODE cancelled (no YOLO presence)");
-    }
   }
 }
 
@@ -424,8 +467,8 @@ void readSensors() {
   
   Serial.printf("🌬️ Air Quality: %d (%s) [CONTINUOUS - Not affected by presence]\n", aqRaw, currentState.aqStatus.c_str());
   
-  // ONLY read DHT22 when YOLO presence detected (systemActive = true)
-  if (currentState.systemActive) {
+  // ONLY read DHT22 when YOLO presence detected
+  if (currentState.presence) {
     float h = dht.readHumidity();
     float t = dht.readTemperature();
     
@@ -449,15 +492,12 @@ void readSensors() {
     Serial.println("💤 DHT22: OFF (No YOLO presence detected)");
   }
   
-  // Check boost button (only when system active)
-  if (currentState.systemActive && digitalRead(BOOST_PIN) == LOW) {
-    activateBoostMode();
-  }
+  // Boost button check removed
 }
 
 
 void applyControlLogic() {
-  // This function only gets called when YOLO presence detected (systemActive = true)
+  // This function only gets called when YOLO presence detected
   if (currentState.mode == "manual") {
     // Manual mode - use dashboard commands
     currentState.fanOn = manualFanOn;
@@ -478,14 +518,7 @@ void applyControlLogic() {
 void autoControlLogic() {
   unsigned long now = millis();
   
-  // Check if boost mode is active
-  if (currentState.boostMode) {
-    currentState.fanOn = true;
-    currentState.fanPwm = 255;
-    currentState.comfortBand = "High";
-    setFanDuty(FAN_DUTY_HIGH);
-    return;
-  }
+  // Boost mode logic removed
   
   // Determine temperature band with hysteresis
   String newBand = currentState.comfortBand;
@@ -551,20 +584,7 @@ void setFanDuty(int duty) {
   currentDuty = duty;
 }
 
-void activateBoostMode() {
-  if (!currentState.boostMode) {
-    currentState.boostMode = true;
-    currentState.boostEndTime = millis() + 600000; // 10 minutes
-    Serial.println("🚀 BOOST MODE activated for 10 minutes");
-  }
-}
-
-void checkBoostMode() {
-  if (currentState.boostMode && millis() > currentState.boostEndTime) {
-    currentState.boostMode = false;
-    Serial.println("🚀 BOOST MODE ended");
-  }
-}
+// Boost mode functions removed - not using boost functionality
 
 void publishMqttData() {
   if (!mqtt.connected()) return;
@@ -628,16 +648,34 @@ void syncFirebase() {
   doc["aqRaw"] = currentState.aqRaw;
   doc["aqStatus"] = currentState.aqStatus;
   doc["presence"] = currentState.presence;
-  doc["systemActive"] = currentState.systemActive;
-  doc["boostMode"] = currentState.boostMode;
-  doc["ts"] = millis();
+  // doc["systemActive"] removed - using presence directly
+  // doc["boostMode"] removed - not using boost mode
+  // Use proper timestamp if available, otherwise use millis() + offset
+  time_t now = time(nullptr);
+  if (now > 1000000000) {
+    doc["ts"] = now * 1000; // Unix timestamp in milliseconds
+  } else {
+    // Fallback: Use millis() + approximate timestamp
+    doc["ts"] = 1726000000000 + millis(); // Approximate current time
+  }
   
   String payload;
   serializeJson(doc, payload);
   
+  // Debug: Print data being sent
+  Serial.println("📡 Syncing to Firebase:");
+  Serial.println("   URL: " + url);
+  Serial.println("   Data: " + payload);
+  
   int httpCode = http.PATCH(payload);
   if (httpCode > 0) {
-    Serial.println("🔥 Firebase synced");
+    Serial.printf("🔥 Firebase synced (HTTP %d)\n", httpCode);
+    if (httpCode != 200) {
+      String response = http.getString();
+      Serial.println("Response: " + response);
+    }
+  } else {
+    Serial.printf("❌ Firebase sync failed (HTTP %d)\n", httpCode);
   }
   
   http.end();
@@ -666,8 +704,15 @@ void logToFirebase() {
   doc["fanPwm"] = currentState.fanPwm;
   doc["mode"] = currentState.mode;
   doc["presence"] = currentState.presence;
-  doc["systemActive"] = currentState.systemActive;
-  doc["ts"] = millis();
+  // doc["systemActive"] removed - using presence directly
+  // Use proper timestamp if available, otherwise use millis() + offset
+  time_t now = time(nullptr);
+  if (now > 1000000000) {
+    doc["ts"] = now * 1000; // Unix timestamp in milliseconds
+  } else {
+    // Fallback: Use millis() + approximate timestamp
+    doc["ts"] = 1726000000000 + millis(); // Approximate current time
+  }
   
   String payload;
   serializeJson(doc, payload);

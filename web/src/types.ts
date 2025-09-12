@@ -11,32 +11,12 @@ export interface LightingState {
   sensorError: string | null;
 }
 
-// Types for the smart climate control system
-export interface ClimateState {
-  ts: number;
-  tempC: number;
-  humidity: number;
-  aqRaw: number; // MQ-135 raw reading
-  aqStatus: 'Good' | 'Moderate' | 'Poor';
-  mode: 'auto' | 'manual';
-  fan: {
-    on: boolean;
-    pwm: number; // 0-255
-  };
-  comfortBand: 'Low' | 'Moderate' | 'High' | 'Idle';
-  presence: boolean;
-  systemActive: boolean;
-  boostMode: boolean;
-  sensorError: string | null;
-}
 
 export interface LightingLog extends LightingState {
   // Logs have the same structure as state
 }
 
-export interface ClimateLog extends ClimateState {
-  // Logs have the same structure as state
-}
+// (Removed duplicate earlier ClimateState/ClimateLog definitions)
 
 export interface DashboardTile {
   title: string;

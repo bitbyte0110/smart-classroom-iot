@@ -47,9 +47,7 @@ def main():
         'fan': {'on': False, 'pwm': 0},
         'comfortBand': 'Low',
         'mode': 'auto',
-        'presence': False,
-        'systemActive': False,
-        'boostMode': False
+        'presence': False
     }
     lock = threading.Lock()
 
