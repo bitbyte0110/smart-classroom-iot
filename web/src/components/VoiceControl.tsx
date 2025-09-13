@@ -145,14 +145,12 @@ export default function VoiceControl({
       onClimateControl?.('fan_on');
     } else if (command.includes('fan off') || command.includes('turn off fan') || command.includes('stop fan')) {
       onClimateControl?.('fan_off');
-    } else if (command.includes('fan high') || command.includes('fan max') || command.includes('maximum fan')) {
+    } else if (command.includes('fan high') || command.includes('fan max') || command.includes('maximum fan') || command.includes('fan maximum speed')) {
       onClimateControl?.('fan_high');
     } else if (command.includes('fan low') || command.includes('fan min') || command.includes('minimum fan')) {
       onClimateControl?.('fan_low');
     } else if (command.includes('fan medium') || command.includes('fan mid')) {
       onClimateControl?.('fan_medium');
-    } else if (command.includes('boost') || command.includes('turbo')) {
-      onClimateControl?.('boost');
     }
   };
 
@@ -241,8 +239,8 @@ export default function VoiceControl({
               <span>"Turn on fan"</span>
               <span>"Fan off"</span>
               <span>"Fan high speed"</span>
+              <span>"Fan maximum speed"</span>
               <span>"Fan low speed"</span>
-              <span>"Boost mode"</span>
               <span>"Switch to manual mode"</span>
             </>
           )}

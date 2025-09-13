@@ -2455,3 +2455,269 @@ The voice control should now work much better without showing the "aborted" erro
 
 ---
 
+_**User (2025-09-13 09:42Z)**_
+
+"Turn on fan"
+"Fan off"
+"Fan high speed"
+"Fan low speed"
+"Boost mode"
+"Switch to manual mode"
+
+Voice control for fan remove "Boost mode"  and add fan Maximum speed@ClimateControl.tsx @ClimateReports.tsx @ClimateManualControls.tsx @ClimateStatusTiles.tsx @Dashboard.css @Dashboard.tsx @ManualControls.css @Reports.tsx @ManualControls.tsx @Reports.css @StatusTiles.css @StatusTiles.tsx @TestPage.tsx @VoiceControl.css @VoiceControl.tsx @VoiceDemo.css 
+
+---
+
+_**Assistant**_
+
+I'll help you remove "Boost mode" and add "Fan Maximum speed" to the voice control for the fan. Let me update the VoiceControl component to make these changes.
+
+
+---
+
+<details><summary>Edit file: web/src/components/VoiceControl.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: 3
+
+```diff
+@@ -146,12 +146,10 @@
+      } else if (command.includes('fan off') || command.includes('turn off fan') || command.includes('stop fan')) {
+        onClimateControl?.('fan_off');
+-     } else if (command.includes('fan high') || command.includes('fan max') || command.includes('maximum fan')) {
++     } else if (command.includes('fan high') || command.includes('fan max') || command.includes('maximum fan') || command.includes('fan maximum speed')) {
+        onClimateControl?.('fan_high');
+      } else if (command.includes('fan low') || command.includes('fan min') || command.includes('minimum fan')) {
+        onClimateControl?.('fan_low');
+      } else if (command.includes('fan medium') || command.includes('fan mid')) {
+        onClimateControl?.('fan_medium');
+-     } else if (command.includes('boost') || command.includes('turbo')) {
+-       onClimateControl?.('boost');
+      }
+    };
+```
+
+</details>
+
+---
+
+Now let's update the voice command examples displayed to users:
+
+
+---
+
+<details><summary>Edit file: web/src/components/VoiceControl.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -240,6 +240,6 @@
+                <span>"Fan off"</span>
+                <span>"Fan high speed"</span>
++               <span>"Fan maximum speed"</span>
+                <span>"Fan low speed"</span>
+-               <span>"Boost mode"</span>
+                <span>"Switch to manual mode"</span>
+              </>
+```
+
+</details>
+
+---
+
+Now let's also remove the "boost" command from the ClimateControl component since we're removing it from voice control:
+
+
+---
+
+<details><summary>Edit file: web/src/components/ClimateControl.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: undefined, lines removed: 5
+
+```diff
+@@ -222,9 +222,4 @@
+          handleManualControl({ on: true, pwm: 170 });
+          break;
+-       case 'boost':
+-         // Boost mode - set fan to maximum for 10 minutes
+-         handleManualControl({ on: true, pwm: 255 });
+-         // Note: In a real implementation, you'd set a timer to reset after 10 minutes
+-         break;
+      }
+    };
+```
+
+</details>
+
+---
+
+Let's check for any linting errors:
+
+
+---
+
+
+
+---
+
+Perfect! Now let's also update the VoiceDemo component if it exists to reflect these changes. Let me check if there's a VoiceDemo component:
+
+
+---
+
+
+
+---
+
+Let me check the VoiceDemo component and update it as well:
+
+
+---
+
+Read file: undefined
+
+---
+
+Now let's update the VoiceDemo component to remove "Boost mode" and add "Fan maximum speed":
+
+
+---
+
+<details><summary>Edit file: web/src/components/VoiceDemo.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -71,6 +71,6 @@
+                <li>"Turn off fan" / "Fan off"</li>
+                <li>"Fan high speed" / "Maximum fan"</li>
++               <li>"Fan maximum speed" / "Fan max"</li>
+                <li>"Fan low speed" / "Minimum fan"</li>
+-               <li>"Boost mode" / "Turbo"</li>
+                <li>"Switch to manual mode"</li>
+              </ul>
+```
+
+</details>
+
+---
+
+Let's check for any linting errors in the updated files:
+
+
+---
+
+
+
+---
+
+Perfect! Let me also check if there are any other references to "boost" in the codebase that should be updated:
+
+
+---
+
+
+
+---
+
+The CSS references to "boost" are just styling classes and don't need to be changed since they're not related to the voice commands. Let me also check if there are any other voice command references:
+
+
+---
+
+
+
+---
+
+Great! Now let's test the changes by checking if the web server is still running:
+
+
+---
+
+```bash
+Get-Process | Where-Object {$_.ProcessName -eq "node"}
+```
+
+```
+...skipping...
+~
+~
+~
+~
+~
+~
+.specstory/history/2025-09-13_09-45Z-type-annotation-error-in-voicecontrol-tsx.md
+~
+rocess | Where-Object {$_ProcessName -eq "node"}...skipping...
+```
+
+---
+
+## ✅ **Voice Control Updated Successfully!**
+
+### **Changes Made:**
+
+1. **Removed "Boost mode"** from voice commands
+2. **Added "Fan maximum speed"** as a new voice command
+3. **Updated all relevant components** to reflect the changes
+
+### **Updated Voice Commands for Climate Control:**
+
+**Before:**
+- "Turn on fan"
+- "Fan off" 
+- "Fan high speed"
+- "Fan low speed"
+- "Boost mode" ❌ (removed)
+- "Switch to manual mode"
+
+**After:**
+- "Turn on fan"
+- "Fan off"
+- "Fan high speed" 
+- "Fan maximum speed" ✅ (new)
+- "Fan low speed"
+- "Switch to manual mode"
+
+### **Files Updated:**
+
+1. **`VoiceControl.tsx`**:
+   - Removed boost command processing
+   - Added "fan maximum speed" recognition
+   - Updated command examples display
+
+2. **`ClimateControl.tsx`**:
+   - Removed boost case from voice command handler
+
+3. **`VoiceDemo.tsx`**:
+   - Updated documentation to show new commands
+   - Removed boost mode from examples
+
+### **How It Works:**
+
+- **"Fan maximum speed"** or **"Fan max"** → Sets fan to PWM 255 (maximum)
+- **"Fan high speed"** → Sets fan to PWM 255 (same as maximum)
+- **"Fan medium speed"** → Sets fan to PWM 170
+- **"Fan low speed"** → Sets fan to PWM 85
+
+The voice control now has cleaner, more intuitive commands without the confusing "boost mode" terminology! 🎤✨
+
+Your web server should still be running on `http://localhost:5174/` - you can test the new voice commands there.
+
+---
+
+
+
+---
+

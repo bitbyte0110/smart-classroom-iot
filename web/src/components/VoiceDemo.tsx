@@ -70,8 +70,8 @@ const handleVoiceCommand = (command) => {
               <li>"Turn on fan" / "Fan on"</li>
               <li>"Turn off fan" / "Fan off"</li>
               <li>"Fan high speed" / "Maximum fan"</li>
+              <li>"Fan maximum speed" / "Fan max"</li>
               <li>"Fan low speed" / "Minimum fan"</li>
-              <li>"Boost mode" / "Turbo"</li>
               <li>"Switch to manual mode"</li>
             </ul>
           </div>
