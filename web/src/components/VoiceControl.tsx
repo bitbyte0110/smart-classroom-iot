@@ -131,13 +131,13 @@ export default function VoiceControl({
     } else if (command.includes('light off') || command.includes('turn off light') || command.includes('lights off')) {
       console.log('✅ Voice: Light OFF');
       onLightingControl?.('off');
-    } else if (command.includes('bright') || command.includes('brighter')) {
-      console.log('✅ Voice: BRIGHTER');
+    } else if (command.includes('bright') || command.includes('brighter') || command.includes('increase brightness')) {
+      console.log('✅ Voice: INCREASE BRIGHTNESS (50% increase)');
       onLightingControl?.('brighter');
-    } else if (command.includes('dim') || command.includes('dimmer')) {
+    } else if (command.includes('dim') || command.includes('dimmer') || command.includes('decrease brightness')) {
       console.log('✅ Voice: DIMMER (50% reduction)');
       onLightingControl?.('dimmer');
-    } else if (command.includes('max') || command.includes('maximum') || command.includes('full')) {
+    } else if (command.includes('max') || command.includes('maximum') || command.includes('full') || command.includes('maximum brightness')) {
       console.log('✅ Voice: MAXIMUM BRIGHTNESS (255)');
       onLightingControl?.('max');
     } else if (command.includes('min') || command.includes('minimum') || command.includes('low')) {
@@ -152,16 +152,34 @@ export default function VoiceControl({
   };
 
   const processClimateCommand = (command: string) => {
+    console.log(`🎯 Processing climate command: "${command}"`);
+    
     if (command.includes('fan on') || command.includes('turn on fan') || command.includes('start fan')) {
+      console.log('✅ Voice: Fan ON');
       onClimateControl?.('fan_on');
     } else if (command.includes('fan off') || command.includes('turn off fan') || command.includes('stop fan')) {
+      console.log('✅ Voice: Fan OFF');
       onClimateControl?.('fan_off');
-    } else if (command.includes('fan high') || command.includes('fan max') || command.includes('maximum fan') || command.includes('fan maximum speed')) {
+    } else if (command.includes('increase fan speed')) {
+      console.log('✅ Voice: INCREASE FAN SPEED (50% increase)');
+      onClimateControl?.('fan_increase');
+    } else if (command.includes('lower fan speed')) {
+      console.log('✅ Voice: LOWER FAN SPEED (50% reduction)');
+      onClimateControl?.('fan_low');
+    } else if (command.includes('fan maximum speed')) {
+      console.log('✅ Voice: Fan MAXIMUM SPEED');
+      onClimateControl?.('fan_high');
+    } else if (command.includes('fan high') || command.includes('fan max') || command.includes('maximum fan')) {
+      console.log('✅ Voice: Fan MAXIMUM SPEED');
       onClimateControl?.('fan_high');
     } else if (command.includes('fan low') || command.includes('fan min') || command.includes('minimum fan')) {
+      console.log('✅ Voice: Fan LOW SPEED (50% reduction)');
       onClimateControl?.('fan_low');
     } else if (command.includes('fan medium') || command.includes('fan mid')) {
+      console.log('✅ Voice: Fan MEDIUM SPEED');
       onClimateControl?.('fan_medium');
+    } else {
+      console.log('❌ Voice: Fan command not recognized');
     }
   };
 
@@ -239,8 +257,8 @@ export default function VoiceControl({
           {currentModule === 'lighting' ? (
             <>
               <span>"Turn on light"</span>
-              <span>"Light off"</span>
-              <span>"Make it brighter"</span>
+              <span>"Turn off light"</span>
+              <span>"Increase brightness"</span>
               <span>"Dim the light"</span>
               <span>"Maximum brightness"</span>
               <span>"Switch to auto mode"</span>
@@ -248,10 +266,10 @@ export default function VoiceControl({
           ) : (
             <>
               <span>"Turn on fan"</span>
-              <span>"Fan off"</span>
-              <span>"Fan high speed"</span>
+              <span>"Turn off fan"</span>
+              <span>"Increase fan speed"</span>
               <span>"Fan maximum speed"</span>
-              <span>"Fan low speed"</span>
+              <span>"Lower fan speed"</span>
               <span>"Switch to manual mode"</span>
             </>
           )}

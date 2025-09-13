@@ -165,7 +165,10 @@ export default function Dashboard() {
         handleManualControl({ on: false, pwm: 0 });
         break;
       case 'brighter': {
-        const brighterPwm = Math.min(255, (state.led.pwm || 0) + 50);
+        // Fix: Increase by 50% instead of fixed 50
+        const currentPwm = state.led.pwm || 128;
+        const brighterPwm = Math.min(255, Math.round(currentPwm * 1.5));
+        console.log(`🎤 BRIGHTER: ${currentPwm} → ${brighterPwm} (50% increase)`);
         handleManualControl({ on: true, pwm: brighterPwm });
         break;
       }

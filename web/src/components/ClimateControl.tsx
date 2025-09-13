@@ -214,24 +214,42 @@ export default function ClimateControl() {
   const handleVoiceClimateControl = (command: string) => {
     if (!state) return;
     
-    console.log(`🎤 Voice climate command: ${command}`);
+    console.log(`🎤 Voice climate command received: "${command}"`);
+    console.log(`🎤 Current fan state: on=${state.fan.on}, pwm=${state.fan.pwm}`);
     
     switch (command) {
       case 'fan_on':
+        console.log(`🎤 FAN ON: Setting to current PWM or 128`);
         handleManualControl({ on: true, pwm: state.fan.pwm || 128 });
         break;
       case 'fan_off':
+        console.log(`🎤 FAN OFF: Turning off`);
         handleManualControl({ on: false, pwm: 0 });
         break;
       case 'fan_high':
+        console.log(`🎤 FAN HIGH: Setting to 255 (maximum)`);
         handleManualControl({ on: true, pwm: 255 });
         break;
-      case 'fan_low':
-        handleManualControl({ on: true, pwm: 85 });
+      case 'fan_low': {
+        // Fix: Decrease by 50% instead of fixed value
+        const currentPwm = state.fan.pwm || 128;
+        const lowerPwm = Math.max(0, Math.round(currentPwm * 0.5));
+        console.log(`🎤 FAN LOW: ${currentPwm} → ${lowerPwm} (50% reduction)`);
+        handleManualControl({ on: lowerPwm > 0, pwm: lowerPwm });
         break;
+      }
       case 'fan_medium':
+        console.log(`🎤 FAN MEDIUM: Setting to 170`);
         handleManualControl({ on: true, pwm: 170 });
         break;
+      case 'fan_increase': {
+        // Fix: Increase by 50% instead of fixed value
+        const currentPwmIncrease = state.fan.pwm || 128;
+        const higherPwm = Math.min(255, Math.round(currentPwmIncrease * 1.5));
+        console.log(`🎤 FAN INCREASE: ${currentPwmIncrease} → ${higherPwm} (50% increase)`);
+        handleManualControl({ on: true, pwm: higherPwm });
+        break;
+      }
     }
   };
 
