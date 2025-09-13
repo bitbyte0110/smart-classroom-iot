@@ -518,8 +518,8 @@ void validateBusinessRules() {
 int mapLightToPWM(int ldrValue) {
   // Assignment requirement: Actuator control logic
   // Demo-friendly mapping: 4095 (hand cover) = 100%, 2500 (normal dark) = 50%, 1500 (bright) = 0%
-  if (ldrValue >= 4000) return 255;        // Hand cover = 100% brightness
-  if (ldrValue >= 3500) return 200;        // Very dark = 78% brightness  
+  if (ldrValue >= 3700) return 255;        // Hand cover = 100% brightness
+  if (ldrValue >= 3300) return 200;        // Very dark = 78% brightness  
   if (ldrValue >= 3000) return 150;        // Dark = 59% brightness
   if (ldrValue >= 2500) return 100;        // Medium dark = 39% brightness
   if (ldrValue >= 2000) return 50;         // Slightly dark = 20% brightness

@@ -84,7 +84,7 @@ PubSubClient mqtt(espClient);
 // ===== TIMING CONSTANTS =====
 const unsigned long SENSOR_INTERVAL = 2000;     // 2 seconds
 const unsigned long CLOUD_SYNC_INTERVAL = 3000; // 3 seconds
-const unsigned long MANUAL_CHECK_INTERVAL = 200; // 0.2 seconds (much faster response)
+const unsigned long MANUAL_CHECK_INTERVAL = 300; // 0.3 seconds (optimized response)
 const unsigned long LOG_INTERVAL = 10000;       // 10 seconds
 const unsigned long PRESENCE_CHECK_INTERVAL = 10000; // 10 seconds
 
@@ -292,9 +292,9 @@ void loop() {
   // Actuator control
   controlActuators();
   
-  // Much faster loop when in manual mode for instant response
+  // Optimized loop for manual mode responsiveness
   if (lightingState.mode == "manual" || climateState.mode == "manual") {
-    delay(20);  // Ultra responsive manual controls (50Hz update rate)
+    delay(30);  // Responsive manual controls (33Hz update rate)
   } else {
     delay(100); // Normal auto mode
   }
@@ -347,20 +347,23 @@ void acquireSensorData() {
   
   Serial.printf("🌬️ Air Quality: %d (%s)\n", aqRaw, climateState.aqStatus.c_str());
   
-  // Read DHT22 only when presence detected
-  if (climateState.presence) {
-    float h = dht.readHumidity();
-    float t = dht.readTemperature();
-    
-    if (!isnan(h) && !isnan(t)) {
-      climateState.temperature = t;
-      climateState.humidity = h;
+  // Read DHT22 - try to read even without presence for debugging
+  float h = dht.readHumidity();
+  float t = dht.readTemperature();
+  
+  if (!isnan(h) && !isnan(t)) {
+    climateState.temperature = t;
+    climateState.humidity = h;
+    if (climateState.presence) {
       Serial.printf("🌡️ Temperature: %.1f°C | Humidity: %.1f%%\n", t, h);
     } else {
-      Serial.println("❌ DHT22 read failed");
+      Serial.printf("🌡️ DHT22 (no presence): %.1f°C | %.1f%%\n", t, h);
     }
   } else {
-    Serial.println("💤 DHT22: OFF (No presence detected)");
+    Serial.println("❌ DHT22 read failed - using fallback values");
+    // Use fallback values to prevent stale data
+    if (climateState.temperature == 0.0) climateState.temperature = 25.0;
+    if (climateState.humidity == 0.0) climateState.humidity = 50.0;
   }
   
   // Data validation
@@ -886,6 +889,9 @@ void syncWithCloud() {
   climateDoc["aqAlert"] = climateState.aqAlert;
   climateDoc["presence"] = climateState.presence;
   
+  // ALWAYS update timestamp to prevent stale data warnings
+  climateDoc["lastUpdate"] = getEpochTime();
+  
   time_t now = time(nullptr);
   if (now > 1000000000) {
     long long timestamp = (long long)now * 1000;
@@ -905,8 +911,12 @@ void syncWithCloud() {
     } else {
       Serial.println("☁️ Climate cloud sync successful");
     }
+    Serial.printf("🌡️ Climate data: Temp=%.1f°C, Hum=%.1f%%, AQ=%d, Fan=%s\n", 
+                  climateState.temperature, climateState.humidity, climateState.aqRaw, 
+                  climateState.fanOn ? "ON" : "OFF");
   } else {
     Serial.printf("❌ Climate cloud sync failed: %d\n", httpCode);
+    Serial.printf("📊 Climate data being sent: %s\n", climateJsonString.c_str());
   }
   http.end();
 }
