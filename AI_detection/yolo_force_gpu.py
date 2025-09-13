@@ -162,11 +162,13 @@ class ForceGPUYOLODetector:
                 print(f"⚠️ MQTT publish failed: {e}")
 
             if response.status_code == 200:
-                # Enhanced logging for LED control debugging
+                # Enhanced logging for LED and Fan control debugging
                 status_icon = "🟢" if presence else "🔴"
                 led_action = "LED should turn ON" if presence else "LED should turn OFF IMMEDIATELY"
+                fan_action = "Fan should turn ON (if temp/humidity needs it)" if presence else "Fan should turn OFF IMMEDIATELY"
                 print(f"{status_icon} Firebase updated: AI presence={presence}, people={person_count}, conf={max_confidence:.2f}")
                 print(f"💡 {led_action}")
+                print(f"🌪️ {fan_action}")
                 return True
             else:
                 print(f"❌ Firebase error: {response.status_code}")

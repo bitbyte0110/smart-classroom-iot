@@ -134,7 +134,7 @@ export default function VoiceControl({
     } else if (command.includes('bright') || command.includes('brighter') || command.includes('increase brightness')) {
       console.log('✅ Voice: INCREASE BRIGHTNESS (50% increase)');
       onLightingControl?.('brighter');
-    } else if (command.includes('dim') || command.includes('dimmer') || command.includes('decrease brightness')) {
+    } else if (command.includes('dim') || command.includes('dimmer') || command.includes('decrease brightness') || command.includes('lower the light')) {
       console.log('✅ Voice: DIMMER (50% reduction)');
       onLightingControl?.('dimmer');
     } else if (command.includes('max') || command.includes('maximum') || command.includes('full') || command.includes('maximum brightness')) {
@@ -259,7 +259,7 @@ export default function VoiceControl({
               <span>"Turn on light"</span>
               <span>"Turn off light"</span>
               <span>"Increase brightness"</span>
-              <span>"Dim the light"</span>
+              <span>"Lower the light"</span>
               <span>"Maximum brightness"</span>
               <span>"Switch to auto mode"</span>
             </>

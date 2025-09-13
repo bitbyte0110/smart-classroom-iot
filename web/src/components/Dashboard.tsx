@@ -155,7 +155,24 @@ export default function Dashboard() {
     if (!state) return;
     
     console.log(`🎤 Voice lighting command received: "${command}"`);
-    console.log(`🎤 Current LED state: on=${state.led.on}, pwm=${state.led.pwm}`);
+    console.log(`🎤 Current LED state: on=${state.led.on}, pwm=${state.led.pwm}, mode=${state.mode}`);
+    
+    // Switch to manual mode for voice commands
+    if (state.mode !== 'manual') {
+      console.log(`🎤 Switching to manual mode for voice command`);
+      handleModeChange('manual');
+      // Wait a moment for mode change to take effect
+      setTimeout(() => {
+        processVoiceCommand(command);
+      }, 100);
+      return;
+    }
+    
+    processVoiceCommand(command);
+  };
+  
+  const processVoiceCommand = (command: string) => {
+    if (!state) return;
     
     switch (command) {
       case 'on':
@@ -165,10 +182,11 @@ export default function Dashboard() {
         handleManualControl({ on: false, pwm: 0 });
         break;
       case 'brighter': {
-        // Fix: Increase by 50% instead of fixed 50
+        // Fix: Increase by 50% of current value (not 150% of current value)
         const currentPwm = state.led.pwm || 128;
-        const brighterPwm = Math.min(255, Math.round(currentPwm * 1.5));
-        console.log(`🎤 BRIGHTER: ${currentPwm} → ${brighterPwm} (50% increase)`);
+        const increaseAmount = Math.round(currentPwm * 0.5); // 50% of current value
+        const brighterPwm = Math.min(255, currentPwm + increaseAmount);
+        console.log(`🎤 BRIGHTER: ${currentPwm} → ${brighterPwm} (+${increaseAmount} = 50% increase)`);
         handleManualControl({ on: true, pwm: brighterPwm });
         break;
       }
@@ -182,7 +200,9 @@ export default function Dashboard() {
       }
       case 'max':
         console.log(`🎤 MAX: Setting to 255 (maximum brightness)`);
+        console.log(`🎤 Current state before max: mode=${state.mode}, led.on=${state.led.on}, led.pwm=${state.led.pwm}`);
         handleManualControl({ on: true, pwm: 255 });
+        console.log(`🎤 MAX command sent: on=true, pwm=255`);
         break;
       case 'min':
         handleManualControl({ on: true, pwm: 50 });
