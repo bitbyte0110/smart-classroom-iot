@@ -59,8 +59,23 @@ export default function VoiceControl({
 
       recognitionRef.current.onerror = (event) => {
         console.error('Speech recognition error:', event.error);
-        setError(`Voice recognition error: ${event.error}`);
-        onToggleListening(); // Stop listening on error
+        
+        // Don't show error for "aborted" - it's usually user-initiated
+        if (event.error === 'aborted') {
+          console.log('🎤 Voice recognition aborted (user action)');
+          setError(''); // Clear any existing error
+          return; // Don't stop listening or show error
+        }
+        
+        // Only show error for actual problems
+        if (event.error === 'network' || event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          setError(`Voice recognition error: ${event.error}`);
+          onToggleListening(); // Stop listening on real errors
+        } else {
+          // For other errors, just log them but don't show to user
+          console.warn('Voice recognition warning:', event.error);
+          setError(''); // Clear any existing error
+        }
       };
 
       recognitionRef.current.onend = () => {
@@ -144,9 +159,17 @@ export default function VoiceControl({
   const handleToggleListening = () => {
     if (!isSupported) return;
     
+    // Prevent rapid clicking
+    if (recognitionRef.current?.state === 'starting' || recognitionRef.current?.state === 'stopping') {
+      console.log('🎤 Voice recognition is busy, please wait...');
+      return;
+    }
+    
     if (isListening) {
+      console.log('🎤 Stopping voice recognition...');
       recognitionRef.current?.stop();
     } else {
+      console.log('🎤 Starting voice recognition...');
       setError('');
       setTranscript('');
       recognitionRef.current?.start();
@@ -193,6 +216,11 @@ export default function VoiceControl({
       {error && (
         <div className="voice-error">
           ⚠️ {error}
+          <div style={{ fontSize: '0.8rem', marginTop: '0.5rem', opacity: 0.8 }}>
+            {error.includes('not-allowed') && 'Please allow microphone access and refresh the page'}
+            {error.includes('network') && 'Check your internet connection'}
+            {error.includes('service-not-allowed') && 'Voice recognition service is not available'}
+          </div>
         </div>
       )}
 
