@@ -747,3 +747,211 @@ The change was made on line 236 where the status text is constructed and display
 
 ---
 
+_**User (2025-09-13 09:42Z)**_
+
+@yolo_force_gpu.py the word people keep blinking is this normal?
+
+---
+
+_**Assistant**_
+
+Yes, the blinking "People: ..." is normal behavior in this YOLO detection script. Here's why it happens:
+
+Looking at the code, the blinking occurs because of this logic:
+
+```python
+# Process every Nth frame
+if frame_count % self.frame_skip == 0:
+    # Force GPU detection
+    person_count, boxes, confidences = self.detect_people_force_gpu(frame)
+    # ... detection logic ...
+else:
+    # No detection processing on skipped frames
+```
+
+The script is designed to:
+1. **Process every 2nd frame** (`self.frame_skip = 2`) for performance
+2. **Show "People: ..."** on frames that are being skipped (not processed)
+3. **Show actual count** on frames that are being processed
+
+This creates the blinking effect where:
+- Frame 1: Shows "People: ..." (skipped)
+- Frame 2: Shows "People: 2" (processed)
+- Frame 3: Shows "People: ..." (skipped)
+- Frame 4: Shows "People: 1" (processed)
+
+If you want to make it less distracting, I can modify the code to either:
+1. **Show the last known count** instead of "..." on skipped frames
+2. **Process every frame** (but this will reduce FPS)
+3. **Remove the people count** from the overlay entirely
+
+Would you like me to implement any of these changes to reduce the blinking effect?
+
+---
+
+_**User (2025-09-13 09:42Z)**_
+
+yes
+
+---
+
+_**Assistant**_
+
+I'll modify the code to show the last known count instead of "..." to eliminate the blinking effect. This will make the display much smoother.
+
+
+---
+
+<details><summary>Edit file: AI_detection/yolo_force_gpu.py</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 4, lines removed: undefined
+
+```diff
+@@ -47,4 +47,8 @@
+          self.detection_history = []
+          self.history_size = 4
++         
++         # Last known values for smooth display
++         self.last_person_count = 0
++         self.last_fps = 0.0
+          
+          # Timing
+```
+
+</details>
+
+---
+
+<details><summary>Edit file: AI_detection/yolo_force_gpu.py</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 3, lines removed: undefined
+
+```diff
+@@ -217,4 +217,7 @@
+                      person_count, boxes, confidences = self.detect_people_force_gpu(frame)
+                      stable_presence = self.stable_presence_detection(person_count)
++                     
++                     # Update last known values for smooth display
++                     self.last_person_count = person_count
+                      
+                      # Get max confidence for Firebase
+```
+
+</details>
+
+---
+
+<details><summary>Edit file: AI_detection/yolo_force_gpu.py</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 5, lines removed: 3
+
+```diff
+@@ -235,11 +235,13 @@
+                  if current_time - last_fps_time >= 1.0:
+                      fps = frame_count / (current_time - start_time)
++                     self.last_fps = fps
+                      last_fps_time = current_time
+-                     print(f"📊 FPS: {fps:.1f} | People: {person_count if frame_count % self.frame_skip == 0 else '...'}")
++                     print(f"📊 FPS: {fps:.1f} | People: {self.last_person_count}")
+                  else:
+                      fps = frame_count / (current_time - start_time)
++                     self.last_fps = fps
+                  
+-                 # Add status
+-                 status = f"People: {person_count if frame_count % self.frame_skip == 0 else '...'} | FPS: {fps:.1f}"
++                 # Add status (always show last known values for smooth display)
++                 status = f"People: {self.last_person_count} | FPS: {self.last_fps:.1f}"
+                  cv2.putText(frame, status, (5, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+                  
+```
+
+</details>
+
+---
+
+Perfect! I've fixed the blinking issue by implementing the following changes:
+
+## 🔧 **Changes Made:**
+
+1. **Added tracking variables** for the last known values:
+   - `self.last_person_count = 0`
+   - `self.last_fps = 0.0`
+
+2. **Updated the detection logic** to store the last known person count when processing frames
+
+3. **Modified the display logic** to always show the last known values instead of "..." on skipped frames
+
+## ✅ **Result:**
+
+Now the overlay will show:
+- **Smooth, consistent display** - no more blinking "People: ..."
+- **Last known person count** - shows the most recent detection result
+- **Current FPS** - updates smoothly as it's calculated every frame
+
+The video feed will now display something like:
+- `People: 2 | FPS: 27.3` (consistent, no blinking)
+- `People: 1 | FPS: 27.1` (updates when new detection occurs)
+- `People: 0 | FPS: 26.8` (shows last count even on skipped frames)
+
+This maintains the performance benefits of processing every 2nd frame while providing a much smoother visual experience!
+
+---
+
+_**User (2025-09-13 09:42Z)**_
+
+Process every frame (but this will reduce FPS@yolo_force_gpu.py 
+
+---
+
+_**Assistant**_
+
+I'll modify the code to process every frame instead of every 2nd frame. This will eliminate the blinking but will reduce FPS as you mentioned.
+
+
+---
+
+<details><summary>Edit file: AI_detection/yolo_force_gpu.py</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -41,5 +41,5 @@
+          self.conf_threshold = 0.6
+          self.iou_threshold = 0.5
+-         self.frame_skip = 2
++         self.frame_skip = 1  # Process every frame
+          self.input_size = 224
+          
+```
+
+</details>
+
+---
+
+Perfect! I've changed `self.frame_skip = 2` to `self.frame_skip = 1`, which means the script will now process every single frame instead of every 2nd frame.
+
+## 🔧 **Change Made:**
+- **Frame skip reduced from 2 to 1** - now processes every frame
+
+## ⚡ **Expected Results:**
+- **No more blinking** - "People: ..." will be replaced with actual counts on every frame
+- **Lower FPS** - you'll likely see a drop from ~27 FPS to maybe ~15-20 FPS depending on your GPU
+- **More accurate detection** - more frequent updates to person count
+- **Smoother display** - consistent overlay without the "..." placeholder
+
+The trade-off is performance vs. smoothness. If the FPS drop is too significant, you can always change it back to `self.frame_skip = 2` or try `self.frame_skip = 1` with a smaller input size like `self.input_size = 160` to maintain better performance.
+
+---
+

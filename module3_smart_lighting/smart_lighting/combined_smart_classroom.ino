@@ -459,7 +459,7 @@ void readManualCommandsFromCloud() {
         bool newFanOn = fan["on"];
         if (newFanOn != manualCommands.fanOn) {
           manualCommands.fanOn = newFanOn;
-          Serial.printf("⚡ Fast manual Fan: %s\n", newFanOn ? "ON" : "OFF");
+          Serial.printf("⚡ Fast manual Fan: %s (mode=%s)\n", newFanOn ? "ON" : "OFF", climateState.mode.c_str());
           climateState.fanOn = manualCommands.fanOn;
           climateState.fanPwm = manualCommands.fanPwm;
         }
@@ -468,11 +468,15 @@ void readManualCommandsFromCloud() {
         int newPwm = fan["pwm"];
         if (newPwm != manualCommands.fanPwm) {
           manualCommands.fanPwm = constrain(newPwm, 0, 255);
-          Serial.printf("⚡ Fast manual Fan PWM: %d\n", manualCommands.fanPwm);
+          Serial.printf("⚡ Fast manual Fan PWM: %d (mode=%s)\n", manualCommands.fanPwm, climateState.mode.c_str());
           climateState.fanOn = manualCommands.fanOn;
           climateState.fanPwm = manualCommands.fanPwm;
         }
       }
+    } else {
+      Serial.printf("⚠️ Manual fan command ignored: mode=%s, hasFan=%s\n", 
+                    climateState.mode.c_str(), 
+                    doc.containsKey("fan") ? "true" : "false");
     }
   }
   http.end();
@@ -482,9 +486,10 @@ void readAIDataFromCloud() {
   if (WiFi.status() != WL_CONNECTED) return;
   
   HTTPClient http;
-  String url = String(FIREBASE_URL) + "/lighting/" + ROOM_ID + "/state.json";
   
-  http.begin(url);
+  // Read lighting AI data
+  String lightingUrl = String(FIREBASE_URL) + "/lighting/" + ROOM_ID + "/state.json";
+  http.begin(lightingUrl);
   int httpCode = http.GET();
   
   if (httpCode == HTTP_CODE_OK) {
@@ -504,7 +509,7 @@ void readAIDataFromCloud() {
       lightingState.ai_confidence = doc["ai_confidence"];
     }
     
-    // Read mode changes
+    // Read lighting mode changes
     if (doc.containsKey("mode")) {
       String newMode = doc["mode"].as<String>();
       if (newMode != lightingState.mode) {
@@ -522,7 +527,27 @@ void readAIDataFromCloud() {
       }
     }
   }
+  http.end();
   
+  // Read climate mode separately
+  String climateUrl = String(FIREBASE_URL) + "/climate/" + ROOM_ID + "/state.json";
+  http.begin(climateUrl);
+  httpCode = http.GET();
+  
+  if (httpCode == HTTP_CODE_OK) {
+    String payload = http.getString();
+    DynamicJsonDocument doc(512);
+    deserializeJson(doc, payload);
+    
+    // Read climate mode changes
+    if (doc.containsKey("mode")) {
+      String newMode = doc["mode"].as<String>();
+      if (newMode != climateState.mode) {
+        climateState.mode = newMode;
+        Serial.printf("🔄 Climate mode: %s\n", climateState.mode.c_str());
+      }
+    }
+  }
   http.end();
 }
 
@@ -583,27 +608,39 @@ void validateBusinessRules() {
   }
   
   // ===== CLIMATE CONTROL BUSINESS RULES =====
-  if (climateState.presence) {
-    if (climateState.mode == "manual") {
-      climateState.fanOn = manualCommands.fanOn;
-      if (manualCommands.fanOn) {
-        climateState.fanPwm = manualCommands.fanPwm;
-        int duty = map(manualCommands.fanPwm, 0, 255, 0, MAX_FAN_DUTY);
-        setFanDuty(duty);
-      } else {
-        climateState.fanPwm = 0;
-        setFanDuty(0);
-      }
+  if (climateState.mode == "manual") {
+    // Manual mode - CRITICAL: Use commands directly, don't override with presence
+    Serial.printf("🎛️ MANUAL MODE: fanOn=%s, pwm=%d, presence=%s\n", 
+                  manualCommands.fanOn ? "true" : "false", 
+                  manualCommands.fanPwm,
+                  climateState.presence ? "true" : "false");
+    climateState.fanOn = manualCommands.fanOn;
+    if (manualCommands.fanOn) {
+      climateState.fanPwm = manualCommands.fanPwm;
+      int duty = map(manualCommands.fanPwm, 0, 255, 0, MAX_FAN_DUTY);
+      setFanDuty(duty);
+      Serial.printf("🌪️ Manual fan ON: PWM=%d, Duty=%d\n", manualCommands.fanPwm, duty);
     } else {
-      // Auto mode - temperature-based control
-      autoClimateControl();
+      climateState.fanPwm = 0;
+      setFanDuty(0);
+      Serial.println("🌪️ Manual fan OFF");
     }
   } else {
-    // No presence - turn off fan
-    setFanDuty(0);
-    climateState.fanOn = false;
-    climateState.fanPwm = 0;
-    climateState.comfortBand = "Idle";
+    // Auto mode - presence-based control
+    Serial.printf("🤖 AUTO MODE: presence=%s, temp=%.1f°C\n", 
+                  climateState.presence ? "true" : "false", 
+                  climateState.temperature);
+    if (climateState.presence) {
+      // Presence detected - temperature-based control
+      autoClimateControl();
+    } else {
+      // No presence - turn off fan (auto mode only)
+      setFanDuty(0);
+      climateState.fanOn = false;
+      climateState.fanPwm = 0;
+      climateState.comfortBand = "Idle";
+      Serial.println("🌪️ Auto fan OFF (no presence)");
+    }
   }
   
   // System status evaluation

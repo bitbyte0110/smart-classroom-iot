@@ -461,6 +461,7 @@ void readManualCommandsFromCloud() {
     if (doc.containsKey("mode")) {
       String newMode = doc["mode"].as<String>();
       if (newMode != climateState.mode) {
+        Serial.printf("🔄 Climate mode change: %s → %s\n", climateState.mode.c_str(), newMode.c_str());
         climateState.mode = newMode;
         Serial.printf("🔄 Climate mode: %s\n", climateState.mode.c_str());
       }
@@ -472,15 +473,17 @@ void readManualCommandsFromCloud() {
         bool newFanOn = fan["on"];
         if (newFanOn != manualCommands.fanOn) {
           manualCommands.fanOn = newFanOn;
-          Serial.printf("⚡ Fast manual Fan: %s\n", newFanOn ? "ON" : "OFF");
+          Serial.printf("⚡ Fast manual Fan: %s (mode=%s)\n", newFanOn ? "ON" : "OFF", climateState.mode.c_str());
           climateState.fanOn = manualCommands.fanOn;
           climateState.fanPwm = manualCommands.fanPwm;
           // Apply immediately for instant response
           if (manualCommands.fanOn) {
             int duty = map(manualCommands.fanPwm, 0, 255, 0, MAX_FAN_DUTY);
             setFanDuty(duty);
+            Serial.printf("🌪️ IMMEDIATE Fan ON: PWM=%d, Duty=%d\n", manualCommands.fanPwm, duty);
           } else {
             setFanDuty(0);
+            Serial.println("🌪️ IMMEDIATE Fan OFF");
           }
         }
       }
@@ -488,15 +491,17 @@ void readManualCommandsFromCloud() {
         int newPwm = fan["pwm"];
         if (newPwm != manualCommands.fanPwm) {
           manualCommands.fanPwm = constrain(newPwm, 0, 255);
-          Serial.printf("⚡ Fast manual Fan PWM: %d\n", manualCommands.fanPwm);
+          Serial.printf("⚡ Fast manual Fan PWM: %d (mode=%s)\n", manualCommands.fanPwm, climateState.mode.c_str());
           climateState.fanOn = manualCommands.fanOn;
           climateState.fanPwm = manualCommands.fanPwm;
           // Apply immediately for instant response
           if (manualCommands.fanOn) {
             int duty = map(manualCommands.fanPwm, 0, 255, 0, MAX_FAN_DUTY);
             setFanDuty(duty);
+            Serial.printf("🌪️ IMMEDIATE Fan PWM: %d, Duty=%d\n", manualCommands.fanPwm, duty);
           } else {
             setFanDuty(0);
+            Serial.println("🌪️ IMMEDIATE Fan OFF (PWM=0)");
           }
         }
       }
@@ -618,15 +623,13 @@ void validateBusinessRules() {
   // ===== CLIMATE CONTROL BUSINESS RULES =====
   if (climateState.mode == "manual") {
     // Manual mode - CRITICAL: Use commands directly, don't override with presence
+    // NOTE: Fan control is already applied in readManualCommandsFromCloud() for instant response
+    // This section only updates the state variables for consistency
     climateState.fanOn = manualCommands.fanOn;
-    if (manualCommands.fanOn) {
-      climateState.fanPwm = manualCommands.fanPwm;
-      int duty = map(manualCommands.fanPwm, 0, 255, 0, MAX_FAN_DUTY);
-      setFanDuty(duty);
-    } else {
-      climateState.fanPwm = 0;
-      setFanDuty(0);
-    }
+    climateState.fanPwm = manualCommands.fanPwm;
+    // Don't call setFanDuty() here to avoid conflicts with immediate manual control
+    Serial.printf("🎛️ Business Rules: Manual mode - fanOn=%s, pwm=%d (NO setFanDuty call)\n", 
+                  climateState.fanOn ? "true" : "false", climateState.fanPwm);
   } else {
     // Auto mode - presence-based control
     if (climateState.presence) {
@@ -704,6 +707,13 @@ int mapLightToPWM(int ldrValue) {
 
 void setFanDuty(int duty) {
   duty = constrain(duty, 0, MAX_FAN_DUTY);
+  
+  // Debug: Track all fan duty changes
+  if (currentFanDuty != duty) {
+    Serial.printf("🌪️ setFanDuty: %d → %d (mode=%s, manualFanOn=%s)\n", 
+                  currentFanDuty, duty, climateState.mode.c_str(), 
+                  manualCommands.fanOn ? "true" : "false");
+  }
   
   if (!fanPwmReady) {
     currentFanDuty = duty;

@@ -40,7 +40,7 @@ class ForceGPUYOLODetector:
         # Ultra-fast settings
         self.conf_threshold = 0.6
         self.iou_threshold = 0.5
-        self.frame_skip = 2
+        self.frame_skip = 1  # Process every frame
         self.input_size = 224
         
         # Detection history
