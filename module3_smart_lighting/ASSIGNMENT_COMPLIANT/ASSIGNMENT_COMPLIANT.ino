@@ -219,42 +219,17 @@ void connectToWiFi() {
 }
 
 void mqttCallback(char* topic, byte* payload, unsigned int len) {
-  String t = String(topic);
-  String msg;
-  msg.reserve(len);
-  for (unsigned int i = 0; i < len; i++) msg += (char)payload[i];
-  
-  // Handle commands from Pi Bridge (Firebase → MQTT → ESP32)
-  if (t == "control/lighting/mode") {
-    String newMode = (msg == "manual") ? "manual" : "auto";
-    if (newMode != currentData.mode) {
-      currentData.mode = newMode;
-      Serial.printf("📱 MQTT command: mode = %s\n", currentData.mode.c_str());
-    }
-  } else if (t == "control/lighting/led_on") {
-    bool newLedOn = (msg == "true" || msg == "1");
-    if (newLedOn != manualCommands.ledOn) {
-      manualCommands.ledOn = newLedOn;
-      Serial.printf("📱 MQTT command: LED %s\n", newLedOn ? "ON" : "OFF");
-    }
-  } else if (t == "control/lighting/led_pwm") {
-    int newPwm = constrain(msg.toInt(), 0, MAX_PWM);
-    if (newPwm != manualCommands.ledPwm) {
-      manualCommands.ledPwm = newPwm;
-      Serial.printf("📱 MQTT command: PWM %d\n", newPwm);
-    }
-  }
+  // MQTT callback - commands come from Firebase only to prevent conflicts
+  // This prevents dual command sources that cause flickering
 }
 
 void mqttEnsureConnected() {
   if (mqtt.connected()) return;
   while (!mqtt.connected()) {
     if (mqtt.connect(MQTT_CLIENT_ID)) {
-      // Subscribe to command topics from Pi Bridge
-      mqtt.subscribe("control/lighting/mode");
-      mqtt.subscribe("control/lighting/led_on");
-      mqtt.subscribe("control/lighting/led_pwm");
-      Serial.println("📡 MQTT connected (bidirectional)");
+      // No MQTT subscriptions - commands come from Firebase only
+      // MQTT is only used for publishing sensor data to Pi bridge and LCD
+      Serial.println("📡 MQTT connected (publish only)");
     } else {
       delay(1000);
     }
