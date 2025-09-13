@@ -154,7 +154,8 @@ export default function Dashboard() {
   const handleVoiceLightingControl = (command: string) => {
     if (!state) return;
     
-    console.log(`🎤 Voice lighting command: ${command}`);
+    console.log(`🎤 Voice lighting command received: "${command}"`);
+    console.log(`🎤 Current LED state: on=${state.led.on}, pwm=${state.led.pwm}`);
     
     switch (command) {
       case 'on':
@@ -169,11 +170,15 @@ export default function Dashboard() {
         break;
       }
       case 'dimmer': {
-        const dimmerPwm = Math.max(0, (state.led.pwm || 0) - 50);
+        // Fix: Decrease by 50% instead of fixed 50
+        const currentPwm = state.led.pwm || 128;
+        const dimmerPwm = Math.max(0, Math.round(currentPwm * 0.5));
+        console.log(`🎤 DIMMER: ${currentPwm} → ${dimmerPwm} (50% reduction)`);
         handleManualControl({ on: dimmerPwm > 0, pwm: dimmerPwm });
         break;
       }
       case 'max':
+        console.log(`🎤 MAX: Setting to 255 (maximum brightness)`);
         handleManualControl({ on: true, pwm: 255 });
         break;
       case 'min':

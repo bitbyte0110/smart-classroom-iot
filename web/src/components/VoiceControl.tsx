@@ -123,20 +123,31 @@ export default function VoiceControl({
   };
 
   const processLightingCommand = (command: string) => {
+    console.log(`🎯 Processing lighting command: "${command}"`);
+    
     if (command.includes('light on') || command.includes('turn on light') || command.includes('lights on')) {
+      console.log('✅ Voice: Light ON');
       onLightingControl?.('on');
     } else if (command.includes('light off') || command.includes('turn off light') || command.includes('lights off')) {
+      console.log('✅ Voice: Light OFF');
       onLightingControl?.('off');
     } else if (command.includes('bright') || command.includes('brighter')) {
+      console.log('✅ Voice: BRIGHTER');
       onLightingControl?.('brighter');
     } else if (command.includes('dim') || command.includes('dimmer')) {
+      console.log('✅ Voice: DIMMER (50% reduction)');
       onLightingControl?.('dimmer');
     } else if (command.includes('max') || command.includes('maximum') || command.includes('full')) {
+      console.log('✅ Voice: MAXIMUM BRIGHTNESS (255)');
       onLightingControl?.('max');
     } else if (command.includes('min') || command.includes('minimum') || command.includes('low')) {
+      console.log('✅ Voice: MINIMUM BRIGHTNESS');
       onLightingControl?.('min');
     } else if (command.includes('medium') || command.includes('mid')) {
+      console.log('✅ Voice: MEDIUM BRIGHTNESS');
       onLightingControl?.('medium');
+    } else {
+      console.log('❌ Voice: Command not recognized');
     }
   };
 

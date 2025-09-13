@@ -623,6 +623,16 @@ void checkPresenceStatus() {
 }
 
 void validateBusinessRules() {
+  // Track presence changes for immediate response
+  static bool previousPresence = false;
+  bool presenceChanged = (previousPresence != climateState.presence);
+  if (presenceChanged) {
+    Serial.printf("🔄 PRESENCE CHANGE: %s → %s\n", 
+                  previousPresence ? "true" : "false", 
+                  climateState.presence ? "true" : "false");
+    previousPresence = climateState.presence;
+  }
+  
   // ===== SMART LIGHTING BUSINESS RULES =====
   if (lightingState.mode == "auto") {
     int level = lightingState.ldrRaw;
@@ -655,7 +665,13 @@ void validateBusinessRules() {
   } else {
     // Auto mode - presence-based control
     if (climateState.presence) {
-      // Presence detected - temperature-based control
+      // Presence detected - IMMEDIATE response
+      if (presenceChanged) {
+        Serial.println("🚀 IMMEDIATE FAN START - Presence detected!");
+        // Force immediate fan start when presence is detected
+        lastBandChange = 0; // Reset hysteresis for immediate response
+      }
+      // Temperature-based control
       autoClimateControl();
     } else {
       // No presence - turn off fan (auto mode only)
@@ -697,28 +713,30 @@ void autoClimateControl() {
     targetDuty = FAN_DUTY_HIGH;
   }
   
-  // Apply hysteresis
-  if (newBand != climateState.comfortBand) {
-    if (now - lastBandChange > HYSTERESIS_DELAY) {
-      climateState.comfortBand = newBand;
-      lastBandChange = now;
-      Serial.println("🎯 Temperature Band: " + newBand);
-    } else {
-      return; // Keep current band during hysteresis
-    }
-  }
-  
-  // Air Quality Override
+  // Air Quality Override - IMMEDIATE response
   if (climateState.aqStatus == "Poor") {
     targetDuty = FAN_DUTY_HIGH;
-    climateState.comfortBand = "High";
+    newBand = "High";
     Serial.println("🚨 POOR Air Quality - Fan at MAXIMUM!");
   }
   
-  // Apply fan control
+  // Apply band change immediately when presence is detected
+  // Only use hysteresis for temperature changes, not presence changes
+  if (newBand != climateState.comfortBand) {
+    climateState.comfortBand = newBand;
+    lastBandChange = now;
+    Serial.println("🎯 Temperature Band: " + newBand);
+  }
+  
+  // Apply fan control IMMEDIATELY
   setFanDuty(targetDuty);
   climateState.fanOn = (targetDuty > 0);
   climateState.fanPwm = map(targetDuty, 0, MAX_FAN_DUTY, 0, 255);
+  
+  Serial.printf("🌪️ Auto fan: %s (PWM: %d, Band: %s)\n", 
+                climateState.fanOn ? "ON" : "OFF", 
+                climateState.fanPwm, 
+                climateState.comfortBand.c_str());
 }
 
 int mapLightToPWM(int ldrValue) {
