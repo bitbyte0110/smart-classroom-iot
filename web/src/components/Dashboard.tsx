@@ -6,6 +6,7 @@ import { ROOM_ID } from '../types';
 import StatusTiles from './StatusTiles';
 import ManualControls from './ManualControls';
 import Reports from './Reports';
+import VoiceControl from './VoiceControl';
 import './Dashboard.css';
 
 export default function Dashboard() {
@@ -14,6 +15,7 @@ export default function Dashboard() {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string>('');
   const [lastModeChange, setLastModeChange] = useState<number>(0);
+  const [isVoiceListening, setIsVoiceListening] = useState(false);
 
   useEffect(() => {
     console.log('🚀 Dashboard component mounted, connecting to Firebase...');
@@ -148,6 +150,45 @@ export default function Dashboard() {
     }
   };
 
+  // Voice control handlers
+  const handleVoiceLightingControl = (command: string) => {
+    if (!state) return;
+    
+    console.log(`🎤 Voice lighting command: ${command}`);
+    
+    switch (command) {
+      case 'on':
+        handleManualControl({ on: true, pwm: state.led.pwm || 128 });
+        break;
+      case 'off':
+        handleManualControl({ on: false, pwm: 0 });
+        break;
+      case 'brighter': {
+        const brighterPwm = Math.min(255, (state.led.pwm || 0) + 50);
+        handleManualControl({ on: true, pwm: brighterPwm });
+        break;
+      }
+      case 'dimmer': {
+        const dimmerPwm = Math.max(0, (state.led.pwm || 0) - 50);
+        handleManualControl({ on: dimmerPwm > 0, pwm: dimmerPwm });
+        break;
+      }
+      case 'max':
+        handleManualControl({ on: true, pwm: 255 });
+        break;
+      case 'min':
+        handleManualControl({ on: true, pwm: 50 });
+        break;
+      case 'medium':
+        handleManualControl({ on: true, pwm: 128 });
+        break;
+    }
+  };
+
+  const handleVoiceToggle = () => {
+    setIsVoiceListening(!isVoiceListening);
+  };
+
   if (!state) {
     return (
       <div className="dashboard loading">
@@ -218,6 +259,14 @@ export default function Dashboard() {
               onControlChange={handleManualControl}
             />
           )}
+
+          <VoiceControl
+            onLightingControl={handleVoiceLightingControl}
+            onModeChange={handleModeChange}
+            isListening={isVoiceListening}
+            onToggleListening={handleVoiceToggle}
+            currentModule="lighting"
+          />
         </div>
       )}
 

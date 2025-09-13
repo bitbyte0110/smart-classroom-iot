@@ -6,6 +6,7 @@ import { ROOM_ID } from '../types';
 import ClimateStatusTiles from './ClimateStatusTiles';
 import ClimateManualControls from './ClimateManualControls';
 import ClimateReports from './ClimateReports';
+import VoiceControl from './VoiceControl';
 import './Dashboard.css'; // Reuse the same styles
 
 export default function ClimateControl() {
@@ -14,6 +15,7 @@ export default function ClimateControl() {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string>('');
   const [lastModeChange, setLastModeChange] = useState<number>(0);
+  const [isVoiceListening, setIsVoiceListening] = useState(false);
 
   useEffect(() => {
     console.log('🚀 Climate Control component mounted, connecting to Firebase...');
@@ -197,6 +199,40 @@ export default function ClimateControl() {
     }
   };
 
+  // Voice control handlers
+  const handleVoiceClimateControl = (command: string) => {
+    if (!state) return;
+    
+    console.log(`🎤 Voice climate command: ${command}`);
+    
+    switch (command) {
+      case 'fan_on':
+        handleManualControl({ on: true, pwm: state.fan.pwm || 128 });
+        break;
+      case 'fan_off':
+        handleManualControl({ on: false, pwm: 0 });
+        break;
+      case 'fan_high':
+        handleManualControl({ on: true, pwm: 255 });
+        break;
+      case 'fan_low':
+        handleManualControl({ on: true, pwm: 85 });
+        break;
+      case 'fan_medium':
+        handleManualControl({ on: true, pwm: 170 });
+        break;
+      case 'boost':
+        // Boost mode - set fan to maximum for 10 minutes
+        handleManualControl({ on: true, pwm: 255 });
+        // Note: In a real implementation, you'd set a timer to reset after 10 minutes
+        break;
+    }
+  };
+
+  const handleVoiceToggle = () => {
+    setIsVoiceListening(!isVoiceListening);
+  };
+
   if (!state) {
     return (
       <div className="dashboard loading">
@@ -294,6 +330,14 @@ export default function ClimateControl() {
               onControlChange={handleManualControl}
             />
           )}
+
+          <VoiceControl
+            onClimateControl={handleVoiceClimateControl}
+            onModeChange={handleModeChange}
+            isListening={isVoiceListening}
+            onToggleListening={handleVoiceToggle}
+            currentModule="climate"
+          />
         </div>
       )}
 
