@@ -36,7 +36,7 @@ except ImportError:
 MQTT_HOST = "localhost"
 MQTT_PORT = 1883
 PAGE_DURATION = 3  # seconds per page
-ALERT_BLINK_INTERVAL = 0.5  # seconds
+# ALERT_BLINK_INTERVAL = 0.5  # seconds - REMOVED: No longer using blinking
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -46,8 +46,8 @@ class SmartClassroomLCD:
     def __init__(self):
         self.current_page = 0
         self.last_page_change = 0
-        self.alert_blink_state = False
-        self.last_blink_time = 0
+        # self.alert_blink_state = False  # REMOVED: No longer using blinking
+        # self.last_blink_time = 0        # REMOVED: No longer using blinking
         
         # GrovePi LCD library (works with both RGB and standard LCD)
         # No initialization needed - uses global functions
@@ -224,22 +224,9 @@ class SmartClassroomLCD:
             line2 = "OK"
             color = "green"
         
-        # Handle blinking for critical alerts
-        if aq_status == "Poor":
-            current_time = time.time()
-            if current_time - self.last_blink_time >= ALERT_BLINK_INTERVAL:
-                self.alert_blink_state = not self.alert_blink_state
-                self.last_blink_time = current_time
-                
-            if self.alert_blink_state:
-                self.lcd_write(line1.ljust(16), line2.ljust(16))
-                self.set_lcd_color("red")
-            else:
-                self.lcd_write(" " * 16, " " * 16)  # Clear display
-                self.set_lcd_color("black")
-        else:
-            self.lcd_write(line1.ljust(16), line2.ljust(16))
-            self.set_lcd_color(color)
+        # Always display data without blinking
+        self.lcd_write(line1.ljust(16), line2.ljust(16))
+        self.set_lcd_color(color)
     
     def update_display(self):
         """Update the LCD display with rotating pages"""
