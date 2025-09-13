@@ -1737,3 +1737,15 @@ Also ensure I2C is enabled and LCD visible:
 
 ---
 
+_**User (2025-09-12 23:49Z)**_
+
+ho-mqtt/paho_mqtt-2.1.0-py3-none-any.whl (67 kB) Installing collected packages: paho-mqtt Successfully installed paho-mqtt-2.1.0 (grove-env) pi@raspberrypi:~/GrovePi/Software/Python $ python3 -c "import paho.mqtt.client as mqtt; print('Paho MQTT OK')" Paho MQTT OK (grove-env) pi@raspberrypi:~/GrovePi/Software/Python $ python3 ~/pi_lcd_dashboard.py ERROR: grove_rgb_lcd not installed. Run: pip install grove_rgb_lcd mine is grove 16x2 lcd white on blue i think my one dont have rgb right
+
+---
+
+_**Assistant**_
+
+
+
+---
+

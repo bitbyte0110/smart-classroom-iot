@@ -5,11 +5,12 @@ Displays rotating pages with lighting, climate, and air quality data
 
 Requirements:
 - Grove Base Hat for Raspberry Pi
-- Grove 16x2 RGB LCD connected to I2C
-- pip install grove_rgb_lcd paho-mqtt
+- Grove 16x2 LCD connected to I2C
+- GrovePi library installed: sudo python3 setup.py install in GrovePi/Software/Python
+- pip install paho-mqtt
 
 Hardware Setup:
-- Grove 16x2 RGB LCD → Grove Base Hat I2C port
+- Grove 16x2 LCD → Grove Base Hat I2C port
 - Pi runs MQTT broker receiving data from ESP32 modules
 
 Display Pages (3 seconds each):
@@ -25,10 +26,10 @@ import paho.mqtt.client as mqtt
 from datetime import datetime
 
 try:
-    # Lightweight LCD helper without mraa dependency
-    from grove_rgb_lcd import setText_norefresh, setRGB
+    # GrovePi LCD library (works with both RGB and standard LCD)
+    from grove_rgb_lcd.grove_rgb_lcd import setText, setRGB
 except ImportError:
-    print("ERROR: grove_rgb_lcd not installed. Run: pip install grove_rgb_lcd")
+    print("ERROR: GrovePi library not installed. Run: sudo python3 setup.py install in GrovePi/Software/Python")
     exit(1)
 
 # Configuration
@@ -36,16 +37,6 @@ MQTT_HOST = "localhost"
 MQTT_PORT = 1883
 PAGE_DURATION = 3  # seconds per page
 ALERT_BLINK_INTERVAL = 0.5  # seconds
-
-# LCD Colors (RGB values 0-255)
-COLORS = {
-    "blue": (0, 128, 255),      # Normal lighting
-    "cyan": (0, 255, 255),      # Climate
-    "green": (0, 255, 0),       # Air quality good
-    "yellow": (255, 200, 0),    # Air quality moderate
-    "red": (255, 0, 0),         # Air quality poor
-    "black": (0, 0, 0)          # Alert blink off
-}
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -57,6 +48,9 @@ class SmartClassroomLCD:
         self.last_page_change = 0
         self.alert_blink_state = False
         self.last_blink_time = 0
+        
+        # GrovePi LCD library (works with both RGB and standard LCD)
+        # No initialization needed - uses global functions
         
         # System state from MQTT (all data comes from ESP32 modules)
         self.state = {
@@ -148,14 +142,28 @@ class SmartClassroomLCD:
             logger.error(f"❌ Error processing MQTT message: {e}")
     
     def set_lcd_color(self, color_name):
-        """Set LCD backlight color"""
-        if color_name in COLORS:
-            r, g, b = COLORS[color_name]
-            setRGB(r, g, b)
+        """Set LCD backlight color (standard LCD has fixed blue backlight)"""
+        # Standard Grove 16x2 LCD has fixed blue backlight
+        # We can only turn it on/off, not change colors
+        try:
+            if color_name == "black":
+                # Turn off backlight (if supported)
+                setRGB(0, 0, 0)
+            else:
+                # Turn on backlight with default blue
+                setRGB(0, 128, 255)
+        except:
+            # If RGB control fails, just continue (LCD will work with default backlight)
+            pass
 
     def lcd_write(self, line1: str, line2: str):
         """Write two lines to the LCD safely within 16 chars each"""
-        setText_norefresh(f"{line1[:16].ljust(16)}\n{line2[:16].ljust(16)}")
+        # Ensure lines are exactly 16 characters
+        line1 = line1[:16].ljust(16)
+        line2 = line2[:16].ljust(16)
+        
+        # Write to LCD using GrovePi library
+        setText(f"{line1}\n{line2}")
     
     def display_page_lighting(self):
         """Display lighting information page"""
@@ -216,8 +224,6 @@ class SmartClassroomLCD:
             line2 = "OK"
             color = "green"
         
-        self.lcd_write(line1.ljust(16), line2.ljust(16))
-        
         # Handle blinking for critical alerts
         if aq_status == "Poor":
             current_time = time.time()
@@ -226,10 +232,13 @@ class SmartClassroomLCD:
                 self.last_blink_time = current_time
                 
             if self.alert_blink_state:
+                self.lcd_write(line1.ljust(16), line2.ljust(16))
                 self.set_lcd_color("red")
             else:
+                self.lcd_write(" " * 16, " " * 16)  # Clear display
                 self.set_lcd_color("black")
         else:
+            self.lcd_write(line1.ljust(16), line2.ljust(16))
             self.set_lcd_color(color)
     
     def update_display(self):
