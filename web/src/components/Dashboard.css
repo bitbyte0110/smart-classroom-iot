@@ -1,133 +1,151 @@
 .dashboard {
   min-height: calc(100vh - 80px);
-  background: transparent;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f5f6fa;
+  font-family: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #2c3e50;
 }
 
 .dashboard-header {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  padding: 1rem 2rem;
+  background: white;
+  padding: 1.5rem 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid #e1e8ed;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .dashboard-header h1 {
-  color: white;
+  color: #1a252f;
   margin: 0;
-  font-size: 1.8rem;
+  font-size: 1.6rem;
   font-weight: 600;
+  letter-spacing: -0.3px;
 }
 
 .connection-status {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: white;
-  font-size: 0.9rem;
+  color: #5a6c7d;
+  font-size: 0.85rem;
+  font-weight: 500;
 }
 
 .status-indicator {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: #ff4757;
+  background: #e74c3c;
 }
 
 .status-indicator.connected {
-  background: #2ed573;
-  box-shadow: 0 0 10px #2ed573;
+  background: #27ae60;
 }
 
 .dashboard-nav {
-  background: rgba(255, 255, 255, 0.05);
+  background: white;
   padding: 0 2rem;
   display: flex;
-  gap: 1rem;
+  gap: 0;
+  border-bottom: 1px solid #e1e8ed;
 }
 
 .dashboard-nav button {
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.7);
-  padding: 1rem 1.5rem;
+  color: #5a6c7d;
+  padding: 1rem 2rem;
   cursor: pointer;
-  transition: all 0.3s ease;
-  border-bottom: 3px solid transparent;
-  font-size: 1rem;
+  transition: all 0.2s ease;
+  border-bottom: 2px solid transparent;
+  font-size: 0.9rem;
+  font-weight: 500;
+  position: relative;
 }
 
 .dashboard-nav button:hover {
-  color: white;
-  background: rgba(255, 255, 255, 0.05);
+  color: #1a252f;
+  background: #f8f9fa;
 }
 
 .dashboard-nav button.active {
-  color: white;
-  border-bottom-color: #00d2ff;
+  color: #3498db;
+  border-bottom-color: #3498db;
+  background: #f8f9fa;
 }
 
 .live-control {
   padding: 2rem;
+  background: transparent;
+  min-height: calc(100vh - 200px);
 }
 
 .mode-control {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border-radius: 15px;
+  background: white;
+  border-radius: 8px;
   padding: 1.5rem;
-  margin: 2rem 0;
+  margin: 1.5rem 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e1e8ed;
 }
 
 .mode-control h3 {
-  color: white;
+  color: #1a252f;
   margin: 0 0 1rem 0;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
+  font-weight: 600;
 }
 
 .mode-switch {
   display: flex;
-  gap: 1rem;
+  gap: 0;
+  background: #f8f9fa;
+  padding: 3px;
+  border-radius: 6px;
 }
 
 .mode-switch button {
-  background: rgba(255, 255, 255, 0.1);
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  color: white;
-  padding: 0.8rem 1.5rem;
-  border-radius: 10px;
+  background: transparent;
+  border: none;
+  color: #5a6c7d;
+  padding: 0.6rem 1.2rem;
+  border-radius: 4px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 1rem;
+  transition: all 0.2s ease;
+  font-size: 0.9rem;
+  font-weight: 500;
+  flex: 1;
 }
 
 .mode-switch button:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.8);
+  color: #1a252f;
 }
 
 .mode-switch button.active {
-  background: #00d2ff;
-  border-color: #00d2ff;
-  box-shadow: 0 5px 15px rgba(0, 210, 255, 0.3);
+  background: #fff;
+  color: #3498db;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .loading {
   display: flex;
   justify-content: center;
   align-items: center;
-  color: white;
+  color: #2c3e50;
+  min-height: 50vh;
 }
 
 .error-banner {
-  background: rgba(255, 71, 87, 0.2);
-  border: 1px solid #ff4757;
-  color: #ff4757;
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  border: none;
+  color: white;
   padding: 1rem 2rem;
   margin: 0;
   text-align: center;
-  font-weight: 500;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
 }
 
 .alert-banner {
@@ -182,20 +200,23 @@
 }
 
 .alert-banner.warning {
-  background: linear-gradient(135deg, rgba(255, 193, 7, 0.2), rgba(255, 193, 7, 0.1));
-  color: #856404;
-  border: 2px solid #ffc107;
+  background: linear-gradient(135deg, #f39c12, #e67e22);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 12px rgba(243, 156, 18, 0.3);
 }
 
 .alert-banner.critical {
-  background: linear-gradient(135deg, rgba(220, 53, 69, 0.3), rgba(220, 53, 69, 0.1));
-  color: #721c24;
-  border: 2px solid #dc3545;
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
   animation: pulse 2s infinite;
 }
 
 .alert-banner.critical .alert-title {
-  color: #dc3545;
+  color: white;
+  font-weight: 800;
 }
 
 @keyframes slideIn {
@@ -230,10 +251,10 @@
 }
 
 .spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid rgba(255, 255, 255, 0.1);
-  border-left: 4px solid white;
+  width: 50px;
+  height: 50px;
+  border: 4px solid #e9ecef;
+  border-left: 4px solid #3498db;
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 1rem;

@@ -1,15 +1,17 @@
 .manual-controls {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border-radius: 15px;
-  padding: 2rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  border: 1px solid #e1e8ed;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .manual-controls h3 {
-  color: white;
-  margin: 0 0 1.5rem 0;
-  font-size: 1.3rem;
+  color: #1a252f;
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: -0.3px;
 }
 
 .control-group {
@@ -18,28 +20,31 @@
 
 .control-group label {
   display: block;
-  color: rgba(255, 255, 255, 0.9);
-  margin-bottom: 0.8rem;
-  font-weight: 500;
+  color: #1a252f;
+  margin-bottom: 0.6rem;
+  font-weight: 600;
+  font-size: 0.85rem;
 }
 
 .toggle-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  color: white;
-  padding: 1rem 2rem;
-  border-radius: 10px;
+  background: #f8f9fa;
+  border: 1px solid #e1e8ed;
+  color: #1a252f;
+  padding: 0.7rem 1.5rem;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 1.1rem;
-  transition: all 0.2s ease; /* Faster transition for instant response */
-  min-width: 120px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  min-width: 100px;
   position: relative;
   overflow: hidden;
 }
 
 .toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px); /* Subtle lift effect */
+  background: #e9ecef;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .toggle-btn:active {
@@ -48,71 +53,78 @@
 }
 
 .toggle-btn.on {
-  background: #2ed573;
-  border-color: #2ed573;
-  box-shadow: 0 5px 15px rgba(46, 213, 115, 0.3);
+  background: #27ae60;
+  border-color: #27ae60;
+  color: white;
+  box-shadow: 0 2px 8px rgba(39, 174, 96, 0.2);
 }
 
 .toggle-btn.off {
-  background: #ff4757;
-  border-color: #ff4757;
-  box-shadow: 0 5px 15px rgba(255, 71, 87, 0.3);
+  background: #e74c3c;
+  border-color: #e74c3c;
+  color: white;
+  box-shadow: 0 2px 8px rgba(231, 76, 60, 0.2);
 }
 
 .brightness-slider {
   width: 100%;
-  height: 8px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.2);
+  height: 6px;
+  border-radius: 3px;
+  background: #e9ecef;
   outline: none;
   cursor: pointer;
   appearance: none;
-  transition: all 0.2s ease; /* Smooth slider response */
+  transition: all 0.2s ease;
 }
 
 .brightness-slider::-webkit-slider-thumb {
   appearance: none;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  background: #00d2ff;
+  background: #3498db;
   cursor: pointer;
-  box-shadow: 0 2px 10px rgba(0, 210, 255, 0.3);
+  box-shadow: 0 1px 4px rgba(52, 152, 219, 0.3);
+  border: 2px solid white;
 }
 
 .brightness-slider::-moz-range-thumb {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  background: #00d2ff;
+  background: #3498db;
   cursor: pointer;
-  border: none;
-  box-shadow: 0 2px 10px rgba(0, 210, 255, 0.3);
+  border: 2px solid white;
+  box-shadow: 0 1px 4px rgba(52, 152, 219, 0.3);
 }
 
 .brightness-labels {
   display: flex;
   justify-content: space-between;
-  margin-top: 0.5rem;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 0.8rem;
+  margin-top: 0.4rem;
+  color: #5a6c7d;
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 .control-info {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 10px;
-  padding: 1rem;
-  margin-top: 1.5rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+  padding: 0.8rem;
+  margin-top: 1rem;
+  border: 1px solid #e1e8ed;
 }
 
 .control-info p {
-  color: rgba(255, 255, 255, 0.8);
-  margin: 0.5rem 0;
-  font-size: 0.9rem;
+  color: #1a252f;
+  margin: 0.4rem 0;
+  font-size: 0.8rem;
+  font-weight: 500;
 }
 
 .control-info strong {
-  color: white;
+  color: #1a252f;
+  font-weight: 600;
 }
 
 /* Ultra-fast response indicator */
@@ -121,18 +133,17 @@
 }
 
 .control-group::after {
-  content: "⚡ 0.2s Response";
+  content: "⚡ 0.3s Response";
   position: absolute;
-  top: -10px;
+  top: -8px;
   right: 0;
-  background: rgba(0, 210, 255, 0.2);
-  color: #00d2ff;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 0.7rem;
+  background: #f8f9fa;
+  color: #5a6c7d;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 0.65rem;
   font-weight: 600;
-  opacity: 0.8;
-  animation: pulse 2s infinite;
+  border: 1px solid #e1e8ed;
 }
 
 @keyframes pulse {
