@@ -220,7 +220,7 @@ void connectToWiFi() {
 
 void mqttCallback(char* topic, byte* payload, unsigned int len) {
   // MQTT callback - commands come from Firebase only to prevent conflicts
-  // This prevents dual command sources that cause flickering
+  // This prevents dual command sources that cause flickering.
 }
 
 void mqttEnsureConnected() {
