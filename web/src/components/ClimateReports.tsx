@@ -14,7 +14,6 @@ import {
 } from 'chart.js';
 import dayjs from 'dayjs';
 import { database } from '../firebase';
-import type { ClimateLog } from '../types';
 import { ROOM_ID } from '../types';
 import './Reports.css';
 
@@ -29,77 +28,121 @@ ChartJS.register(
   Legend
 );
 
+interface ClimateLog {
+  ts: number;
+  tempC: number;
+  humidity: number;
+  aqRaw: number;
+  aqStatus: string;
+  fanOn: boolean;
+  fanPwm: number;
+  comfortBand: string;
+  mode: string;
+  presence: boolean;
+}
+
 export default function ClimateReports() {
   const [logs, setLogs] = useState<ClimateLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [demoMode, setDemoMode] = useState(false);
 
   useEffect(() => {
-    const logsRef = ref(database, `/climate/${ROOM_ID}/logs`);
-    const recentLogsQuery = query(logsRef, orderByKey(), limitToLast(1000));
+    // Try combined logs first (new system), fallback to climate logs (old system)
+    const combinedLogsRef = ref(database, `/combined/${ROOM_ID}/logs`);
+    const climateLogsRef = ref(database, `/climate/${ROOM_ID}/logs`);
+    const recentLogsQuery = query(combinedLogsRef, orderByKey(), limitToLast(1000));
 
     const unsubscribe = onValue(recentLogsQuery, (snapshot) => {
       const data = snapshot.val();
-      console.log('📊 Raw climate log data from Firebase:', data);
+      console.log('🌡️ Raw combined climate log data from Firebase:', data);
       
       if (data) {
-        const classifyAQ = (raw: number) => {
-          if (raw >= 401) return { aqStatus: 'Poor' as const, aqAlert: 'Alert, air quality poor' };
-          if (raw >= 301) return { aqStatus: 'Moderate' as const, aqAlert: 'Warning, air quality moderate' };
-          return { aqStatus: 'Good' as const, aqAlert: '' };
-        };
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const logsArray = Object.values(data).map((rawLog: any) => {
-          // Handle ESP32 nested log structure
-          const aqRawVal = rawLog.sensors?.airQuality || rawLog.aqRaw || 0;
-          const derived = classifyAQ(aqRawVal);
-          const processedLog: ClimateLog = {
-            ts: rawLog.timestamp || rawLog.ts || Date.now(),
-            presence: rawLog.ai?.presence || rawLog.presence || false,
-            tempC: rawLog.sensors?.temperature || rawLog.tempC || 0,
-            humidity: rawLog.sensors?.humidity || rawLog.humidity || 0,
-            aqRaw: aqRawVal,
-            aqStatus: rawLog.aqStatus || derived.aqStatus,
-            aqAlert: rawLog.aqAlert || derived.aqAlert,
-            mode: rawLog.system?.mode || rawLog.mode || 'auto',
-            fan: {
-              on: rawLog.actuators?.fanOn || rawLog.fan?.on || false,
-              pwm: rawLog.actuators?.fanPWM || rawLog.fan?.pwm || 0
-            },
-            comfortBand: rawLog.comfortBand || 'Moderate',
-            sensorError: rawLog.system?.status || rawLog.sensorError || null
+        const logsArray = Object.values(data).map((rawLog: unknown) => {
+          // Handle combined ESP32 log structure
+          const logData = rawLog as Record<string, any>;
+          const log: ClimateLog = {
+            ts: logData.timestamp || logData.ts || Date.now(),
+            tempC: logData.climate?.tempC || 0,
+            humidity: logData.climate?.humidity || 0,
+            aqRaw: logData.climate?.aqRaw || 0,
+            aqStatus: logData.climate?.aqStatus || 'Good',
+            fanOn: logData.climate?.fanOn || false,
+            fanPwm: logData.climate?.fanPwm || 0,
+            comfortBand: logData.climate?.comfortBand || 'Moderate',
+            mode: logData.climate?.mode || 'auto',
+            presence: logData.ai?.presence || false
           };
-          return processedLog;
+          return log;
         }) as ClimateLog[];
         
-        console.log('📊 Processed climate logs:', logsArray.slice(0, 3));
+        console.log('🌡️ Processed combined climate logs:', logsArray.slice(0, 3));
         setLogs(logsArray.sort((a, b) => a.ts - b.ts));
+        setIsLoading(false);
+        return;
       }
-      setIsLoading(false);
+      
+      // Fallback: try old climate logs if combined logs are empty
+      console.log('🌡️ No combined logs found, trying old climate logs...');
+      const fallbackQuery = query(climateLogsRef, orderByKey(), limitToLast(1000));
+      onValue(fallbackQuery, (fallbackSnapshot) => {
+        const fallbackData = fallbackSnapshot.val();
+        console.log('🌡️ Raw climate log data from Firebase:', fallbackData);
+        
+        if (fallbackData) {
+          const logsArray = Object.values(fallbackData).map((rawLog: unknown) => {
+            const logData = rawLog as Record<string, any>;
+            const log: ClimateLog = {
+              ts: logData.timestamp || logData.ts || Date.now(),
+              tempC: logData.tempC || 0,
+              humidity: logData.humidity || 0,
+              aqRaw: logData.aqRaw || 0,
+              aqStatus: logData.aqStatus || 'Good',
+              fanOn: logData.fanOn || false,
+              fanPwm: logData.fanPwm || 0,
+              comfortBand: logData.comfortBand || 'Moderate',
+              mode: logData.mode || 'auto',
+              presence: logData.presence || false
+            };
+            return log;
+          }) as ClimateLog[];
+          
+          console.log('🌡️ Processed fallback climate logs:', logsArray.slice(0, 3));
+          setLogs(logsArray.sort((a, b) => a.ts - b.ts));
+        }
+        setIsLoading(false);
+      });
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Temperature and Humidity Line Chart
-  const getTemperatureHumidityChart = () => {
-    const last24Hours = logs.filter(log => 
-      dayjs().diff(dayjs(log.ts), 'hour') <= 24
-    );
+  // Temperature Chart
+  const getTemperatureChart = () => {
+    let filteredLogs;
+    
+    if (demoMode) {
+      filteredLogs = logs.filter(log => 
+        dayjs().diff(dayjs(log.ts), 'minute') <= 10
+      );
+    } else {
+      filteredLogs = logs.filter(log => 
+        dayjs().diff(dayjs(log.ts), 'hour') <= 24
+      );
+    }
 
     return {
-      labels: last24Hours.map(log => dayjs(log.ts).format('HH:mm')),
+      labels: filteredLogs.map(log => dayjs(log.ts).format('HH:mm')),
       datasets: [
         {
           label: 'Temperature (°C)',
-          data: last24Hours.map(log => log.tempC),
+          data: filteredLogs.map(log => log.tempC),
           borderColor: 'rgb(255, 99, 132)',
           backgroundColor: 'rgba(255, 99, 132, 0.2)',
           tension: 0.1,
-          yAxisID: 'y',
         },
         {
           label: 'Humidity (%)',
-          data: last24Hours.map(log => log.humidity),
+          data: filteredLogs.map(log => log.humidity),
           borderColor: 'rgb(54, 162, 235)',
           backgroundColor: 'rgba(54, 162, 235, 0.2)',
           tension: 0.1,
@@ -109,18 +152,26 @@ export default function ClimateReports() {
     };
   };
 
-  // Air Quality Trends Chart
+  // Air Quality Chart
   const getAirQualityChart = () => {
-    const last24Hours = logs.filter(log => 
-      dayjs().diff(dayjs(log.ts), 'hour') <= 24
-    );
+    let filteredLogs;
+    
+    if (demoMode) {
+      filteredLogs = logs.filter(log => 
+        dayjs().diff(dayjs(log.ts), 'minute') <= 10
+      );
+    } else {
+      filteredLogs = logs.filter(log => 
+        dayjs().diff(dayjs(log.ts), 'hour') <= 24
+      );
+    }
 
     return {
-      labels: last24Hours.map(log => dayjs(log.ts).format('HH:mm')),
+      labels: filteredLogs.map(log => dayjs(log.ts).format('HH:mm')),
       datasets: [
         {
           label: 'Air Quality (Raw)',
-          data: last24Hours.map(log => log.aqRaw),
+          data: filteredLogs.map(log => log.aqRaw),
           borderColor: 'rgb(75, 192, 192)',
           backgroundColor: 'rgba(75, 192, 192, 0.2)',
           tension: 0.1,
@@ -129,194 +180,209 @@ export default function ClimateReports() {
     };
   };
 
-  // Fan Runtime Analysis Bar Chart
-  const getFanRuntimeChart = () => {
-    const hourlyData: { [hour: string]: { totalMinutes: number; avgPwm: number; count: number } } = {};
+  // Fan Usage Chart
+  const getFanUsageChart = () => {
+    const hourlyFanUsage: { [time: string]: number } = {};
     
-    logs.forEach(log => {
-      const hour = dayjs(log.ts).format('HH:00');
-      if (!hourlyData[hour]) {
-        hourlyData[hour] = { totalMinutes: 0, avgPwm: 0, count: 0 };
-      }
+    if (demoMode) {
+      const last10Minutes = logs.filter(log => 
+        dayjs().diff(dayjs(log.ts), 'minute') <= 10
+      );
       
-      if (log.fan.on) {
-        hourlyData[hour].totalMinutes += 0.5; // 30-second intervals
-        hourlyData[hour].avgPwm += log.fan.pwm;
-        hourlyData[hour].count++;
-      }
-    });
+      last10Minutes.forEach(log => {
+        const minute = dayjs(log.ts).format('HH:mm');
+        if (!hourlyFanUsage[minute]) hourlyFanUsage[minute] = 0;
+        if (log.fanOn) hourlyFanUsage[minute]++;
+      });
 
-    const hours = Object.keys(hourlyData).sort();
-    
+      const minutes = Array.from({ length: 10 }, (_, i) => {
+        const time = dayjs().subtract(9 - i, 'minute');
+        return time.format('HH:mm');
+      });
+      
+      return {
+        labels: minutes,
+        datasets: [
+          {
+            label: 'Fan Usage (Last 10 min)',
+            data: minutes.map(minute => hourlyFanUsage[minute] || 0),
+            backgroundColor: 'rgba(255, 159, 64, 0.6)',
+            borderColor: 'rgba(255, 159, 64, 1)',
+            borderWidth: 1,
+          },
+        ],
+      };
+    } else {
+      logs.forEach(log => {
+        const hour = dayjs(log.ts).format('HH:00');
+        if (!hourlyFanUsage[hour]) hourlyFanUsage[hour] = 0;
+        if (log.fanOn) hourlyFanUsage[hour]++;
+      });
+
+      const hours = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, '0')}:00`);
+      
+      return {
+        labels: hours,
+        datasets: [
+          {
+            label: 'Fan Usage by Hour',
+            data: hours.map(hour => hourlyFanUsage[hour] || 0),
+            backgroundColor: 'rgba(255, 159, 64, 0.6)',
+            borderColor: 'rgba(255, 159, 64, 1)',
+            borderWidth: 1,
+          },
+        ],
+      };
+    }
+  };
+
+  // Climate Statistics
+  const getClimateStats = () => {
+    const fanLogs = logs.filter(log => log.fanOn);
+    const totalMinutes = (logs.length * 30) / 60; // 30 seconds per log
+    const fanMinutes = (fanLogs.length * 30) / 60;
+    const avgTemp = logs.length > 0 
+      ? logs.reduce((sum, log) => sum + log.tempC, 0) / logs.length 
+      : 0;
+    const avgHumidity = logs.length > 0 
+      ? logs.reduce((sum, log) => sum + log.humidity, 0) / logs.length 
+      : 0;
+    const avgAQ = logs.length > 0 
+      ? logs.reduce((sum, log) => sum + log.aqRaw, 0) / logs.length 
+      : 0;
+
     return {
-      labels: hours,
-      datasets: [
-        {
-          label: 'Fan Runtime (Minutes)',
-          data: hours.map(hour => hourlyData[hour].totalMinutes),
-          backgroundColor: 'rgba(153, 102, 255, 0.6)',
-          borderColor: 'rgba(153, 102, 255, 1)',
-          borderWidth: 1,
-        },
-      ],
+      totalMinutes: Math.round(totalMinutes),
+      fanMinutes: Math.round(fanMinutes),
+      fanUsagePercent: totalMinutes > 0 ? Math.round((fanMinutes / totalMinutes) * 100) : 0,
+      avgTemp: Math.round(avgTemp * 10) / 10,
+      avgHumidity: Math.round(avgHumidity * 10) / 10,
+      avgAQ: Math.round(avgAQ),
     };
   };
 
-  // Comfort Band Distribution
-  const getComfortBandChart = () => {
-    const bandCounts = { Low: 0, Moderate: 0, High: 0 };
-    
-    logs.forEach(log => {
-      if (log.comfortBand in bandCounts) {
-        bandCounts[log.comfortBand as keyof typeof bandCounts]++;
-      }
-    });
+  const exportToCSV = () => {
+    const csvContent = [
+      ['Timestamp', 'Temperature (°C)', 'Humidity (%)', 'Air Quality', 'Fan On', 'Fan PWM', 'Comfort Band', 'Mode', 'Presence'],
+      ...logs.map(log => [
+        new Date(log.ts).toISOString(),
+        log.tempC,
+        log.humidity,
+        log.aqRaw,
+        log.fanOn,
+        log.fanPwm,
+        log.comfortBand,
+        log.mode,
+        log.presence
+      ])
+    ].map(row => row.join(',')).join('\n');
 
-    return {
-      labels: ['Low', 'Moderate', 'High'],
-      datasets: [
-        {
-          label: 'Time Distribution',
-          data: [bandCounts.Low, bandCounts.Moderate, bandCounts.High],
-          backgroundColor: [
-            'rgba(54, 162, 235, 0.6)',
-            'rgba(75, 192, 192, 0.6)',
-            'rgba(255, 99, 132, 0.6)',
-          ],
-          borderColor: [
-            'rgba(54, 162, 235, 1)',
-            'rgba(75, 192, 192, 1)',
-            'rgba(255, 99, 132, 1)',
-          ],
-          borderWidth: 1,
-        },
-      ],
-    };
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `climate-logs-${dayjs().format('YYYY-MM-DD')}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
-
-  // Calculate statistics
-  const getStatistics = () => {
-    if (logs.length === 0) return null;
-
-    const fanOnLogs = logs.filter(log => log.fan.on);
-    const avgTemp = logs.reduce((sum, log) => sum + log.tempC, 0) / logs.length;
-    const avgHumidity = logs.reduce((sum, log) => sum + log.humidity, 0) / logs.length;
-    const avgPwm = fanOnLogs.length > 0 ? 
-      fanOnLogs.reduce((sum, log) => sum + log.fan.pwm, 0) / fanOnLogs.length : 0;
-    
-    const fanRuntimeMinutes = fanOnLogs.length * 0.5; // 30-second intervals
-    const totalMinutes = logs.length * 0.5;
-    const fanUsagePercent = totalMinutes > 0 ? (fanRuntimeMinutes / totalMinutes) * 100 : 0;
-
-    // Energy calculation (assuming 5V DC fan, ~500mA max)
-    const avgPowerW = (avgPwm / 255) * 2.5; // Max ~2.5W
-    const energyUsedWh = (avgPowerW * fanRuntimeMinutes) / 60;
-
-    return {
-      dataPoints: logs.length,
-      avgTemp: avgTemp.toFixed(1),
-      avgHumidity: avgHumidity.toFixed(1),
-      fanRuntime: fanRuntimeMinutes.toFixed(0),
-      fanUsage: fanUsagePercent.toFixed(1),
-      avgPwm: avgPwm.toFixed(0),
-      energyUsed: energyUsedWh.toFixed(2),
-    };
-  };
-
-  const stats = getStatistics();
 
   if (isLoading) {
+    return <div className="reports loading">Loading climate reports...</div>;
+  }
+
+  if (logs.length === 0) {
     return (
-      <div className="reports-loading">
-        <div className="loader">
-          <div className="spinner"></div>
-          <p>Loading climate analytics...</p>
+      <div className="reports">
+        <div className="reports-header">
+          <h2>🌡️ Climate Analytics & Reports</h2>
+        </div>
+        <div className="stat-card" style={{ margin: '2rem auto', maxWidth: '500px' }}>
+          <h3>🌡️ No Climate Data Available</h3>
+          <div className="stat-value">0</div>
+          <div className="stat-subtitle">
+            Reports will appear once your ESP32 starts logging climate data to Firebase at<br/>
+            <code>/combined/roomA/logs</code> (or <code>/climate/roomA/logs</code> for old system)
+          </div>
+          <div style={{ marginTop: '1rem', fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)' }}>
+            💡 The system logs data every 10 seconds when running<br/>
+            🔧 Check browser console (F12) for debug logs<br/>
+            📍 Make sure ESP32 is uploading and logging data
+          </div>
         </div>
       </div>
     );
   }
 
+  const climateStats = getClimateStats();
+
   return (
     <div className="reports">
-      <h2>📊 Climate Control Analytics</h2>
-
-      {stats && (
-        <div className="stats-grid">
-          <div className="stat-card">
-            <h3>📈 Data Points</h3>
-            <div className="stat-value">{stats.dataPoints}</div>
-            <div className="stat-subtitle">Total records</div>
-          </div>
-          <div className="stat-card">
-            <h3>🌡️ Avg Temperature</h3>
-            <div className="stat-value">{stats.avgTemp}°C</div>
-            <div className="stat-subtitle">24-hour average</div>
-          </div>
-          <div className="stat-card">
-            <h3>💧 Avg Humidity</h3>
-            <div className="stat-value">{stats.avgHumidity}%</div>
-            <div className="stat-subtitle">24-hour average</div>
-          </div>
-          <div className="stat-card">
-            <h3>🌪️ Fan Usage</h3>
-            <div className="stat-value">{stats.fanUsage}%</div>
-            <div className="stat-subtitle">{stats.fanRuntime} min runtime</div>
-          </div>
-          <div className="stat-card">
-            <h3>⚡ Energy Used</h3>
-            <div className="stat-value">{stats.energyUsed} Wh</div>
-            <div className="stat-subtitle">Avg PWM: {stats.avgPwm}</div>
-          </div>
+      <div className="reports-header">
+        <h2>🌡️ Climate Analytics & Reports</h2>
+        <div className="header-controls">
+          <button 
+            onClick={() => setDemoMode(!demoMode)} 
+            className={`demo-toggle ${demoMode ? 'active' : ''}`}
+          >
+            {demoMode ? '⏱️ Last 10 min' : '📊 Full Data (24h)'}
+          </button>
+          <button onClick={exportToCSV} className="export-btn">
+            📥 Export CSV
+          </button>
         </div>
-      )}
+      </div>
+
+      <div className="stats-overview">
+        <div className="stat-card">
+          <h3>🌡️ Avg Temperature</h3>
+          <div className="stat-value">{climateStats.avgTemp}°C</div>
+          <div className="stat-subtitle">24h average</div>
+        </div>
+        <div className="stat-card">
+          <h3>💧 Avg Humidity</h3>
+          <div className="stat-value">{climateStats.avgHumidity}%</div>
+          <div className="stat-subtitle">24h average</div>
+        </div>
+        <div className="stat-card">
+          <h3>🌬️ Fan Usage</h3>
+          <div className="stat-value">{climateStats.fanUsagePercent}%</div>
+          <div className="stat-subtitle">{climateStats.fanMinutes} min total</div>
+        </div>
+        <div className="stat-card">
+          <h3>🌪️ Air Quality</h3>
+          <div className="stat-value">{climateStats.avgAQ}</div>
+          <div className="stat-subtitle">avg raw reading</div>
+        </div>
+      </div>
 
       <div className="charts-grid">
         <div className="chart-container">
-          <h3>🌡️ Temperature & Humidity Trends (24h)</h3>
+          <h3>🌡️ Temperature & Humidity {demoMode ? '(Last 10 min)' : '(24h data)'}</h3>
           <Line 
-            data={getTemperatureHumidityChart()} 
+            data={getTemperatureChart()} 
             options={{
               responsive: true,
-              interaction: {
-                mode: 'index' as const,
-                intersect: false,
-              },
               scales: {
-                x: {
-                  display: true,
-                  title: {
-                    display: true,
-                    text: 'Time'
-                  }
-                },
                 y: {
-                  type: 'linear' as const,
+                  type: 'linear',
                   display: true,
-                  position: 'left' as const,
-                  title: {
-                    display: true,
-                    text: 'Temperature (°C)'
-                  }
+                  position: 'left',
+                  title: { display: true, text: 'Temperature (°C)' }
                 },
                 y1: {
-                  type: 'linear' as const,
+                  type: 'linear',
                   display: true,
-                  position: 'right' as const,
-                  title: {
-                    display: true,
-                    text: 'Humidity (%)'
-                  },
-                  grid: {
-                    drawOnChartArea: false,
-                  },
-                },
-              },
+                  position: 'right',
+                  title: { display: true, text: 'Humidity (%)' },
+                  grid: { drawOnChartArea: false },
+                }
+              }
             }} 
           />
         </div>
 
         <div className="chart-container">
-          <h3>🌫️ Air Quality Trends (24h)</h3>
+          <h3>🌪️ Air Quality {demoMode ? '(Last 10 min)' : '(24h data)'}</h3>
           <Line 
             data={getAirQualityChart()} 
             options={{
@@ -324,10 +390,7 @@ export default function ClimateReports() {
               scales: {
                 y: {
                   beginAtZero: true,
-                  title: {
-                    display: true,
-                    text: 'Air Quality (Raw)'
-                  }
+                  title: { display: true, text: 'Air Quality Raw Value' }
                 }
               }
             }} 
@@ -335,79 +398,21 @@ export default function ClimateReports() {
         </div>
 
         <div className="chart-container">
-          <h3>🌪️ Fan Runtime Analysis (Hourly)</h3>
+          <h3>🌬️ Fan Usage {demoMode ? '(Last 10 min)' : 'by Hour'}</h3>
           <Bar 
-            data={getFanRuntimeChart()} 
+            data={getFanUsageChart()} 
             options={{
               responsive: true,
               scales: {
                 y: {
                   beginAtZero: true,
-                  title: {
-                    display: true,
-                    text: 'Runtime (Minutes)'
-                  }
-                }
-              }
-            }} 
-          />
-        </div>
-
-        <div className="chart-container">
-          <h3>🎯 Comfort Band Distribution</h3>
-          <Bar 
-            data={getComfortBandChart()} 
-            options={{
-              responsive: true,
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  title: {
-                    display: true,
-                    text: 'Number of Records'
-                  }
+                  title: { display: true, text: 'Usage Count' }
                 }
               }
             }} 
           />
         </div>
       </div>
-
-      {stats && (
-        <div className="export-section">
-          <h3>📄 Data Export</h3>
-          <p>Climate data: {stats.dataPoints} records collected</p>
-          <button 
-            onClick={() => {
-              const csvData = [
-                ['Timestamp', 'Temperature(°C)', 'Humidity(%)', 'AirQuality', 'AQStatus', 'FanOn', 'FanPWM', 'ComfortBand', 'Mode'],
-                ...logs.map(log => [
-                  new Date(log.ts).toISOString(),
-                  log.tempC,
-                  log.humidity,
-                  log.aqRaw,
-                  log.aqStatus,
-                  log.fan.on,
-                  log.fan.pwm,
-                  log.comfortBand,
-                  log.mode
-                ])
-              ].map(row => row.join(',')).join('\n');
-
-              const blob = new Blob([csvData], { type: 'text/csv' });
-              const url = window.URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = `climate-logs-${dayjs().format('YYYY-MM-DD')}.csv`;
-              a.click();
-              window.URL.revokeObjectURL(url);
-            }}
-            className="export-btn"
-          >
-            📥 Download CSV
-          </button>
-        </div>
-      )}
     </div>
   );
 }

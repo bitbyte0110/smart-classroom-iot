@@ -35,34 +35,67 @@ export default function Reports() {
   const [demoMode, setDemoMode] = useState(false);
 
   useEffect(() => {
-    const logsRef = ref(database, `/lighting/${ROOM_ID}/logs`);
-    const recentLogsQuery = query(logsRef, orderByKey(), limitToLast(1000));
+    // Try combined logs first (new system), fallback to lighting logs (old system)
+    const combinedLogsRef = ref(database, `/combined/${ROOM_ID}/logs`);
+    const lightingLogsRef = ref(database, `/lighting/${ROOM_ID}/logs`);
+    const recentLogsQuery = query(combinedLogsRef, orderByKey(), limitToLast(1000));
 
     const unsubscribe = onValue(recentLogsQuery, (snapshot) => {
       const data = snapshot.val();
-      console.log('📊 Raw log data from Firebase:', data); // Debug log
+      console.log('📊 Raw combined log data from Firebase:', data); // Debug log
       
       if (data) {
         const logsArray = Object.values(data).map((rawLog: any) => {
-          // Handle ESP32 nested log structure
+          // Handle combined ESP32 log structure
           const log: LightingLog = {
             ts: rawLog.timestamp || rawLog.ts || Date.now(),
-            presence: rawLog.ai?.presence || rawLog.presence || false,
-            ldrRaw: rawLog.sensors?.ldr || rawLog.ldrRaw || 0,
-            mode: rawLog.system?.mode || rawLog.mode || 'auto',
+            presence: rawLog.ai?.presence || rawLog.lighting?.ai_presence || false,
+            ldrRaw: rawLog.lighting?.ldr || rawLog.lighting?.ldrRaw || 0,
+            mode: rawLog.lighting?.mode || 'auto',
             led: {
-              on: rawLog.actuators?.ledOn || rawLog.led?.on || false,
-              pwm: rawLog.actuators?.ledPWM || rawLog.led?.pwm || 0
+              on: rawLog.lighting?.ledOn || false,
+              pwm: rawLog.lighting?.ledPWM || 0
             },
-            sensorError: rawLog.system?.status || rawLog.sensorError || null
+            sensorError: rawLog.system?.status || null
           };
           return log;
         }) as LightingLog[];
         
-        console.log('📊 Processed logs:', logsArray.slice(0, 3)); // Debug: show first 3
+        console.log('📊 Processed combined logs:', logsArray.slice(0, 3)); // Debug: show first 3
         setLogs(logsArray.sort((a, b) => a.ts - b.ts));
+        setIsLoading(false);
+        return;
       }
-      setIsLoading(false);
+      
+      // Fallback: try old lighting logs if combined logs are empty
+      console.log('📊 No combined logs found, trying old lighting logs...');
+      const fallbackQuery = query(lightingLogsRef, orderByKey(), limitToLast(1000));
+      onValue(fallbackQuery, (fallbackSnapshot) => {
+        const fallbackData = fallbackSnapshot.val();
+        console.log('📊 Raw lighting log data from Firebase:', fallbackData);
+        
+        if (fallbackData) {
+          const logsArray = Object.values(fallbackData).map((rawLog: any) => {
+            // Handle old ESP32 nested log structure
+            const log: LightingLog = {
+              ts: rawLog.timestamp || rawLog.ts || Date.now(),
+              presence: rawLog.ai?.presence || rawLog.presence || false,
+              ldrRaw: rawLog.sensors?.ldr || rawLog.ldrRaw || 0,
+              mode: rawLog.system?.mode || rawLog.mode || 'auto',
+              led: {
+                on: rawLog.actuators?.ledOn || rawLog.led?.on || false,
+                pwm: rawLog.actuators?.ledPWM || rawLog.led?.pwm || 0
+              },
+              sensorError: rawLog.system?.status || rawLog.sensorError || null
+            };
+            return log;
+          }) as LightingLog[];
+          
+          console.log('📊 Processed fallback logs:', logsArray.slice(0, 3));
+          setLogs(logsArray.sort((a, b) => a.ts - b.ts));
+        }
+        setIsLoading(false);
+      });
     });
 
     return () => unsubscribe();
@@ -243,7 +276,7 @@ export default function Reports() {
           <div className="stat-value">0</div>
           <div className="stat-subtitle">
             Reports will appear once your ESP32 starts logging data to Firebase at<br/>
-            <code>/lighting/roomA/logs</code>
+            <code>/combined/roomA/logs</code> (or <code>/lighting/roomA/logs</code> for old system)
           </div>
           <div style={{ marginTop: '1rem', fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)' }}>
             💡 The system logs data every 30 seconds when running<br/>
@@ -252,9 +285,10 @@ export default function Reports() {
           </div>
           <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px', fontSize: '0.8rem' }}>
             <strong>Troubleshooting:</strong><br/>
-            1. ESP32 should show "📊 Data record #X logged" messages<br/>
-            2. Check Firebase console for data at the logs path<br/>
-            3. Wait 1-2 minutes for initial log entries to accumulate
+            1. ESP32 should show "📊 Combined data record #X logged" messages<br/>
+            2. Check Firebase console for data at /combined/roomA/logs<br/>
+            3. Wait 1-2 minutes for initial log entries to accumulate<br/>
+            4. Check browser console (F12) for debug logs
           </div>
         </div>
       </div>
