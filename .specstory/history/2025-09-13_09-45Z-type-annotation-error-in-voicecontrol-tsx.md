@@ -124,9 +124,13 @@ can u make them able to record voice for
 "Make it brighter"
 "Dim the light"
 "Maximum brightness"
+<<<<<<< HEAD
 "Light auto mode"
 "Light auto "
 
+=======
+"Switch to auto mode"
+>>>>>>> 408ad611e3becef052c9ae14cedb90f570fea82c
 
 ---
 
@@ -138,6 +142,7 @@ Looking at the current imple
 
 ---
 
+<<<<<<< HEAD
 _**User (2025-09-13 09:42Z)**_
 
 @VoiceControl.tsx For Voice recognition
@@ -2734,3 +2739,5 @@ The reports should now display data properly! If you're still not seeing data, c
 
 ---
 
+=======
+>>>>>>> 408ad611e3becef052c9ae14cedb90f570fea82c

@@ -2187,27 +2187,68 @@ PS D:\Development\smart-classroom-iot> git diff --name-only --diff-filter=U
 ~
 ~
 (END)...skipping...
-.specstory/history/2025-09-13_09-45Z-type-annotation-error-in-voicecontrol-tsx.md
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-~
-(END)
 ```
 
 ---
 
+It looks like there are conflicts in a specstory file. Let me check the actual conflicted files more clearly:
 
+
+---
+
+```bash
+git status --porcelain
+```
+
+```
+...skipping...
+:...skipping...
+```
+
+---
+
+Let me try a different approach to see the merge conflicts:
+
+
+---
+
+```bash
+git ls-files -u
+```
+
+```
+...skipping...
+```
+
+---
+
+It seems like the terminal output is getting stuck in a pager. Let me try to resolve this by aborting the current merge and starting fresh, or by checking what you'd like to do:
+
+**Options for handling the merge:**
+
+1. **Abort the merge** and start over:
+   ```bash
+   git merge --abort
+   ```
+
+2. **Continue the merge** after resolving conflicts:
+   ```bash
+   git add .
+   git commit
+   ```
+
+3. **Check the specific conflicts** in the files
+
+Since it appears there are conflicts in a `.specstory` file (which seems to be a documentation/history file), you have a few choices:
+
+**What would you like to do?**
+
+- **A)** Abort the merge and start fresh
+- **B)** Resolve the conflicts manually 
+- **C)** Accept all incoming changes (from remote)
+- **D)** Keep all local changes
+
+The conflicts seem to be in documentation files rather than your main code, so they shouldn't affect your smart classroom IoT system functionality. Would you like me to help you resolve this merge?
 
 ---
 
