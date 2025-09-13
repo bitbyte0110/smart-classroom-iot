@@ -224,12 +224,25 @@ void mqttCallback(char* topic, byte* payload, unsigned int len) {
   msg.reserve(len);
   for (unsigned int i = 0; i < len; i++) msg += (char)payload[i];
   
+  // Handle commands from Pi Bridge (Firebase → MQTT → ESP32)
   if (t == "control/lighting/mode") {
-    currentData.mode = (msg == "manual") ? "manual" : "auto";
+    String newMode = (msg == "manual") ? "manual" : "auto";
+    if (newMode != currentData.mode) {
+      currentData.mode = newMode;
+      Serial.printf("📱 MQTT command: mode = %s\n", currentData.mode.c_str());
+    }
   } else if (t == "control/lighting/led_on") {
-    manualCommands.ledOn = (msg == "true" || msg == "1");
+    bool newLedOn = (msg == "true" || msg == "1");
+    if (newLedOn != manualCommands.ledOn) {
+      manualCommands.ledOn = newLedOn;
+      Serial.printf("📱 MQTT command: LED %s\n", newLedOn ? "ON" : "OFF");
+    }
   } else if (t == "control/lighting/led_pwm") {
-    manualCommands.ledPwm = constrain(msg.toInt(), 0, MAX_PWM);
+    int newPwm = constrain(msg.toInt(), 0, MAX_PWM);
+    if (newPwm != manualCommands.ledPwm) {
+      manualCommands.ledPwm = newPwm;
+      Serial.printf("📱 MQTT command: PWM %d\n", newPwm);
+    }
   }
 }
 
@@ -237,9 +250,11 @@ void mqttEnsureConnected() {
   if (mqtt.connected()) return;
   while (!mqtt.connected()) {
     if (mqtt.connect(MQTT_CLIENT_ID)) {
+      // Subscribe to command topics from Pi Bridge
       mqtt.subscribe("control/lighting/mode");
       mqtt.subscribe("control/lighting/led_on");
       mqtt.subscribe("control/lighting/led_pwm");
+      Serial.println("📡 MQTT connected (bidirectional)");
     } else {
       delay(1000);
     }
@@ -389,8 +404,13 @@ void readAIDataFromCloud() {
     if (doc.containsKey("ai_confidence")) {
       currentData.ai_confidence = doc["ai_confidence"];
     }
+    // Read mode from Firebase to stay in sync with web dashboard
     if (doc.containsKey("mode")) {
-      currentData.mode = doc["mode"].as<String>();
+      String newMode = doc["mode"].as<String>();
+      if (newMode != currentData.mode) {
+        currentData.mode = newMode;
+        Serial.printf("🔄 Mode changed to: %s\n", currentData.mode.c_str());
+      }
     }
 
     // Anti-stale using change detection: update when ai_timestamp changes
@@ -406,10 +426,18 @@ void readAIDataFromCloud() {
     if (currentData.mode == "manual" && doc.containsKey("led")) {
       JsonObject led = doc["led"];
       if (led.containsKey("on")) {
-        manualCommands.ledOn = led["on"];
+        bool newLedOn = led["on"];
+        if (newLedOn != manualCommands.ledOn) {
+          manualCommands.ledOn = newLedOn;
+          Serial.printf("🎛️ Manual LED command: %s\n", newLedOn ? "ON" : "OFF");
+        }
       }
       if (led.containsKey("pwm")) {
-        manualCommands.ledPwm = led["pwm"];
+        int newPwm = led["pwm"];
+        if (newPwm != manualCommands.ledPwm) {
+          manualCommands.ledPwm = newPwm;
+          Serial.printf("🎛️ Manual PWM command: %d\n", newPwm);
+        }
       }
     }
   } else {
@@ -446,6 +474,8 @@ void validateBusinessRules() {
     // Manual mode from web interface
     currentData.ledOn = manualCommands.ledOn;
     currentData.ledPwm = manualCommands.ledPwm;
+    Serial.printf("🎛️ Manual mode: LED %s PWM %d\n", 
+      currentData.ledOn ? "ON" : "OFF", currentData.ledPwm);
   }
   
   // PWM validation

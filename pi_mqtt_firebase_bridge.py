@@ -19,6 +19,8 @@ import argparse
 import threading
 import requests
 import paho.mqtt.client as mqtt
+from firebase_admin import credentials, db, initialize_app
+import firebase_admin
 
 
 def main():
@@ -156,6 +158,47 @@ def main():
         except Exception:
             return
 
+    # Initialize Firebase Admin SDK for bidirectional communication
+    try:
+        # Use default credentials (service account key should be in environment)
+        cred = credentials.ApplicationDefault()
+        firebase_admin.initialize_app(cred, {
+            'databaseURL': args.firebase_url
+        })
+        print("✅ Firebase Admin SDK initialized")
+    except Exception as e:
+        print(f"⚠️ Firebase Admin SDK failed: {e}")
+        print("   Commands will only work MQTT→Firebase, not Firebase→MQTT")
+
+    def firebase_listener(event):
+        """Listen to Firebase changes and forward commands to MQTT"""
+        if not client.is_connected():
+            return
+            
+        path = event.path
+        data = event.data
+        
+        # Forward lighting commands from Firebase to MQTT
+        if path == '/lighting/{}/state/mode'.format(args.room):
+            client.publish(f"control/lighting/mode", str(data), retain=True)
+            print(f"📤 Firebase→MQTT: mode = {data}")
+        elif path == '/lighting/{}/state/led'.format(args.room):
+            if isinstance(data, dict):
+                if 'on' in data:
+                    client.publish(f"control/lighting/led_on", str(data['on']).lower(), retain=True)
+                    print(f"📤 Firebase→MQTT: led_on = {data['on']}")
+                if 'pwm' in data:
+                    client.publish(f"control/lighting/led_pwm", str(data['pwm']), retain=True)
+                    print(f"📤 Firebase→MQTT: led_pwm = {data['pwm']}")
+
+    # Set up Firebase listener for commands
+    try:
+        lighting_ref = db.reference(f'/lighting/{args.room}/state')
+        lighting_ref.listen(firebase_listener)
+        print("✅ Firebase listener active for commands")
+    except Exception as e:
+        print(f"⚠️ Firebase listener failed: {e}")
+
     client = mqtt.Client(client_id=f"pi-bridge-{args.room}")
     client.on_message = on_message
     client.connect(args.mqtt_host, args.mqtt_port, 60)
@@ -172,7 +215,11 @@ def main():
         ('ai/presence/count', 0),
         ('ai/presence/confidence', 0),
     ])
-    print(f"Bridge running. MQTT {args.mqtt_host}:{args.mqtt_port} → Firebase {args.firebase_url}/lighting+climate/{args.room}/state")
+    print(f"🔄 Bidirectional Bridge running:")
+    print(f"   MQTT {args.mqtt_host}:{args.mqtt_port} ↔ Firebase {args.firebase_url}/lighting+climate/{args.room}/state")
+    print(f"   Commands: Firebase → MQTT → ESP32")
+    print(f"   Sensors: ESP32 → MQTT → Firebase → Web Dashboard")
+    print(f"   Display: ESP32 → MQTT → Pi LCD")
     client.loop_forever()
 
 
