@@ -52,7 +52,6 @@ except ImportError as e:
 MQTT_HOST = "localhost"
 MQTT_PORT = 1883
 PAGE_DURATION = 3  # seconds per page
-ALERT_BLINK_INTERVAL = 0.5  # seconds
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -62,8 +61,6 @@ class SmartClassroomLCD:
     def __init__(self):
         self.current_page = 0
         self.last_page_change = 0
-        self.alert_blink_state = False
-        self.last_blink_time = 0
         
         # System state from MQTT (all data comes from ESP32 modules)
         self.state = {
@@ -166,9 +163,16 @@ class SmartClassroomLCD:
 
     def lcd_write(self, line1: str, line2: str):
         """Write two lines to the LCD safely within 16 chars each"""
+        # Ensure lines are exactly 16 characters and stable
         line1 = line1[:16].ljust(16)
         line2 = line2[:16].ljust(16)
-        setText(f"{line1}\n{line2}")
+        
+        # Write to LCD in one operation to prevent flickering
+        try:
+            setText(f"{line1}\n{line2}")
+        except Exception as e:
+            # If LCD write fails, don't crash the program
+            logger.error(f"LCD write error: {e}")
     
     def display_page_lighting(self):
         """Display lighting information page"""
@@ -186,6 +190,7 @@ class SmartClassroomLCD:
         if len(line2) > 16:
             line2 = f"LED:{led_state} {pwm}{mode_indicator}"
         
+        # Write to LCD once and set color once
         self.lcd_write(line1, line2)
         self.set_lcd_color("blue")
     
@@ -222,40 +227,32 @@ class SmartClassroomLCD:
             line2 = "OK"
             color = "green"
         
-        if aq_status == "Poor":
-            current_time = time.time()
-            if current_time - self.last_blink_time >= ALERT_BLINK_INTERVAL:
-                self.alert_blink_state = not self.alert_blink_state
-                self.last_blink_time = current_time
-                
-            if self.alert_blink_state:
-                self.lcd_write(line1, line2)
-                self.set_lcd_color("red")
-            else:
-                self.lcd_write(" " * 16, " " * 16)
-                self.set_lcd_color("black")
-        else:
-            self.lcd_write(line1, line2)
-            self.set_lcd_color(color)
+        # Always display data without blinking
+        self.lcd_write(line1, line2)
+        self.set_lcd_color(color)
     
     def update_display(self):
         """Update the LCD display with rotating pages"""
         current_time = time.time()
         
+        # Only update LCD when page changes, not every loop iteration
         if current_time - self.last_page_change >= PAGE_DURATION:
             self.current_page = (self.current_page + 1) % 3
             self.last_page_change = current_time
-        
-        try:
-            if self.current_page == 0:
-                self.display_page_lighting()
-            elif self.current_page == 1:
-                self.display_page_climate()
-            elif self.current_page == 2:
-                self.display_page_air_quality()
-                
-        except Exception as e:
-            logger.error(f"❌ Display error: {e}")
+            
+            # Only write to LCD when page actually changes
+            try:
+                if self.current_page == 0:
+                    self.display_page_lighting()
+                elif self.current_page == 1:
+                    self.display_page_climate()
+                elif self.current_page == 2:
+                    self.display_page_air_quality()
+                    
+            except Exception as e:
+                logger.error(f"❌ Display error: {e}")
+                # Show error on LCD instead of crashing
+                self.lcd_write("Display Error", "Check Logs")
     
     def run(self):
         """Main display loop"""
@@ -270,7 +267,7 @@ class SmartClassroomLCD:
             
             while True:
                 self.update_display()
-                time.sleep(0.1)
+                time.sleep(1.0)  # Check every second, LCD only updates every 3 seconds
                 
         except KeyboardInterrupt:
             logger.info("🛑 Stopping LCD dashboard...")
