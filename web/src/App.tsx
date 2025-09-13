@@ -16,19 +16,21 @@ function App() {
             🏫 Smart Classroom
           </div>
           
-          <button 
-            onClick={() => setCurrentModule('lighting')}
-            className={`module-tab ${currentModule === 'lighting' ? 'active' : ''}`}
-          >
-            💡 Lighting Control
-          </button>
-          
-          <button 
-            onClick={() => setCurrentModule('climate')}
-            className={`module-tab ${currentModule === 'climate' ? 'active' : ''}`}
-          >
-            🌡️ Climate Control
-          </button>
+          <div className="nav-tabs">
+            <button 
+              onClick={() => setCurrentModule('lighting')}
+              className={`module-tab ${currentModule === 'lighting' ? 'active' : ''}`}
+            >
+              💡 Lighting Control
+            </button>
+            
+            <button 
+              onClick={() => setCurrentModule('climate')}
+              className={`module-tab ${currentModule === 'climate' ? 'active' : ''}`}
+            >
+              🌡️ Climate Control
+            </button>
+          </div>
         </div>
       </nav>
       
