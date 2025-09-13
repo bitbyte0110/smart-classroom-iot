@@ -89,15 +89,24 @@ def main():
             elif topic == 'sensors/lighting/led_state':
                 obj = json.loads(data)
                 with lock:
-                    state['led'] = {
-                        'on': bool(obj.get('on', False)),
-                        'pwm': int(obj.get('pwm', 0))
-                    }
-                patch_state()
+                    # CRITICAL: Don't overwrite manual commands from web dashboard
+                    # Only update if we're in auto mode or no recent manual command
+                    if state.get('mode') == 'auto':
+                        state['led'] = {
+                            'on': bool(obj.get('on', False)),
+                            'pwm': int(obj.get('pwm', 0))
+                        }
+                        patch_state()
             elif topic == 'sensors/lighting/mode':
                 with lock:
-                    state['mode'] = 'manual' if data.strip() == 'manual' else 'auto'
+                    new_mode = 'manual' if data.strip() == 'manual' else 'auto'
+                    state['mode'] = new_mode
+                    print(f"🔄 Mode changed to: {new_mode}")
                 patch_state()
+            elif topic == 'sensors/lighting/state':
+                # This is the combined state for LCD - don't interfere with Firebase
+                # Just pass it through to LCD via MQTT (already published by ESP32)
+                pass
             
             # Climate topics
             elif topic == 'sensors/climate/temperature':
@@ -170,6 +179,7 @@ def main():
         ('sensors/lighting/brightness', 0),
         ('sensors/lighting/led_state', 0),
         ('sensors/lighting/mode', 0),
+        ('sensors/lighting/state', 0),  # For LCD display sync (read-only)
         ('sensors/climate/temperature', 0),
         ('sensors/climate/humidity', 0),
         ('sensors/climate/fan_state', 0),

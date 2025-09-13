@@ -15,14 +15,18 @@ export default function ManualControls({ led, onControlChange }: ManualControlsP
   }, [led.pwm]);
 
   const handleToggle = () => {
-    const newState = { on: !led.on, pwm: led.on ? 0 : localPwm };
+    const newState = { 
+      on: !led.on, 
+      pwm: led.on ? 0 : (localPwm > 0 ? localPwm : 128) // Default to mid-brightness if 0
+    };
     onControlChange(newState);
   };
 
   const handlePwmChange = (value: number) => {
     setLocalPwm(value);
-    // Always send the change, regardless of LED state
-    onControlChange({ on: led.on, pwm: value });
+    // Auto-turn on LED if PWM > 0, turn off if PWM = 0
+    const shouldBeOn = value > 0;
+    onControlChange({ on: shouldBeOn, pwm: value });
   };
 
   return (

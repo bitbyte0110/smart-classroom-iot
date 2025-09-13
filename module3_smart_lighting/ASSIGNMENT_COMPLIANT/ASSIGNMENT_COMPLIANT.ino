@@ -50,6 +50,7 @@ PubSubClient mqtt(espClient);
 // Assignment compliance - Balanced timing to prevent feedback loops
 const unsigned long SENSOR_INTERVAL = 2000;    // 2 seconds (stable sensor reading)
 const unsigned long CLOUD_SYNC_INTERVAL = 3000; // 3 seconds (balanced cloud sync)
+const unsigned long MANUAL_CHECK_INTERVAL = 500; // 0.5 seconds (fast manual response)
 const unsigned long LOG_INTERVAL = 10000;      // 10 seconds (sufficient records)
 
 // System state - Module 3 Smart Lighting (Camera-Only)
@@ -87,6 +88,7 @@ bool ldrFull = false;
 // Timing control
 unsigned long lastSensorRead = 0;
 unsigned long lastCloudSync = 0;
+unsigned long lastManualCheck = 0;  // Fast manual command checking
 unsigned long lastDataLog = 0;
 
 // Track AI timestamp freshness without relying on epoch vs millis
@@ -158,6 +160,14 @@ void loop() {
   mqttEnsureConnected();
   mqtt.loop();
   
+  // Fast Manual Command Check (0.5s response time)
+  if (now - lastManualCheck >= MANUAL_CHECK_INTERVAL) {
+    if (currentData.mode == "manual") {
+      readManualCommandsFromCloud(); // Fast manual command reading
+    }
+    lastManualCheck = now;
+  }
+  
   // Sensor Data Acquisition Module (Assignment requirement)
   if (now - lastSensorRead >= SENSOR_INTERVAL) {
     acquireSensorData();
@@ -167,7 +177,7 @@ void loop() {
   
   // Cloud Data Processing Module (Assignment requirement)
   if (now - lastCloudSync >= CLOUD_SYNC_INTERVAL) {
-    readAIDataFromCloud(); // Read manual commands and AI data
+    readAIDataFromCloud(); // Read AI data and mode changes
     syncWithCloud();       // Write current state
     publishMQTT();         // Publish to MQTT
     lastCloudSync = now;
@@ -182,7 +192,12 @@ void loop() {
   // Actuator control based on sensor data
   controlActuators();
   
-  delay(100);
+  // Faster loop when in manual mode for better responsiveness
+  if (currentData.mode == "manual") {
+    delay(50);  // 50ms delay = very responsive manual controls
+  } else {
+    delay(100); // 100ms delay = normal auto mode
+  }
 }
 
 uint64_t getEpochTime() {
@@ -239,25 +254,27 @@ void mqttEnsureConnected() {
 void publishMQTT() {
   if (!mqtt.connected()) return;
   
-  // sensors/lighting/brightness
+  // ALWAYS publish sensor data
   StaticJsonDocument<96> j1;
   j1["ldrRaw"] = currentData.ldrRaw;
   char b1[96];
   size_t n1 = serializeJson(j1, b1);
   mqtt.publish("sensors/lighting/brightness", (const uint8_t*)b1, n1, true);
   
-  // sensors/lighting/led_state
-  StaticJsonDocument<96> j2;
-  j2["on"] = currentData.ledOn;
-  j2["pwm"] = currentData.ledPwm;
-  char b2[96];
-  size_t n2 = serializeJson(j2, b2);
-  mqtt.publish("sensors/lighting/led_state", (const uint8_t*)b2, n2, true);
+  // CRITICAL: Only publish LED state in AUTO mode to prevent command conflicts
+  if (currentData.mode == "auto") {
+    StaticJsonDocument<96> j2;
+    j2["on"] = currentData.ledOn;
+    j2["pwm"] = currentData.ledPwm;
+    char b2[96];
+    size_t n2 = serializeJson(j2, b2);
+    mqtt.publish("sensors/lighting/led_state", (const uint8_t*)b2, n2, true);
+  }
   
-  // sensors/lighting/mode
+  // ALWAYS publish mode changes
   mqtt.publish("sensors/lighting/mode", currentData.mode.c_str(), true);
 
-  // sensors/lighting/state (combined for LCD)
+  // sensors/lighting/state (combined for LCD) - ALWAYS publish for LCD updates
   StaticJsonDocument<256> j3;
   j3["ts"] = (uint64_t)getEpochTime();
   j3["presence"] = currentData.ai_presence;
@@ -353,6 +370,48 @@ int filterLDRReading(int rawValue) {
 
 // Temperature and Air Quality functions removed - not part of Module 3 Smart Lighting
 
+void readManualCommandsFromCloud() {
+  // Fast manual command reading (500ms interval) for responsive controls
+  if (WiFi.status() != WL_CONNECTED) return;
+  
+  HTTPClient http;
+  String url = String(FIREBASE_URL) + "/lighting/" + ROOM_ID + "/state/led.json";
+  
+  http.begin(url);
+  int httpCode = http.GET();
+  
+  if (httpCode == HTTP_CODE_OK) {
+    String payload = http.getString();
+    
+    DynamicJsonDocument doc(256);
+    deserializeJson(doc, payload);
+    
+    // Read manual LED commands only
+    if (doc.containsKey("on")) {
+      bool newLedOn = doc["on"];
+      if (newLedOn != manualCommands.ledOn) {
+        manualCommands.ledOn = newLedOn;
+        Serial.printf("⚡ Fast manual LED: %s\n", newLedOn ? "ON" : "OFF");
+        // Apply immediately for fast response
+        currentData.ledOn = manualCommands.ledOn;
+        currentData.ledPwm = manualCommands.ledPwm;
+      }
+    }
+    if (doc.containsKey("pwm")) {
+      int newPwm = doc["pwm"];
+      if (newPwm != manualCommands.ledPwm) {
+        manualCommands.ledPwm = constrain(newPwm, 0, MAX_PWM);
+        Serial.printf("⚡ Fast manual PWM: %d\n", manualCommands.ledPwm);
+        // Apply immediately for fast response
+        currentData.ledOn = manualCommands.ledOn;
+        currentData.ledPwm = manualCommands.ledPwm;
+      }
+    }
+  }
+  
+  http.end();
+}
+
 void readAIDataFromCloud() {
   // Assignment requirement: Cloud data retrieval
   if (WiFi.status() != WL_CONNECTED) return;
@@ -397,24 +456,8 @@ void readAIDataFromCloud() {
       }
     }
     
-    // Read manual commands for web interface - only in manual mode to prevent conflicts
-    if (currentData.mode == "manual" && doc.containsKey("led")) {
-      JsonObject led = doc["led"];
-      if (led.containsKey("on")) {
-        bool newLedOn = led["on"];
-        if (newLedOn != manualCommands.ledOn) {
-          manualCommands.ledOn = newLedOn;
-          Serial.printf("🎛️ Manual LED command: %s\n", newLedOn ? "ON" : "OFF");
-        }
-      }
-      if (led.containsKey("pwm")) {
-        int newPwm = led["pwm"];
-        if (newPwm != manualCommands.ledPwm) {
-          manualCommands.ledPwm = newPwm;
-          Serial.printf("🎛️ Manual PWM command: %d\n", newPwm);
-        }
-      }
-    }
+    // Manual commands are now read by fast readManualCommandsFromCloud() function
+    // This slow sync only handles mode changes and AI data
   } else {
     errorCount++;
   }
@@ -446,18 +489,21 @@ void validateBusinessRules() {
     }
     // Hysteresis zone: maintain previous state
   } else {
-    // Manual mode from web interface
+    // Manual mode from web interface - CRITICAL: Use commands directly
+    // Don't validate or override manual commands to prevent blinking
     currentData.ledOn = manualCommands.ledOn;
     currentData.ledPwm = manualCommands.ledPwm;
-    Serial.printf("🎛️ Manual mode: LED %s PWM %d\n", 
-      currentData.ledOn ? "ON" : "OFF", currentData.ledPwm);
+    // REMOVED SERIAL OUTPUT to reduce noise during manual control
   }
   
-  // PWM validation
-  currentData.ledPwm = constrain(currentData.ledPwm, 0, MAX_PWM);
-  if (!currentData.ledOn) {
-    currentData.ledPwm = 0;
+  // PWM validation - CRITICAL: Don't override manual commands
+  if (currentData.mode == "auto") {
+    currentData.ledPwm = constrain(currentData.ledPwm, 0, MAX_PWM);
+    if (!currentData.ledOn) {
+      currentData.ledPwm = 0;
+    }
   }
+  // In manual mode, PWM is already constrained when reading from Firebase
   
   // System status evaluation
   if (errorCount > 10) {
@@ -505,9 +551,12 @@ void syncWithCloud() {
   doc["ldrRaw"] = currentData.ldrRaw;
   doc["lightLevel"] = currentData.lightLevel;
   
-  // Actuator states
-  doc["led"]["on"] = currentData.ledOn;
-  doc["led"]["pwm"] = currentData.ledPwm;
+  // Actuator states - CRITICAL: Don't overwrite manual commands in Firebase
+  if (currentData.mode == "auto") {
+    doc["led"]["on"] = currentData.ledOn;
+    doc["led"]["pwm"] = currentData.ledPwm;
+  }
+  // In manual mode, preserve existing Firebase LED commands (don't overwrite)
   
   // System info
   doc["mode"] = currentData.mode;
@@ -529,7 +578,11 @@ void syncWithCloud() {
   
   if (httpCode == HTTP_CODE_OK) {
     successfulCloudUploads++;
-    Serial.println("☁️ Cloud sync successful");
+    if (currentData.mode == "manual") {
+      Serial.println("☁️ Cloud sync successful (preserving manual commands)");
+    } else {
+      Serial.println("☁️ Cloud sync successful");
+    }
   } else {
     errorCount++;
     Serial.printf("❌ Cloud sync failed: %d\n", httpCode);
