@@ -49,7 +49,7 @@ class ForceGPUYOLODetector:
         
         # Timing
         self.last_update = 0
-        self.update_interval = 2.0  # Update every 2s for better responsiveness
+        self.update_interval = 1.0  # Update every 1s for immediate LED response
         
         # MQTT client (Raspberry Pi broker)
         self.mqtt_host = mqtt_host
@@ -120,11 +120,16 @@ class ForceGPUYOLODetector:
         return person_count, boxes, confidences
     
     def stable_presence_detection(self, person_count):
-        """Quick stability check"""
+        """Quick stability check with immediate off when no people"""
         self.detection_history.append(person_count > 0)
         if len(self.detection_history) > self.history_size:
             self.detection_history.pop(0)
         
+        # Immediate OFF when no people detected (no delay)
+        if person_count == 0:
+            return False
+        
+        # Require stability for ON (prevent false positives)
         if len(self.detection_history) >= 3:
             return sum(self.detection_history) >= 2
         return person_count > 0
@@ -157,7 +162,11 @@ class ForceGPUYOLODetector:
                 print(f"⚠️ MQTT publish failed: {e}")
 
             if response.status_code == 200:
-                print(f"📡 Firebase updated: AI presence={presence}, people={person_count}, conf={max_confidence:.2f}")
+                # Enhanced logging for LED control debugging
+                status_icon = "🟢" if presence else "🔴"
+                led_action = "LED should turn ON" if presence else "LED should turn OFF IMMEDIATELY"
+                print(f"{status_icon} Firebase updated: AI presence={presence}, people={person_count}, conf={max_confidence:.2f}")
+                print(f"💡 {led_action}")
                 return True
             else:
                 print(f"❌ Firebase error: {response.status_code}")

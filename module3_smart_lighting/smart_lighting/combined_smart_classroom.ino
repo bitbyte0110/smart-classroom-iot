@@ -594,12 +594,21 @@ void validateBusinessRules() {
     bool aiFresh = (millis() - lastAiTimestampChangeMillis) <= 10000;
     bool effectivePresence = lightingState.ai_presence && aiFresh;
 
-    if (effectivePresence && level > DARK_THRESHOLD) {
-      lightingState.ledOn = true;
-      lightingState.ledPwm = mapLightToPWM(lightingState.ldrRaw);
-    } else if (!effectivePresence || level < BRIGHT_THRESHOLD) {
+    // IMMEDIATE OFF when no presence detected
+    if (!effectivePresence) {
       lightingState.ledOn = false;
       lightingState.ledPwm = 0;
+      Serial.println("💡 LED OFF: No presence detected");
+    } else if (effectivePresence && level > DARK_THRESHOLD) {
+      // Only turn ON when presence AND dark
+      lightingState.ledOn = true;
+      lightingState.ledPwm = mapLightToPWM(lightingState.ldrRaw);
+      Serial.printf("💡 LED ON: Presence + Dark (LDR: %d, PWM: %d)\n", level, lightingState.ledPwm);
+    } else if (effectivePresence && level < BRIGHT_THRESHOLD) {
+      // Turn OFF when presence but bright enough
+      lightingState.ledOn = false;
+      lightingState.ledPwm = 0;
+      Serial.printf("💡 LED OFF: Presence but bright (LDR: %d)\n", level);
     }
   } else {
     // Manual mode - use commands directly
