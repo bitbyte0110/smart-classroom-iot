@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import './ManualControls.css';
 
 interface ClimateManualControlsProps {
@@ -9,16 +9,24 @@ interface ClimateManualControlsProps {
 export default function ClimateManualControls({ fan, onControlChange }: ClimateManualControlsProps) {
   const [localPwm, setLocalPwm] = useState(fan.pwm);
 
+  // Update local state when prop changes (from Firebase)
+  React.useEffect(() => {
+    setLocalPwm(fan.pwm);
+  }, [fan.pwm]);
+
   const handleToggle = () => {
-    const newState = { on: !fan.on, pwm: fan.on ? 0 : localPwm };
+    const newState = { 
+      on: !fan.on, 
+      pwm: fan.on ? 0 : (localPwm > 0 ? localPwm : 128) // Default to mid-speed if 0
+    };
     onControlChange(newState);
   };
 
   const handlePwmChange = (value: number) => {
     setLocalPwm(value);
-    if (fan.on) {
-      onControlChange({ on: true, pwm: value });
-    }
+    // Auto-turn on fan if PWM > 0, turn off if PWM = 0
+    const shouldBeOn = value > 0;
+    onControlChange({ on: shouldBeOn, pwm: value });
   };
 
   const getFanSpeedLabel = (pwm: number) => {

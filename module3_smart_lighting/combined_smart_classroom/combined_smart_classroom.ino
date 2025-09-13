@@ -520,9 +520,10 @@ void readAIDataFromCloud() {
   if (WiFi.status() != WL_CONNECTED) return;
   
   HTTPClient http;
-  String url = String(FIREBASE_URL) + "/lighting/" + ROOM_ID + "/state.json";
   
-  http.begin(url);
+  // Read lighting AI data
+  String lightingUrl = String(FIREBASE_URL) + "/lighting/" + ROOM_ID + "/state.json";
+  http.begin(lightingUrl);
   int httpCode = http.GET();
   
   if (httpCode == HTTP_CODE_OK) {
@@ -542,7 +543,7 @@ void readAIDataFromCloud() {
       lightingState.ai_confidence = doc["ai_confidence"];
     }
     
-    // Read mode changes
+    // Read lighting mode changes
     if (doc.containsKey("mode")) {
       String newMode = doc["mode"].as<String>();
       if (newMode != lightingState.mode) {
@@ -560,7 +561,28 @@ void readAIDataFromCloud() {
       }
     }
   }
+  http.end();
   
+  // Read climate mode separately
+  String climateUrl = String(FIREBASE_URL) + "/climate/" + ROOM_ID + "/state.json";
+  http.begin(climateUrl);
+  httpCode = http.GET();
+  
+  if (httpCode == HTTP_CODE_OK) {
+    String payload = http.getString();
+    DynamicJsonDocument doc(512);
+    deserializeJson(doc, payload);
+    
+    // Read climate mode changes
+    if (doc.containsKey("mode")) {
+      String newMode = doc["mode"].as<String>();
+      if (newMode != climateState.mode) {
+        Serial.printf("🔄 Climate mode change: %s → %s\n", climateState.mode.c_str(), newMode.c_str());
+        climateState.mode = newMode;
+        Serial.printf("🔄 Climate mode: %s\n", climateState.mode.c_str());
+      }
+    }
+  }
   http.end();
 }
 
@@ -656,6 +678,9 @@ void validateBusinessRules() {
 
 void autoClimateControl() {
   unsigned long now = millis();
+  
+  Serial.printf("🤖 autoClimateControl called: mode=%s, presence=%s, temp=%.1f°C\n", 
+                climateState.mode.c_str(), climateState.presence ? "true" : "false", climateState.temperature);
   
   // Determine temperature band
   String newBand = climateState.comfortBand;

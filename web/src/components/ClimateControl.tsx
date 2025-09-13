@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { ref, onValue, update } from 'firebase/database';
 import { database } from '../firebase';
 import type { ClimateState } from '../types';
@@ -16,7 +16,6 @@ export default function ClimateControl() {
   const [error, setError] = useState<string>('');
   const [lastModeChange, setLastModeChange] = useState<number>(0);
   const [isVoiceListening, setIsVoiceListening] = useState(false);
-  const lastManualFanChangeRef = useRef<number>(0);
 
   useEffect(() => {
     console.log('🚀 Climate Control component mounted, connecting to Firebase...');
@@ -128,25 +127,6 @@ export default function ClimateControl() {
         }
       }
 
-      // Prevent Firebase from overriding recent manual changes (within 2 seconds)
-      const currentTime = Date.now();
-      const timeSinceLastManualChange = currentTime - lastManualFanChangeRef.current;
-      if (timeSinceLastManualChange < 2000 && merged.mode === 'manual' && state) {
-        console.log(`🛡️ Ignoring Firebase fan update - recent manual change (${timeSinceLastManualChange}ms ago)`);
-        return; // Don't update state if we just made a manual change
-      }
-
-      // TEMPORARY WORKAROUND: Prevent automatic override in manual mode
-      // This helps identify if the issue is ESP32-side or frontend-side
-      if (state && state.mode === 'manual' && merged.mode === 'manual') {
-        // If we're in manual mode and the fan PWM is being overridden by auto control,
-        // keep the local manual setting instead of the Firebase value
-        if (state.fan.pwm === 255 && merged.fan.pwm < 255) {
-          console.log(`🛡️ Keeping manual fan setting 255 instead of Firebase value ${merged.fan.pwm}`);
-          merged.fan.pwm = state.fan.pwm;
-          merged.fan.on = state.fan.on;
-        }
-      }
 
       console.log('Setting climate state:', merged); // Debug log
       console.log(`🌪️ Fan state from Firebase: ON=${merged.fan.on}, PWM=${merged.fan.pwm}, Mode=${merged.mode}`); // Debug fan specifically
@@ -215,20 +195,13 @@ export default function ClimateControl() {
   const handleManualControl = async (fan: { on: boolean; pwm: number }) => {
     if (!state || state.mode !== 'manual') return;
     
-    // Track manual changes to prevent Firebase overrides
-    lastManualFanChangeRef.current = Date.now();
-    
     // Optimistic UI update for instant feedback
     setState(prevState => prevState ? { ...prevState, fan } : null);
     
     try {
       const stateRef = ref(database, `/climate/${ROOM_ID}/state`);
-      // Send both fan control AND ensure mode is manual
-      await update(stateRef, { 
-        fan,
-        mode: 'manual' // Ensure mode is set to manual
-      });
-      console.log(`✅ Climate fan control: ${fan.on ? 'ON' : 'OFF'} (PWM: ${fan.pwm}) in MANUAL mode`);
+      await update(stateRef, { fan });
+      console.log(`✅ Climate fan control: ${fan.on ? 'ON' : 'OFF'} (PWM: ${fan.pwm})`);
     } catch (error) {
       console.error('Manual control failed:', error);
       // Revert optimistic update on error
