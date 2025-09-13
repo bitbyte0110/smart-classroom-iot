@@ -35,7 +35,9 @@ export default function StatusTiles({ state }: StatusTilesProps) {
           <div className={`tile-value ${brightnessStatus.status}`}>
             {brightnessPercent}%
           </div>
-          <div className="tile-subtitle">{brightnessStatus.label}</div>
+          <div className="tile-subtitle">
+            LDR: {state.ldrRaw} | {brightnessStatus.label}
+          </div>
         </div>
       </div>
 
