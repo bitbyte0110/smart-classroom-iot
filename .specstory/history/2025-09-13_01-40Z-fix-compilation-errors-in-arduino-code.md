@@ -328,3 +328,190 @@ The lighting module remains completely unaffected, and the climate/air quality m
 
 ---
 
+_**User (2025-09-12 23:49Z)**_
+
+is there anything inside @pi_lcd_dashboard.py that would make the words in the lcd to appear blinking?
+
+---
+
+_**Assistant**_
+
+Let me check the LCD dashboard code for any blinking functionality:
+
+
+---
+
+
+
+---
+
+
+
+---
+
+
+
+---
+
+Yes! There is blinking functionality in the LCD dashboard. Here's what causes the blinking:
+
+## **Blinking Behavior in LCD Dashboard**
+
+**When it blinks:**
+- Only when **Air Quality status is "Poor"** (critical alert)
+- Blinks every **0.5 seconds** (`ALERT_BLINK_INTERVAL = 0.5`)
+
+**How it works:**
+1. **Blink ON state**: Shows the air quality data with red backlight
+2. **Blink OFF state**: Clears the display (shows blank spaces) with black backlight
+
+**Code location:**
+```python
+# Lines 227-242 in display_page_air_quality()
+if aq_status == "Poor":
+    # Blinks between showing data and clearing display
+    if self.alert_blink_state:
+        self.lcd_write(line1.ljust(16), line2.ljust(16))  # Show data
+        self.set_lcd_color("red")
+    else:
+        self.lcd_write(" " * 16, " " * 16)  # Clear display
+        self.set_lcd_color("black")
+```
+
+**To disable blinking:**
+If you want to stop the blinking behavior, you can either:
+
+1. **Remove blinking entirely** - always show the data
+2. **Change blink interval** - make it blink slower/faster
+3. **Only blink the backlight** - keep text visible but blink the color
+
+Would you like me to modify the blinking behavior or disable it completely?
+
+---
+
+_**User (2025-09-12 23:49Z)**_
+
+remove blinking entirely from @pi_lcd_dashboard.py 
+
+---
+
+_**Assistant**_
+
+I'll remove the blinking functionality entirely from the LCD dashboard. Let me update the code to always show the data without any blinking.
+
+---
+
+<details><summary>Edit file: pi_lcd_dashboard.py</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -37,5 +37,5 @@
+  MQTT_PORT = 1883
+  PAGE_DURATION = 3  # seconds per page
+- ALERT_BLINK_INTERVAL = 0.5  # seconds
++ # ALERT_BLINK_INTERVAL = 0.5  # seconds - REMOVED: No longer using blinking
+  
+  # Setup logging
+```
+
+</details>
+
+---
+
+<details><summary>Edit file: pi_lcd_dashboard.py</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 2, lines removed: 2
+
+```diff
+@@ -47,6 +47,6 @@
+          self.current_page = 0
+          self.last_page_change = 0
+-         self.alert_blink_state = False
+-         self.last_blink_time = 0
++         # self.alert_blink_state = False  # REMOVED: No longer using blinking
++         # self.last_blink_time = 0        # REMOVED: No longer using blinking
+          
+          # GrovePi LCD library (works with both RGB and standard LCD)
+```
+
+</details>
+
+---
+
+<details><summary>Edit file: pi_lcd_dashboard.py</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 3, lines removed: 16
+
+```diff
+@@ -225,20 +225,7 @@
+              color = "green"
+          
+-         # Handle blinking for critical alerts
+-         if aq_status == "Poor":
+-             current_time = time.time()
+-             if current_time - self.last_blink_time >= ALERT_BLINK_INTERVAL:
+-                 self.alert_blink_state = not self.alert_blink_state
+-                 self.last_blink_time = current_time
+-                 
+-             if self.alert_blink_state:
+-                 self.lcd_write(line1.ljust(16), line2.ljust(16))
+-                 self.set_lcd_color("red")
+-             else:
+-                 self.lcd_write(" " * 16, " " * 16)  # Clear display
+-                 self.set_lcd_color("black")
+-         else:
+-             self.lcd_write(line1.ljust(16), line2.ljust(16))
+-             self.set_lcd_color(color)
++         # Always display data without blinking
++         self.lcd_write(line1.ljust(16), line2.ljust(16))
++         self.set_lcd_color(color)
+      
+      def update_display(self):
+```
+
+</details>
+
+---
+
+
+
+---
+
+Those linter warnings are expected since these are Raspberry Pi specific libraries that won't be available in the current environment. The code changes are correct.
+
+## ✅ **Blinking Functionality Completely Removed**
+
+### **Changes Made:**
+
+1. **Commented out blink configuration:**
+   - `ALERT_BLINK_INTERVAL` constant is now commented out
+
+2. **Removed blink state variables:**
+   - `self.alert_blink_state` and `self.last_blink_time` are now commented out
+
+3. **Simplified air quality display logic:**
+   - Removed all blinking code in `display_page_air_quality()`
+   - Now always displays the air quality data with appropriate color
+   - No more alternating between showing data and clearing the display
+
+### **New Behavior:**
+
+**Air Quality Page (Page 3) will now:**
+- **Good Air Quality**: Shows `AQ:{value} Good` + `OK` with green backlight
+- **Moderate Air Quality**: Shows `AQ:{value} Moderate` + `Warning` with yellow backlight  
+- **Poor Air Quality**: Shows `AQ:{value} Poor` + `ALERT` with **solid red backlight** (no blinking)
+
+The LCD will now display all information continuously without any blinking, making it easier to read while still using color coding to indicate air quality status severity.
+
+---
+
