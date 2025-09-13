@@ -583,27 +583,29 @@ void validateBusinessRules() {
   }
   
   // ===== CLIMATE CONTROL BUSINESS RULES =====
-  if (climateState.presence) {
-    if (climateState.mode == "manual") {
-      climateState.fanOn = manualCommands.fanOn;
-      if (manualCommands.fanOn) {
-        climateState.fanPwm = manualCommands.fanPwm;
-        int duty = map(manualCommands.fanPwm, 0, 255, 0, MAX_FAN_DUTY);
-        setFanDuty(duty);
-      } else {
-        climateState.fanPwm = 0;
-        setFanDuty(0);
-      }
+  if (climateState.mode == "manual") {
+    // Manual mode - CRITICAL: Use commands directly, don't override with presence
+    climateState.fanOn = manualCommands.fanOn;
+    if (manualCommands.fanOn) {
+      climateState.fanPwm = manualCommands.fanPwm;
+      int duty = map(manualCommands.fanPwm, 0, 255, 0, MAX_FAN_DUTY);
+      setFanDuty(duty);
     } else {
-      // Auto mode - temperature-based control
-      autoClimateControl();
+      climateState.fanPwm = 0;
+      setFanDuty(0);
     }
   } else {
-    // No presence - turn off fan
-    setFanDuty(0);
-    climateState.fanOn = false;
-    climateState.fanPwm = 0;
-    climateState.comfortBand = "Idle";
+    // Auto mode - presence-based control
+    if (climateState.presence) {
+      // Presence detected - temperature-based control
+      autoClimateControl();
+    } else {
+      // No presence - turn off fan (auto mode only)
+      setFanDuty(0);
+      climateState.fanOn = false;
+      climateState.fanPwm = 0;
+      climateState.comfortBand = "Idle";
+    }
   }
   
   // System status evaluation
@@ -751,14 +753,17 @@ void publishMQTT() {
   size_t n7 = serializeJson(aqStatusDoc, aqStatusStr);
   mqtt.publish("sensors/air/quality_status", aqStatusStr, true);
   
-  StaticJsonDocument<256> fanDoc;
-  fanDoc["mode"] = climateState.mode;
-  fanDoc["on"] = climateState.fanOn;
-  fanDoc["pwm"] = climateState.fanPwm;
-  fanDoc["band"] = climateState.comfortBand;
-  char fanStr[256];
-  size_t n8 = serializeJson(fanDoc, fanStr);
-  mqtt.publish("sensors/climate/fan_state", fanStr, true);
+  // CRITICAL: Only publish fan state in AUTO mode to prevent command conflicts
+  if (climateState.mode == "auto") {
+    StaticJsonDocument<256> fanDoc;
+    fanDoc["mode"] = climateState.mode;
+    fanDoc["on"] = climateState.fanOn;
+    fanDoc["pwm"] = climateState.fanPwm;
+    fanDoc["band"] = climateState.comfortBand;
+    char fanStr[256];
+    size_t n8 = serializeJson(fanDoc, fanStr);
+    mqtt.publish("sensors/climate/fan_state", fanStr, true);
+  }
   
   // Combined climate state for LCD
   StaticJsonDocument<512> climateStateDoc;
@@ -802,7 +807,8 @@ void syncWithCloud() {
     lightingDoc["led"]["pwm"] = lightingState.ledPwm;
   }
   
-  lightingDoc["mode"] = lightingState.mode;
+  // Mode is controlled by web dashboard - don't overwrite
+  // lightingDoc["mode"] = lightingState.mode;
   lightingDoc["systemStatus"] = lightingState.systemStatus;
   lightingDoc["totalRecords"] = totalRecords;
   lightingDoc["errorCount"] = errorCount;
@@ -834,9 +840,16 @@ void syncWithCloud() {
   DynamicJsonDocument climateDoc(512);
   climateDoc["tempC"] = climateState.temperature;
   climateDoc["humidity"] = climateState.humidity;
-  climateDoc["mode"] = climateState.mode;
-  climateDoc["fan"]["on"] = climateState.fanOn;
-  climateDoc["fan"]["pwm"] = climateState.fanPwm;
+  // Mode is controlled by web dashboard - don't overwrite
+  // climateDoc["mode"] = climateState.mode;
+  
+  // CRITICAL: Don't overwrite manual fan commands in Firebase
+  if (climateState.mode == "auto") {
+    climateDoc["fan"]["on"] = climateState.fanOn;
+    climateDoc["fan"]["pwm"] = climateState.fanPwm;
+  }
+  // In manual mode, preserve existing Firebase fan commands (don't overwrite)
+  
   climateDoc["comfortBand"] = climateState.comfortBand;
   climateDoc["aqRaw"] = climateState.aqRaw;
   climateDoc["aqStatus"] = climateState.aqStatus;
@@ -857,7 +870,11 @@ void syncWithCloud() {
   
   httpCode = http.PATCH(climateJsonString);
   if (httpCode == HTTP_CODE_OK) {
-    Serial.println("☁️ Climate cloud sync successful");
+    if (climateState.mode == "manual") {
+      Serial.println("☁️ Climate cloud sync successful (preserving manual commands)");
+    } else {
+      Serial.println("☁️ Climate cloud sync successful");
+    }
   } else {
     Serial.printf("❌ Climate cloud sync failed: %d\n", httpCode);
   }

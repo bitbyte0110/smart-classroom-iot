@@ -1414,3 +1414,776 @@ This single ESP32 will now handle your entire smart classroom system! 🚀
 
 ---
 
+_**User (2025-09-13 05:26Z)**_
+
+@combined_smart_classroom.ino @climate_control_complete.ino 
+
+for the @combined_smart_classroom.ino  is using @climate_control_complete.ino  with @ASSIGNMENT_COMPLIANT.ino 
+
+but i know @ASSIGNMENT_COMPLIANT.ino  is using this parttern I've implemented a fast response system that will make your manual controls respond in 0.5 seconds instead of 3 seconds: 1. Added Fast Manual Command Checking 2. Separate Fast Function for Manual Commands 3. Faster Main Loop in Manual Mode
+
+manual
+Web → Firebase → ESP32 → Physical LED ✅
+ESP32 → MQTT → LCD ✅
+ESP32 → Firebase (sensor data only, no LED overwrite) ✅
+
+✅ AUTO MODE:
+ESP32 → Firebase (full state including LED) ✅
+ESP32 → MQTT → LCD ✅
+
+is the @combined_smart_classroom.ino  the logic is also similar to Ligting module?
+
+---
+
+_**Assistant**_
+
+Yes, you're absolutely correct! The `combined_smart_classroom.ino` does implement the same fast response system for **both** lighting and climate control modules. Let me show you exactly where:
+
+## ✅ **Fast Response System in Combined Code**
+
+### **1. Fast Manual Command Checking (0.5s)**
+```cpp
+// Line 256-262: Fast check every 500ms
+if (now - lastManualCheck >= MANUAL_CHECK_INTERVAL) {
+    if (lightingState.mode == "manual" || climateState.mode == "manual") {
+        readManualCommandsFromCloud(); // Fast reading for BOTH modules
+    }
+    lastManualCheck = now;
+}
+```
+
+### **2. Separate Fast Function for Manual Commands**
+```cpp
+// Lines 402-479: readManualCommandsFromCloud()
+void readManualCommandsFromCloud() {
+    // Read lighting commands (same as ASSIGNMENT_COMPLIANT.ino)
+    String lightingUrl = String(FIREBASE_URL) + "/lighting/" + ROOM_ID + "/state/led.json";
+    // ⚡ Fast manual LED: ON/OFF
+    // ⚡ Fast manual LED PWM: 255
+    
+    // Read climate commands (NEW - extends the pattern)
+    String climateUrl = String(FIREBASE_URL) + "/climate/" + ROOM_ID + "/state.json";
+    // ⚡ Fast manual Fan: ON/OFF  
+    // ⚡ Fast manual Fan PWM: 255
+}
+```
+
+### **3. Faster Main Loop in Manual Mode**
+```cpp
+// Lines 295-301: Same pattern as ASSIGNMENT_COMPLIANT.ino
+if (lightingState.mode == "manual" || climateState.mode == "manual") {
+    delay(50);  // Very responsive manual controls
+} else {
+    delay(100); // Normal auto mode
+}
+```
+
+## ✅ **Data Flow - Same Clean Pattern**
+
+### **MANUAL MODE (Both Lighting & Climate):**
+```
+Lighting Manual:
+Web → Firebase → ESP32 → Physical LED ✅
+ESP32 → MQTT → LCD ✅  
+ESP32 → Firebase (sensor data only, no LED overwrite) ✅
+
+Climate Manual:
+Web → Firebase → ESP32 → Physical Fan ✅
+ESP32 → MQTT → LCD ✅
+ESP32 → Firebase (sensor data only, no Fan overwrite) ✅
+```
+
+### **AUTO MODE (Both Modules):**
+```
+Lighting Auto:
+ESP32 → Firebase (full state including LED) ✅
+ESP32 → MQTT → LCD ✅
+
+Climate Auto:  
+ESP32 → Firebase (full state including Fan) ✅
+ESP32 → MQTT → LCD ✅
+```
+
+## ✅ **Key Improvements in Combined System**
+
+### **Extended Fast Response to Climate:**
+```cpp
+// Lines 448-477: Climate fast commands (NEW)
+if (climateState.mode == "manual" && doc.containsKey("fan")) {
+    JsonObject fan = doc["fan"];
+    if (fan.containsKey("on")) {
+        bool newFanOn = fan["on"];
+        if (newFanOn != manualCommands.fanOn) {
+            manualCommands.fanOn = newFanOn;
+            Serial.printf("⚡ Fast manual Fan: %s\n", newFanOn ? "ON" : "OFF");
+        }
+    }
+}
+```
+
+### **Prevents Firebase Conflicts (Both Modules):**
+```cpp
+// Lines 800-803: Lighting - same as ASSIGNMENT_COMPLIANT.ino  
+if (lightingState.mode == "auto") {
+    lightingDoc["led"]["on"] = lightingState.ledOn;
+    lightingDoc["led"]["pwm"] = lightingState.ledPwm;
+}
+
+// Lines 837-840: Climate - extends the pattern
+if (climateState.mode == "auto") {
+    climateDoc["fan"]["on"] = climateState.fanOn;
+    climateDoc["fan"]["pwm"] = climateState.fanPwm;
+}
+```
+
+## ✅ **Response Times**
+
+| Module | Manual Control | Response Time |
+|--------|---------------|---------------|
+| **Lighting** | LED ON/OFF, PWM | **0.5 seconds** ⚡ |
+| **Climate** | Fan ON/OFF, PWM | **0.5 seconds** ⚡ |
+| **Both** | Mode Switch | 3.0 seconds |
+| **Both** | Auto Mode | 2.0 seconds |
+
+## **Summary**
+
+**Yes!** The `combined_smart_classroom.ino` uses **exactly the same fast response logic** as `ASSIGNMENT_COMPLIANT.ino`, but **extends it to both modules**:
+
+- ✅ **Same 0.5s fast manual commands**
+- ✅ **Same clean data flow separation** 
+- ✅ **Same Firebase conflict prevention**
+- ✅ **Extended to cover Fan control** (in addition to LED control)
+
+The combined system gives you **fast responsive manual controls for both lighting AND climate control** on a single ESP32! 🚀
+
+---
+
+_**User (2025-09-13 05:26Z)**_
+
+@combined_smart_classroom.ino 
+
+for Climate when i turn off, it sometime will suddelly turn on back and then turn off help me check and fix the problem
+
+---
+
+_**Assistant**_
+
+I can see the issue! The climate control in the combined system has a similar blinking problem to what we fixed for lighting. Let me analyze and fix it.
+
+---
+
+<details>
+                <summary>Searched codebase "Where does the combined system write climate fan state back to Firebase in manual mode?" • **10** results</summary>
+            
+| File | Lines |
+|------|-------|
+| `module3_smart_lighting/combined_smart_classroom/combined_smart_classroom.ino` | L581-621 |
+| `module3_smart_lighting/combined_smart_classroom/combined_smart_classroom.ino` | L439-481 |
+| `module3_smart_lighting/smart_lighting/combined_smart_classroom.ino` | L439-481 |
+| `module3_smart_lighting/smart_lighting/combined_smart_classroom.ino` | L581-621 |
+| `module3_smart_lighting/combined_smart_classroom/combined_smart_classroom.ino` | L836-867 |
+| `module3_smart_lighting/combined_smart_classroom/combined_smart_classroom.ino` | L779-838 |
+| `module3_smart_lighting/smart_lighting/combined_smart_classroom.ino` | L836-867 |
+| `module3_smart_lighting/smart_lighting/combined_smart_classroom.ino` | L779-838 |
+| `module3_smart_lighting/combined_smart_classroom/combined_smart_classroom.ino` | L395-444 |
+| `module3_smart_lighting/smart_lighting/combined_smart_classroom.ino` | L395-444 |
+
+</details>
+
+---
+
+Found the issues! There are **2 main problems** causing the climate fan to turn on/off/on:
+
+## **Problem 1: Firebase Overwrite Conflict** 
+Lines 837-839: ESP32 **always** writes fan state back to Firebase, even in manual mode:
+```cpp
+climateDoc["fan"]["on"] = climateState.fanOn;
+climateDoc["fan"]["pwm"] = climateState.fanPwm;
+```
+
+## **Problem 2: Presence Override** 
+Lines 601-607: **No presence detection forces fan OFF**, even in manual mode:
+```cpp
+} else {
+    // No presence - turn off fan
+    setFanDuty(0);
+    climateState.fanOn = false;  // ← Overrides manual commands!
+}
+```
+
+Let me fix both issues:
+
+---
+
+<details><summary>Edit file: module3_smart_lighting/combined_smart_classroom/combined_smart_classroom.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 8, lines removed: 2
+
+```diff
+@@ -836,6 +836,12 @@
+    climateDoc["humidity"] = climateState.humidity;
+    climateDoc["mode"] = climateState.mode;
+-   climateDoc["fan"]["on"] = climateState.fanOn;
+-   climateDoc["fan"]["pwm"] = climateState.fanPwm;
++   
++   // CRITICAL: Don't overwrite manual fan commands in Firebase
++   if (climateState.mode == "auto") {
++     climateDoc["fan"]["on"] = climateState.fanOn;
++     climateDoc["fan"]["pwm"] = climateState.fanPwm;
++   }
++   // In manual mode, preserve existing Firebase fan commands (don't overwrite)
++   
+    climateDoc["comfortBand"] = climateState.comfortBand;
+    climateDoc["aqRaw"] = climateState.aqRaw;
+```
+
+</details>
+
+---
+
+<details><summary>Edit file: module3_smart_lighting/combined_smart_classroom/combined_smart_classroom.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 22, lines removed: 20
+
+```diff
+@@ -584,25 +584,27 @@
+    
+    // ===== CLIMATE CONTROL BUSINESS RULES =====
+-   if (climateState.presence) {
+-     if (climateState.mode == "manual") {
+-       climateState.fanOn = manualCommands.fanOn;
+-       if (manualCommands.fanOn) {
+-         climateState.fanPwm = manualCommands.fanPwm;
+-         int duty = map(manualCommands.fanPwm, 0, 255, 0, MAX_FAN_DUTY);
+-         setFanDuty(duty);
+-       } else {
+-         climateState.fanPwm = 0;
+-         setFanDuty(0);
+-       }
+-     } else {
+-       // Auto mode - temperature-based control
++   if (climateState.mode == "manual") {
++     // Manual mode - CRITICAL: Use commands directly, don't override with presence
++     climateState.fanOn = manualCommands.fanOn;
++     if (manualCommands.fanOn) {
++       climateState.fanPwm = manualCommands.fanPwm;
++       int duty = map(manualCommands.fanPwm, 0, 255, 0, MAX_FAN_DUTY);
++       setFanDuty(duty);
++     } else {
++       climateState.fanPwm = 0;
++       setFanDuty(0);
++     }
++   } else {
++     // Auto mode - presence-based control
++     if (climateState.presence) {
++       // Presence detected - temperature-based control
+        autoClimateControl();
+-     }
+-   } else {
+-     // No presence - turn off fan
+-     setFanDuty(0);
+-     climateState.fanOn = false;
+-     climateState.fanPwm = 0;
+-     climateState.comfortBand = "Idle";
++     } else {
++       // No presence - turn off fan (auto mode only)
++       setFanDuty(0);
++       climateState.fanOn = false;
++       climateState.fanPwm = 0;
++       climateState.comfortBand = "Idle";
++     }
+    }
+    
+```
+
+</details>
+
+---
+
+<details><summary>Edit file: module3_smart_lighting/combined_smart_classroom/combined_smart_classroom.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 5, lines removed: 1
+
+```diff
+@@ -866,5 +866,9 @@
+    httpCode = http.PATCH(climateJsonString);
+    if (httpCode == HTTP_CODE_OK) {
+-     Serial.println("☁️ Climate cloud sync successful");
++     if (climateState.mode == "manual") {
++       Serial.println("☁️ Climate cloud sync successful (preserving manual commands)");
++     } else {
++       Serial.println("☁️ Climate cloud sync successful");
++     }
+    } else {
+      Serial.printf("❌ Climate cloud sync failed: %d\n", httpCode);
+```
+
+</details>
+
+---
+
+Now let me also improve the MQTT publishing for climate control to match the lighting pattern:
+
+---
+
+<details><summary>Edit file: module3_smart_lighting/combined_smart_classroom/combined_smart_classroom.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 11, lines removed: 8
+
+```diff
+@@ -754,12 +754,15 @@
+    mqtt.publish("sensors/air/quality_status", aqStatusStr, true);
+    
+-   StaticJsonDocument<256> fanDoc;
+-   fanDoc["mode"] = climateState.mode;
+-   fanDoc["on"] = climateState.fanOn;
+-   fanDoc["pwm"] = climateState.fanPwm;
+-   fanDoc["band"] = climateState.comfortBand;
+-   char fanStr[256];
+-   size_t n8 = serializeJson(fanDoc, fanStr);
+-   mqtt.publish("sensors/climate/fan_state", fanStr, true);
++   // CRITICAL: Only publish fan state in AUTO mode to prevent command conflicts
++   if (climateState.mode == "auto") {
++     StaticJsonDocument<256> fanDoc;
++     fanDoc["mode"] = climateState.mode;
++     fanDoc["on"] = climateState.fanOn;
++     fanDoc["pwm"] = climateState.fanPwm;
++     fanDoc["band"] = climateState.comfortBand;
++     char fanStr[256];
++     size_t n8 = serializeJson(fanDoc, fanStr);
++     mqtt.publish("sensors/climate/fan_state", fanStr, true);
++   }
+    
+    // Combined climate state for LCD
+```
+
+</details>
+
+---
+
+## ✅ **Fixed the Climate Fan Blinking Problem!**
+
+### **Root Causes Found:**
+
+#### **Problem 1: Firebase Feedback Loop** (Same as lighting)
+```cpp
+// BEFORE: Always overwrote Firebase with ESP32 fan state
+climateDoc["fan"]["on"] = climateState.fanOn;
+climateDoc["fan"]["pwm"] = climateState.fanPwm;
+
+// AFTER: Only update Firebase in AUTO mode
+if (climateState.mode == "auto") {
+    climateDoc["fan"]["on"] = climateState.fanOn;
+    climateDoc["fan"]["pwm"] = climateState.fanPwm;
+}
+```
+
+#### **Problem 2: Presence Override Bug** (Unique to climate)
+```cpp
+// BEFORE: Presence check always overrode manual commands
+if (climateState.presence) {
+    // manual logic
+} else {
+    climateState.fanOn = false;  // ← Overrode manual OFF command!
+}
+
+// AFTER: Check manual mode first
+if (climateState.mode == "manual") {
+    // Manual commands - no presence override
+} else {
+    // Auto mode - presence-based control
+}
+```
+
+#### **Problem 3: MQTT Publishing Conflicts** (Same pattern as lighting)
+```cpp
+// BEFORE: Always published fan state via MQTT
+mqtt.publish("sensors/climate/fan_state", fanStr, true);
+
+// AFTER: Only publish in AUTO mode
+if (climateState.mode == "auto") {
+    mqtt.publish("sensors/climate/fan_state", fanStr, true);
+}
+```
+
+### **What Was Happening:**
+1. **Web Dashboard:** Set Fan OFF → Firebase
+2. **ESP32:** Read command, turn fan OFF
+3. **Presence Logic:** Override fan OFF (back to ON if presence detected)
+4. **ESP32:** Write back to Firebase (overwrites your command)
+5. **Pi Bridge:** Read MQTT, update Firebase
+6. **Result:** ON→OFF→ON→OFF blinking
+
+### **New Clean Data Flow:**
+
+**✅ MANUAL MODE:**
+```
+Climate Manual:
+Web → Firebase → ESP32 → Physical Fan ✅
+ESP32 → MQTT → LCD ✅ (combined state always published)
+ESP32 → Firebase (sensor data only, no Fan overwrite) ✅
+No presence override in manual mode ✅
+```
+
+**✅ AUTO MODE:**
+```
+Climate Auto:
+ESP32 → Firebase (full state including Fan) ✅
+ESP32 → MQTT → LCD ✅
+Presence-based control ✅
+```
+
+### **What You'll See Now:**
+```
+⚡ Fast manual Fan: OFF
+☁️ Climate cloud sync successful (preserving manual commands)
+📡 MQTT Published: All sensor data
+```
+
+**Upload the updated code and test** - your climate fan manual controls should now work smoothly without any blinking! The fan will stay OFF when you set it to OFF, and stay ON when you set it ON. 🚀
+
+---
+
+_**User (2025-09-13 05:26Z)**_
+
+@combined_smart_classroom.ino this for both module, when i change mode for fan or for light, when i click auto or manual, it mostly will work normally but sometime it will jump back to manual or auto that prevoius mode for the ui, i feel is like it skip update@ClimateControl.tsx @Dashboard.tsx 
+
+---
+
+_**Assistant**_
+
+I see the issue! The problem is that the web dashboard is reading mode changes from Firebase, but the ESP32 is also writing mode changes back to Firebase, creating a race condition. Let me analyze and fix this.
+
+---
+
+Read file: undefined
+
+---
+
+<details>
+                <summary>Searched codebase "How does the combined ESP32 system handle mode changes and sync them to Firebase?" • **12** results</summary>
+            
+| File | Lines |
+|------|-------|
+| `module3_smart_lighting/combined_smart_classroom/combined_smart_classroom.ino` | L784-844 |
+| `module3_smart_lighting/smart_lighting/combined_smart_classroom.ino` | L779-838 |
+| `module3_smart_lighting/smart_lighting.ino` | L513-569 |
+| `module3_smart_lighting/ASSIGNMENT_COMPLIANT/ASSIGNMENT_COMPLIANT.ino` | L513-569 |
+| `module3_smart_lighting/combined_smart_classroom/combined_smart_classroom.ino` | L841-882 |
+| `module3_smart_lighting/combined_smart_classroom/combined_smart_classroom.ino` | L246-304 |
+| `module3_smart_lighting/combined_smart_classroom/combined_smart_classroom.ino` | L475-530 |
+| `module3_smart_lighting/combined_smart_classroom/combined_smart_classroom.ino` | L521-585 |
+| `module3_smart_lighting/smart_lighting/combined_smart_classroom.ino` | L475-530 |
+| `module3_smart_lighting/smart_lighting.ino` | L411-469 |
+| `module3_smart_lighting/smart_lighting/combined_smart_classroom.ino` | L246-304 |
+| `module3_smart_lighting/smart_lighting/combined_smart_classroom.ino` | L521-585 |
+
+</details>
+
+---
+
+I found the issue! The problem is that the ESP32 is **always writing the mode back to Firebase** (lines 810 and 842), which creates a race condition with the web dashboard mode changes.
+
+Here's what happens:
+1. **Web Dashboard:** User clicks "Manual" → Firebase
+2. **ESP32:** Reads "Manual" mode from Firebase (good)
+3. **ESP32:** Writes mode back to Firebase every 3 seconds (problem!)
+4. **Web Dashboard:** Receives ESP32's mode update, sometimes showing previous mode
+
+Let me fix this by preventing the ESP32 from overwriting mode changes from the web dashboard:
+
+---
+
+<details><summary>Edit file: module3_smart_lighting/combined_smart_classroom/combined_smart_classroom.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 2, lines removed: 1
+
+```diff
+@@ -808,5 +808,6 @@
+    }
+    
+-   lightingDoc["mode"] = lightingState.mode;
++   // Mode is controlled by web dashboard - don't overwrite
++   // lightingDoc["mode"] = lightingState.mode;
+    lightingDoc["systemStatus"] = lightingState.systemStatus;
+    lightingDoc["totalRecords"] = totalRecords;
+```
+
+</details>
+
+---
+
+<details><summary>Edit file: module3_smart_lighting/combined_smart_classroom/combined_smart_classroom.ino</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 2, lines removed: 1
+
+```diff
+@@ -841,5 +841,6 @@
+    climateDoc["tempC"] = climateState.temperature;
+    climateDoc["humidity"] = climateState.humidity;
+-   climateDoc["mode"] = climateState.mode;
++   // Mode is controlled by web dashboard - don't overwrite
++   // climateDoc["mode"] = climateState.mode;
+    
+    // CRITICAL: Don't overwrite manual fan commands in Firebase
+```
+
+</details>
+
+---
+
+Now I need to also improve the web dashboard to be more responsive to mode changes. Let me add some optimistic UI updates and better state management:
+
+---
+
+<details><summary>Edit file: web/src/components/Dashboard.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 6, lines removed: undefined
+
+```diff
+@@ -106,10 +106,16 @@
+    const handleModeChange = async (newMode: 'auto' | 'manual') => {
+      if (!state) return;
++     
++     // Optimistic UI update - update immediately for better responsiveness
++     setState(prevState => prevState ? { ...prevState, mode: newMode } : null);
+      
+      try {
+        const stateRef = ref(database, `/lighting/${ROOM_ID}/state`);
+        await update(stateRef, { mode: newMode });
++       console.log(`✅ Lighting mode changed to: ${newMode}`);
+      } catch (error) {
+        console.error('Mode change failed:', error);
++       // Revert optimistic update on error
++       setState(prevState => prevState ? { ...prevState, mode: state.mode } : null);
+        alert('Mode change failed - check Firebase connection');
+      }
+```
+
+</details>
+
+---
+
+<details><summary>Edit file: web/src/components/ClimateControl.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 6, lines removed: undefined
+
+```diff
+@@ -155,10 +155,16 @@
+    const handleModeChange = async (newMode: 'auto' | 'manual') => {
+      if (!state) return;
++     
++     // Optimistic UI update - update immediately for better responsiveness
++     setState(prevState => prevState ? { ...prevState, mode: newMode } : null);
+      
+      try {
+        const stateRef = ref(database, `/climate/${ROOM_ID}/state`);
+        await update(stateRef, { mode: newMode });
++       console.log(`✅ Climate mode changed to: ${newMode}`);
+      } catch (error) {
+        console.error('Mode change failed:', error);
++       // Revert optimistic update on error
++       setState(prevState => prevState ? { ...prevState, mode: state.mode } : null);
+        alert('Mode change failed - check Firebase connection');
+      }
+```
+
+</details>
+
+---
+
+Now let me add debouncing to prevent rapid mode changes and improve the Firebase listener to better handle mode updates:
+
+---
+
+<details><summary>Edit file: web/src/components/Dashboard.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: undefined
+
+```diff
+@@ -14,4 +14,5 @@
+    const [isConnected, setIsConnected] = useState(false);
+    const [error, setError] = useState<string>('');
++   const [lastModeChange, setLastModeChange] = useState<number>(0);
+  
+    useEffect(() => {
+```
+
+</details>
+
+---
+
+<details><summary>Edit file: web/src/components/Dashboard.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 8, lines removed: undefined
+
+```diff
+@@ -107,4 +107,12 @@
+    const handleModeChange = async (newMode: 'auto' | 'manual') => {
+      if (!state) return;
++     
++     // Prevent rapid mode changes (debounce)
++     const now = Date.now();
++     if (now - lastModeChange < 1000) {
++       console.log('⏱️ Mode change too fast, ignoring');
++       return;
++     }
++     setLastModeChange(now);
+      
+      // Optimistic UI update - update immediately for better responsiveness
+```
+
+</details>
+
+---
+
+<details><summary>Edit file: web/src/components/ClimateControl.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: undefined
+
+```diff
+@@ -14,4 +14,5 @@
+    const [isConnected, setIsConnected] = useState(false);
+    const [error, setError] = useState<string>('');
++   const [lastModeChange, setLastModeChange] = useState<number>(0);
+  
+    useEffect(() => {
+```
+
+</details>
+
+---
+
+<details><summary>Edit file: web/src/components/ClimateControl.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 8, lines removed: undefined
+
+```diff
+@@ -156,4 +156,12 @@
+    const handleModeChange = async (newMode: 'auto' | 'manual') => {
+      if (!state) return;
++     
++     // Prevent rapid mode changes (debounce)
++     const now = Date.now();
++     if (now - lastModeChange < 1000) {
++       console.log('⏱️ Mode change too fast, ignoring');
++       return;
++     }
++     setLastModeChange(now);
+      
+      // Optimistic UI update - update immediately for better responsiveness
+```
+
+</details>
+
+---
+
+## ✅ **Fixed the Mode Switching Issue!**
+
+### **Root Cause Found:**
+The ESP32 was **overwriting mode changes** by writing the current mode back to Firebase every 3 seconds, creating a race condition with web dashboard mode changes.
+
+### **Key Fixes Applied:**
+
+#### **1. ESP32 No Longer Overwrites Mode** 
+```cpp
+// BEFORE: ESP32 always wrote mode back to Firebase
+lightingDoc["mode"] = lightingState.mode;
+climateDoc["mode"] = climateState.mode;
+
+// AFTER: Mode is controlled by web dashboard only
+// Mode is controlled by web dashboard - don't overwrite
+// lightingDoc["mode"] = lightingState.mode;
+// climateDoc["mode"] = climateState.mode;
+```
+
+#### **2. Optimistic UI Updates in Web Dashboard**
+```tsx
+// BEFORE: Wait for Firebase response before updating UI
+await update(stateRef, { mode: newMode });
+
+// AFTER: Update UI immediately, revert on error
+setState(prevState => prevState ? { ...prevState, mode: newMode } : null);
+await update(stateRef, { mode: newMode });
+```
+
+#### **3. Debouncing to Prevent Rapid Clicks**
+```tsx
+// Prevent rapid mode changes (debounce)
+const now = Date.now();
+if (now - lastModeChange < 1000) {
+    console.log('⏱️ Mode change too fast, ignoring');
+    return;
+}
+setLastModeChange(now);
+```
+
+### **New Clean Data Flow:**
+
+**✅ MODE CHANGES:**
+```
+Web Dashboard → Firebase (mode only) ✅
+ESP32 → Reads mode changes from Firebase ✅
+ESP32 → Does NOT write mode back to Firebase ✅
+```
+
+**✅ SENSOR DATA:**
+```
+ESP32 → Firebase (sensor data, no mode overwrite) ✅
+ESP32 → MQTT → LCD ✅
+```
+
+### **What You'll Experience Now:**
+
+1. **Instant UI Response:** Mode buttons change immediately when clicked
+2. **No More Jumping:** Mode won't jump back to previous state
+3. **Reliable Switching:** Auto ↔ Manual works consistently
+4. **Debounced Clicks:** Rapid clicking is prevented
+
+### **Console Output:**
+```
+✅ Lighting mode changed to: manual
+✅ Climate mode changed to: auto
+⏱️ Mode change too fast, ignoring (if clicked rapidly)
+```
+
+**Upload the updated ESP32 code and refresh your web dashboard** - mode switching should now be smooth and reliable for both lighting and climate controls! 🚀
+
+---
+

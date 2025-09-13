@@ -13,6 +13,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'live' | 'reports'>('live');
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string>('');
+  const [lastModeChange, setLastModeChange] = useState<number>(0);
 
   useEffect(() => {
     console.log('🚀 Dashboard component mounted, connecting to Firebase...');
@@ -106,11 +107,25 @@ export default function Dashboard() {
   const handleModeChange = async (newMode: 'auto' | 'manual') => {
     if (!state) return;
     
+    // Prevent rapid mode changes (debounce)
+    const now = Date.now();
+    if (now - lastModeChange < 1000) {
+      console.log('⏱️ Mode change too fast, ignoring');
+      return;
+    }
+    setLastModeChange(now);
+    
+    // Optimistic UI update - update immediately for better responsiveness
+    setState(prevState => prevState ? { ...prevState, mode: newMode } : null);
+    
     try {
       const stateRef = ref(database, `/lighting/${ROOM_ID}/state`);
       await update(stateRef, { mode: newMode });
+      console.log(`✅ Lighting mode changed to: ${newMode}`);
     } catch (error) {
       console.error('Mode change failed:', error);
+      // Revert optimistic update on error
+      setState(prevState => prevState ? { ...prevState, mode: state.mode } : null);
       alert('Mode change failed - check Firebase connection');
     }
   };
