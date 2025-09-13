@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import './ManualControls.css';
 
 interface ManualControlsProps {
@@ -9,6 +9,11 @@ interface ManualControlsProps {
 export default function ManualControls({ led, onControlChange }: ManualControlsProps) {
   const [localPwm, setLocalPwm] = useState(led.pwm);
 
+  // Update local state when prop changes (from Firebase)
+  React.useEffect(() => {
+    setLocalPwm(led.pwm);
+  }, [led.pwm]);
+
   const handleToggle = () => {
     const newState = { on: !led.on, pwm: led.on ? 0 : localPwm };
     onControlChange(newState);
@@ -16,9 +21,8 @@ export default function ManualControls({ led, onControlChange }: ManualControlsP
 
   const handlePwmChange = (value: number) => {
     setLocalPwm(value);
-    if (led.on) {
-      onControlChange({ on: true, pwm: value });
-    }
+    // Always send the change, regardless of LED state
+    onControlChange({ on: led.on, pwm: value });
   };
 
   return (

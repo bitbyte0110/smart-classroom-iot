@@ -47,10 +47,9 @@ const char* MQTT_CLIENT_ID = "esp32-lighting-roomA";
 WiFiClient espClient;
 PubSubClient mqtt(espClient);
 
-// Assignment compliance - Optimized for responsive manual control
-const unsigned long SENSOR_INTERVAL = 1000;    // 1 second (responsive sensor reading)
-const unsigned long CLOUD_SYNC_INTERVAL = 2000; // 2 seconds (faster cloud sync for manual control)
-const unsigned long MANUAL_READ_INTERVAL = 500; // 0.5 seconds (very fast manual command reading)
+// Assignment compliance - Balanced timing to prevent feedback loops
+const unsigned long SENSOR_INTERVAL = 2000;    // 2 seconds (stable sensor reading)
+const unsigned long CLOUD_SYNC_INTERVAL = 3000; // 3 seconds (balanced cloud sync)
 const unsigned long LOG_INTERVAL = 10000;      // 10 seconds (sufficient records)
 
 // System state - Module 3 Smart Lighting (Camera-Only)
@@ -88,7 +87,6 @@ bool ldrFull = false;
 // Timing control
 unsigned long lastSensorRead = 0;
 unsigned long lastCloudSync = 0;
-unsigned long lastManualRead = 0;
 unsigned long lastDataLog = 0;
 
 // Track AI timestamp freshness without relying on epoch vs millis
@@ -167,16 +165,11 @@ void loop() {
     lastSensorRead = now;
   }
   
-  // Fast Manual Command Reading (for responsive UI)
-  if (now - lastManualRead >= MANUAL_READ_INTERVAL) {
-    readAIDataFromCloud(); // This also reads manual commands
-    lastManualRead = now;
-  }
-  
   // Cloud Data Processing Module (Assignment requirement)
   if (now - lastCloudSync >= CLOUD_SYNC_INTERVAL) {
-    syncWithCloud();
-    publishMQTT();
+    readAIDataFromCloud(); // Read manual commands and AI data
+    syncWithCloud();       // Write current state
+    publishMQTT();         // Publish to MQTT
     lastCloudSync = now;
   }
   
@@ -409,23 +402,14 @@ void readAIDataFromCloud() {
       }
     }
     
-    // Read manual commands for web interface - ALWAYS read, not just in manual mode
-    // This prevents race conditions when switching between modes
-    if (doc.containsKey("led")) {
+    // Read manual commands for web interface - only in manual mode to prevent conflicts
+    if (currentData.mode == "manual" && doc.containsKey("led")) {
       JsonObject led = doc["led"];
       if (led.containsKey("on")) {
-        bool newLedOn = led["on"];
-        if (newLedOn != manualCommands.ledOn) {
-          manualCommands.ledOn = newLedOn;
-          Serial.printf("📱 Manual command received: LED %s\n", newLedOn ? "ON" : "OFF");
-        }
+        manualCommands.ledOn = led["on"];
       }
       if (led.containsKey("pwm")) {
-        int newPwm = led["pwm"];
-        if (newPwm != manualCommands.ledPwm) {
-          manualCommands.ledPwm = newPwm;
-          Serial.printf("📱 Manual command received: PWM %d\n", newPwm);
-        }
+        manualCommands.ledPwm = led["pwm"];
       }
     }
   } else {
@@ -459,14 +443,9 @@ void validateBusinessRules() {
     }
     // Hysteresis zone: maintain previous state
   } else {
-    // Manual mode from web interface - PRIORITY over auto logic
-    // Only apply manual commands if they are valid (not default values)
-    if (manualCommands.ledOn != currentData.ledOn || manualCommands.ledPwm != currentData.ledPwm) {
-      currentData.ledOn = manualCommands.ledOn;
-      currentData.ledPwm = manualCommands.ledPwm;
-      Serial.printf("🎛️ Manual override: LED %s PWM %d\n", 
-        currentData.ledOn ? "ON" : "OFF", currentData.ledPwm);
-    }
+    // Manual mode from web interface
+    currentData.ledOn = manualCommands.ledOn;
+    currentData.ledPwm = manualCommands.ledPwm;
   }
   
   // PWM validation
