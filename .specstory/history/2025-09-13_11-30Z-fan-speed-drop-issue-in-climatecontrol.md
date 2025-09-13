@@ -707,3 +707,43 @@ The fixes should resolve the issue where manual fan settings were being overridd
 
 ---
 
+_**User (2025-09-13 09:42Z)**_
+
+@yolo_force_gpu.py can u remove the word FORCE-GPT
+
+---
+
+_**Assistant**_
+
+I'll remove the "FORCE-GPU" text from the YOLO detection script. Looking at the code, I can see it appears in the status overlay that's displayed on the video feed.
+
+
+---
+
+<details><summary>Edit file: AI_detection/yolo_force_gpu.py</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -234,5 +234,5 @@
+                  
+                  # Add status
+-                 status = f"FORCE-GPU | People: {person_count if frame_count % self.frame_skip == 0 else '...'} | FPS: {fps:.1f}"
++                 status = f"People: {person_count if frame_count % self.frame_skip == 0 else '...'} | FPS: {fps:.1f}"
+                  cv2.putText(frame, status, (5, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
+                  
+```
+
+</details>
+
+---
+
+Perfect! I've removed the "FORCE-GPU" text from the status overlay. Now the video feed will only show "People: ... | FPS: 26.9" instead of "FORCE-GPU | People: ... | FPS: 26.9".
+
+The change was made on line 236 where the status text is constructed and displayed on the video feed. The overlay will now be cleaner and only show the essential information about people detection count and frames per second.
+
+---
+

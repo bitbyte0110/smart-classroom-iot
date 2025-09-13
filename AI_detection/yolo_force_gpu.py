@@ -233,7 +233,7 @@ class ForceGPUYOLODetector:
                     fps = frame_count / (current_time - start_time)
                 
                 # Add status
-                status = f"FORCE-GPU | People: {person_count if frame_count % self.frame_skip == 0 else '...'} | FPS: {fps:.1f}"
+                status = f"People: {person_count if frame_count % self.frame_skip == 0 else '...'} | FPS: {fps:.1f}"
                 cv2.putText(frame, status, (5, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
                 
                 # Show frame
