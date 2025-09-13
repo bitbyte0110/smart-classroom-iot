@@ -1,6 +1,22 @@
 {
   "rules": {
-    ".read": true,
-    ".write": true
+    "lighting": {
+      "$room": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "climate": {
+      "$room": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "combined": {
+      "$room": {
+        ".read": true,
+        ".write": true
+      }
+    }
   }
 }
