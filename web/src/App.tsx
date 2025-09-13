@@ -13,7 +13,7 @@ function App() {
       <nav className="module-navigation">
         <div className="nav-container">
           <div className="nav-brand">
-            🏫 Smart Classroom
+            Smart Classroom
           </div>
           
           <div className="nav-tabs">

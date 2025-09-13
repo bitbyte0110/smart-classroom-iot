@@ -31,7 +31,7 @@ export default function ManualControls({ led, onControlChange }: ManualControlsP
 
   return (
     <div className="manual-controls">
-      <h3>🎛️ Manual Controls</h3>
+      <h3 style={{ color: '#000000' }}>🎛️ Manual Lighting Controls</h3>
       
       <div className="control-group">
         <label>Light Control</label>

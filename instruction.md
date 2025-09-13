@@ -968,10 +968,19 @@ BMIT2123 Assignment (202505)
 BMIT2123 Assignment (202505)
 📄 Presentation & Submission Artifacts (NEW)
  • Short video ≤90 s with subtitles showing: (i) Auto logic, (ii) Manual control, (iii) Offline handling, (iv) Reports page.
-BMIT2123 Assignment (202505)
 
  • Each member presents their own module; include your architecture & state-flow slide.
-BMIT2123 Assignment (202505)
 
- • Zip upload: PDF report (with diagrams, screenshots), complete source code, Firebase details, and video(s); name as Programme_Tutorial_Leader.zip and submit to Google Classroom. 
+New Clean Data Flow:
 
+✅ MODE CHANGES:
+
+Web Dashboard → Firebase (mode only) ✅
+ESP32 → Reads mode changes from Firebase ✅
+ESP32 → Does NOT write mode back to Firebase ✅
+
+
+✅ SENSOR DATA:
+
+ESP32 → Firebase (sensor data, no mode overwrite) ✅
+ESP32 → MQTT → LCD ✅

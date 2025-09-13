@@ -162,7 +162,7 @@ export default function Dashboard() {
   return (
     <div className="dashboard">
       <header className="dashboard-header">
-        <h1>🏫 Smart Classroom Lighting Control</h1>
+        <h1>💡 Smart Classroom Lighting Control</h1>
         <div className="connection-status">
           <div className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}></div>
           <span>{isConnected ? 'Live Data' : 'Demo Mode'}</span>

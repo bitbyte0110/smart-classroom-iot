@@ -41,13 +41,54 @@ interface ClimateLog {
   presence: boolean;
 }
 
+interface CurrentClimateState {
+  tempC?: number;
+  humidity?: number;
+  aqRaw?: number;
+  aqStatus?: string;
+  fanOn?: boolean;
+  fanPwm?: number;
+  comfortBand?: string;
+  mode?: string;
+  ts?: number;
+}
+
+interface LogData {
+  timestamp?: number;
+  ts?: number;
+  climate?: Record<string, unknown>;
+  ai?: Record<string, unknown>;
+  tempC?: number;
+  humidity?: number;
+  aqRaw?: number;
+  aqStatus?: string;
+  fanOn?: boolean;
+  fanPwm?: number;
+  comfortBand?: string;
+  mode?: string;
+  presence?: boolean;
+}
+
 export default function ClimateReports() {
   const [logs, setLogs] = useState<ClimateLog[]>([]);
+  const [currentClimate, setCurrentClimate] = useState<CurrentClimateState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [demoMode, setDemoMode] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
   useEffect(() => {
-    // Try combined logs first (new system), fallback to climate logs (old system)
+    // First, get current climate state for real-time data
+    const currentClimateRef = ref(database, `/climate/${ROOM_ID}/state`);
+    const currentClimateUnsubscribe = onValue(currentClimateRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        setCurrentClimate(data);
+        setLastUpdate(new Date());
+        console.log('🌡️ Current climate state:', data);
+      }
+    });
+
+    // Then, try combined logs first (new system), fallback to climate logs (old system)
     const combinedLogsRef = ref(database, `/combined/${ROOM_ID}/logs`);
     const climateLogsRef = ref(database, `/climate/${ROOM_ID}/logs`);
     const recentLogsQuery = query(combinedLogsRef, orderByKey(), limitToLast(1000));
@@ -59,18 +100,20 @@ export default function ClimateReports() {
       if (data) {
         const logsArray = Object.values(data).map((rawLog: unknown) => {
           // Handle combined ESP32 log structure
-          const logData = rawLog as Record<string, any>;
+          const logData = rawLog as LogData;
+          const climate = logData.climate as Record<string, unknown> || {};
+          const ai = logData.ai as Record<string, unknown> || {};
           const log: ClimateLog = {
-            ts: logData.timestamp || logData.ts || Date.now(),
-            tempC: logData.climate?.tempC || 0,
-            humidity: logData.climate?.humidity || 0,
-            aqRaw: logData.climate?.aqRaw || 0,
-            aqStatus: logData.climate?.aqStatus || 'Good',
-            fanOn: logData.climate?.fanOn || false,
-            fanPwm: logData.climate?.fanPwm || 0,
-            comfortBand: logData.climate?.comfortBand || 'Moderate',
-            mode: logData.climate?.mode || 'auto',
-            presence: logData.ai?.presence || false
+            ts: (logData.timestamp as number) || (logData.ts as number) || Date.now(),
+            tempC: (climate.tempC as number) || 0,
+            humidity: (climate.humidity as number) || 0,
+            aqRaw: (climate.aqRaw as number) || 0,
+            aqStatus: (climate.aqStatus as string) || 'Good',
+            fanOn: (climate.fanOn as boolean) || false,
+            fanPwm: (climate.fanPwm as number) || 0,
+            comfortBand: (climate.comfortBand as string) || 'Moderate',
+            mode: (climate.mode as string) || 'auto',
+            presence: (ai.presence as boolean) || false
           };
           return log;
         }) as ClimateLog[];
@@ -90,18 +133,18 @@ export default function ClimateReports() {
         
         if (fallbackData) {
           const logsArray = Object.values(fallbackData).map((rawLog: unknown) => {
-            const logData = rawLog as Record<string, any>;
+            const logData = rawLog as LogData;
             const log: ClimateLog = {
-              ts: logData.timestamp || logData.ts || Date.now(),
-              tempC: logData.tempC || 0,
-              humidity: logData.humidity || 0,
-              aqRaw: logData.aqRaw || 0,
-              aqStatus: logData.aqStatus || 'Good',
-              fanOn: logData.fanOn || false,
-              fanPwm: logData.fanPwm || 0,
-              comfortBand: logData.comfortBand || 'Moderate',
-              mode: logData.mode || 'auto',
-              presence: logData.presence || false
+              ts: (logData.timestamp as number) || (logData.ts as number) || Date.now(),
+              tempC: (logData.tempC as number) || 0,
+              humidity: (logData.humidity as number) || 0,
+              aqRaw: (logData.aqRaw as number) || 0,
+              aqStatus: (logData.aqStatus as string) || 'Good',
+              fanOn: (logData.fanOn as boolean) || false,
+              fanPwm: (logData.fanPwm as number) || 0,
+              comfortBand: (logData.comfortBand as string) || 'Moderate',
+              mode: (logData.mode as string) || 'auto',
+              presence: (logData.presence as boolean) || false
             };
             return log;
           }) as ClimateLog[];
@@ -113,7 +156,10 @@ export default function ClimateReports() {
       });
     });
 
-    return () => unsubscribe();
+    return () => {
+      currentClimateUnsubscribe();
+      unsubscribe();
+    };
   }, []);
 
   // Temperature Chart
@@ -238,26 +284,45 @@ export default function ClimateReports() {
 
   // Climate Statistics
   const getClimateStats = () => {
-    const fanLogs = logs.filter(log => log.fanOn);
-    const totalMinutes = (logs.length * 30) / 60; // 30 seconds per log
-    const fanMinutes = (fanLogs.length * 30) / 60;
-    const avgTemp = logs.length > 0 
-      ? logs.reduce((sum, log) => sum + log.tempC, 0) / logs.length 
-      : 0;
-    const avgHumidity = logs.length > 0 
-      ? logs.reduce((sum, log) => sum + log.humidity, 0) / logs.length 
-      : 0;
-    const avgAQ = logs.length > 0 
-      ? logs.reduce((sum, log) => sum + log.aqRaw, 0) / logs.length 
-      : 0;
+    // If we have logs, use them for historical data
+    if (logs.length > 0) {
+      const fanLogs = logs.filter(log => log.fanOn);
+      const totalMinutes = (logs.length * 30) / 60; // 30 seconds per log
+      const fanMinutes = (fanLogs.length * 30) / 60;
+      const avgTemp = logs.reduce((sum, log) => sum + log.tempC, 0) / logs.length;
+      const avgHumidity = logs.reduce((sum, log) => sum + log.humidity, 0) / logs.length;
+      const avgAQ = logs.reduce((sum, log) => sum + log.aqRaw, 0) / logs.length;
 
+      return {
+        totalMinutes: Math.round(totalMinutes),
+        fanMinutes: Math.round(fanMinutes),
+        fanUsagePercent: totalMinutes > 0 ? Math.round((fanMinutes / totalMinutes) * 100) : 0,
+        avgTemp: Math.round(avgTemp * 10) / 10,
+        avgHumidity: Math.round(avgHumidity * 10) / 10,
+        avgAQ: Math.round(avgAQ),
+      };
+    }
+    
+    // If no logs but we have current climate data, use current values
+    if (currentClimate) {
+      return {
+        totalMinutes: 0,
+        fanMinutes: 0,
+        fanUsagePercent: 0,
+        avgTemp: Math.round((currentClimate.tempC || 0) * 10) / 10,
+        avgHumidity: Math.round((currentClimate.humidity || 0) * 10) / 10,
+        avgAQ: Math.round(currentClimate.aqRaw || 0),
+      };
+    }
+    
+    // Fallback to zero values
     return {
-      totalMinutes: Math.round(totalMinutes),
-      fanMinutes: Math.round(fanMinutes),
-      fanUsagePercent: totalMinutes > 0 ? Math.round((fanMinutes / totalMinutes) * 100) : 0,
-      avgTemp: Math.round(avgTemp * 10) / 10,
-      avgHumidity: Math.round(avgHumidity * 10) / 10,
-      avgAQ: Math.round(avgAQ),
+      totalMinutes: 0,
+      fanMinutes: 0,
+      fanUsagePercent: 0,
+      avgTemp: 0,
+      avgHumidity: 0,
+      avgAQ: 0,
     };
   };
 
@@ -290,7 +355,7 @@ export default function ClimateReports() {
     return <div className="reports loading">Loading climate reports...</div>;
   }
 
-  if (logs.length === 0) {
+  if (logs.length === 0 && !currentClimate) {
     return (
       <div className="reports">
         <div className="reports-header">
@@ -320,6 +385,10 @@ export default function ClimateReports() {
       <div className="reports-header">
         <h2>🌡️ Climate Analytics & Reports</h2>
         <div className="header-controls">
+          <div style={{ fontSize: '0.8rem', color: '#5a6c7d', marginRight: '1rem' }}>
+            Last updated: {lastUpdate.toLocaleTimeString()}
+            {currentClimate && logs.length === 0 && <span style={{ color: '#27ae60', marginLeft: '0.3rem' }}>● Live</span>}
+          </div>
           <button 
             onClick={() => setDemoMode(!demoMode)} 
             className={`demo-toggle ${demoMode ? 'active' : ''}`}
@@ -334,24 +403,36 @@ export default function ClimateReports() {
 
       <div className="stats-overview">
         <div className="stat-card">
-          <h3>🌡️ Avg Temperature</h3>
+          <h3>🌡️ {logs.length > 0 ? 'Avg Temperature' : 'Current Temperature'}</h3>
           <div className="stat-value">{climateStats.avgTemp}°C</div>
-          <div className="stat-subtitle">24h average</div>
+          <div className="stat-subtitle">
+            {logs.length > 0 ? '24h average' : 'Live reading'}
+            {currentClimate && logs.length === 0 && <span style={{ color: '#27ae60', marginLeft: '0.5rem' }}>●</span>}
+          </div>
         </div>
         <div className="stat-card">
-          <h3>💧 Avg Humidity</h3>
+          <h3>💧 {logs.length > 0 ? 'Avg Humidity' : 'Current Humidity'}</h3>
           <div className="stat-value">{climateStats.avgHumidity}%</div>
-          <div className="stat-subtitle">24h average</div>
+          <div className="stat-subtitle">
+            {logs.length > 0 ? '24h average' : 'Live reading'}
+            {currentClimate && logs.length === 0 && <span style={{ color: '#27ae60', marginLeft: '0.5rem' }}>●</span>}
+          </div>
         </div>
         <div className="stat-card">
           <h3>🌬️ Fan Usage</h3>
           <div className="stat-value">{climateStats.fanUsagePercent}%</div>
-          <div className="stat-subtitle">{climateStats.fanMinutes} min total</div>
+          <div className="stat-subtitle">
+            {logs.length > 0 ? `${climateStats.fanMinutes} min total` : 'Current status'}
+            {currentClimate && logs.length === 0 && <span style={{ color: '#27ae60', marginLeft: '0.5rem' }}>●</span>}
+          </div>
         </div>
         <div className="stat-card">
-          <h3>🌪️ Air Quality</h3>
+          <h3>🌪️ {logs.length > 0 ? 'Air Quality' : 'Current Air Quality'}</h3>
           <div className="stat-value">{climateStats.avgAQ}</div>
-          <div className="stat-subtitle">avg raw reading</div>
+          <div className="stat-subtitle">
+            {logs.length > 0 ? 'avg raw reading' : 'Live reading'}
+            {currentClimate && logs.length === 0 && <span style={{ color: '#27ae60', marginLeft: '0.5rem' }}>●</span>}
+          </div>
         </div>
       </div>
 

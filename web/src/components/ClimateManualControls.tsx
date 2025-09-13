@@ -35,7 +35,7 @@ export default function ClimateManualControls({ fan, onControlChange }: ClimateM
 
   return (
     <div className="manual-controls">
-      <h3>🎛️ Manual Fan Controls</h3>
+      <h3 style={{ color: '#000000' }}>🎛️ Manual Fan Controls</h3>
       
       <div className="control-group">
         <label>Fan Control</label>

@@ -7,10 +7,10 @@
 }
 
 .manual-controls h3 {
-  color: #1a252f;
+  color: #000000;
   margin: 0 0 1rem 0;
   font-size: 1.1rem;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: -0.3px;
 }
 
@@ -127,24 +127,7 @@
   font-weight: 600;
 }
 
-/* Ultra-fast response indicator */
-.control-group {
-  position: relative;
-}
-
-.control-group::after {
-  content: "⚡ 0.3s Response";
-  position: absolute;
-  top: -8px;
-  right: 0;
-  background: #f8f9fa;
-  color: #5a6c7d;
-  padding: 3px 6px;
-  border-radius: 4px;
-  font-size: 0.65rem;
-  font-weight: 600;
-  border: 1px solid #e1e8ed;
-}
+/* Response indicator removed */
 
 @keyframes pulse {
   0%, 100% { opacity: 0.8; }
