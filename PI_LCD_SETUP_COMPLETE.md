@@ -53,13 +53,19 @@ cd GrovePi/Software/Python
 sudo python3 setup.py install
 ```
 
-### 2.3 Create Python Virtual Environment
+### 2.3 Fix GrovePi Package Structure
+```bash
+# Create __init__.py to make grove_rgb_lcd a proper Python package
+touch grove_rgb_lcd/__init__.py
+```
+
+### 2.4 Create Python Virtual Environment
 ```bash
 python3 -m venv grove-env
 source grove-env/bin/activate
 ```
 
-### 2.4 Install Python Dependencies
+### 2.5 Install Python Dependencies
 ```bash
 pip install paho-mqtt
 ```
@@ -84,7 +90,7 @@ sudo i2cdetect -y 1
 cd ~/GrovePi/Software/Python
 
 # Test LCD import and display
-python3 -c 'from grove_rgb_lcd.grove_rgb_lcd import setText; setText("Hello World\nLCD Working!")'
+python3 -c 'import sys; sys.path.insert(0, "."); from grove_rgb_lcd.grove_rgb_lcd import setText; setText("Hello World\nLCD Working!")'
 ```
 **Expected result:** LCD should display "Hello World" on line 1 and "LCD Working!" on line 2
 
@@ -95,7 +101,7 @@ python3 -c 'from grove_rgb_lcd.grove_rgb_lcd import setText; setText("Hello Worl
 ### 4.1 Copy Dashboard File
 ```bash
 # From your Windows development machine:
-scp pi_lcd_dashboard.py pi@192.168.202.221:~/pi_lcd_dashboard.py
+scp pi_lcd_dashboard_working.py pi@192.168.202.221:~/pi_lcd_dashboard.py
 
 # Replace 192.168.202.221 with your actual Pi IP address
 ```
@@ -212,8 +218,14 @@ sudo i2cdetect -y 1
 # Verify you're in the correct directory
 cd ~/GrovePi/Software/Python
 
+# Check if __init__.py exists (required for package import)
+ls -la grove_rgb_lcd/__init__.py
+
+# If missing, create it:
+touch grove_rgb_lcd/__init__.py
+
 # Test import manually
-python3 -c "from grove_rgb_lcd.grove_rgb_lcd import setText; print('Import OK')"
+python3 -c 'import sys; sys.path.insert(0, "."); from grove_rgb_lcd.grove_rgb_lcd import setText; print("Import OK")'
 ```
 
 ### MQTT Connection Issues
@@ -263,17 +275,19 @@ sudo raspi-config  # Enable SSH and I2C
 cd ~ && git clone https://github.com/DexterInd/GrovePi
 cd GrovePi/Software/Python && sudo python3 setup.py install
 
+# Fix package structure (IMPORTANT!)
+touch grove_rgb_lcd/__init__.py
+
 # Python environment
 python3 -m venv grove-env && source grove-env/bin/activate
 pip install paho-mqtt
 
 # Copy dashboard file (from Windows)
-scp pi_lcd_dashboard.py pi@YOUR_PI_IP:~/pi_lcd_dashboard.py
+scp pi_lcd_dashboard_working.py pi@YOUR_PI_IP:~/pi_lcd_dashboard.py
 
 # Test
 cd ~/GrovePi/Software/Python && python3 ~/pi_lcd_dashboard.py
 ```
-
 ---
 
 ## Success Criteria

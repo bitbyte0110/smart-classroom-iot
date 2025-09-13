@@ -19,24 +19,39 @@ Display Pages (3 seconds each):
 3. Air Quality: MQ-135 reading, status, alerts
 """
 
+import sys
+import os
 import time
 import json
 import logging
 import paho.mqtt.client as mqtt
 from datetime import datetime
 
+# Add the GrovePi directory to Python path
+grovepi_path = "/home/pi/GrovePi/Software/Python"
+if grovepi_path not in sys.path:
+    sys.path.insert(0, grovepi_path)
+
+# Also add current directory if we're in the GrovePi directory
+current_dir = os.getcwd()
+if "GrovePi/Software/Python" in current_dir and current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+
 try:
     # GrovePi LCD library (works with both RGB and standard LCD)
     from grove_rgb_lcd.grove_rgb_lcd import setText, setRGB
-except ImportError:
-    print("ERROR: GrovePi library not installed. Run: sudo python3 setup.py install in GrovePi/Software/Python")
+    print("✅ GrovePi library imported successfully")
+except ImportError as e:
+    print(f"❌ ERROR: GrovePi library not found! {e}")
+    print(f"Current directory: {os.getcwd()}")
+    print(f"Python path: {sys.path}")
+    print("Make sure you're in the GrovePi/Software/Python directory")
     exit(1)
 
 # Configuration
 MQTT_HOST = "localhost"
 MQTT_PORT = 1883
 PAGE_DURATION = 3  # seconds per page
-# ALERT_BLINK_INTERVAL = 0.5  # seconds - REMOVED: No longer using blinking
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -46,11 +61,6 @@ class SmartClassroomLCD:
     def __init__(self):
         self.current_page = 0
         self.last_page_change = 0
-        # self.alert_blink_state = False  # REMOVED: No longer using blinking
-        # self.last_blink_time = 0        # REMOVED: No longer using blinking
-        
-        # GrovePi LCD library (works with both RGB and standard LCD)
-        # No initialization needed - uses global functions
         
         # System state from MQTT (all data comes from ESP32 modules)
         self.state = {
@@ -143,38 +153,35 @@ class SmartClassroomLCD:
     
     def set_lcd_color(self, color_name):
         """Set LCD backlight color (standard LCD has fixed blue backlight)"""
-        # Standard Grove 16x2 LCD has fixed blue backlight
-        # We can only turn it on/off, not change colors
         try:
             if color_name == "black":
-                # Turn off backlight (if supported)
                 setRGB(0, 0, 0)
             else:
-                # Turn on backlight with default blue
                 setRGB(0, 128, 255)
         except:
-            # If RGB control fails, just continue (LCD will work with default backlight)
             pass
 
     def lcd_write(self, line1: str, line2: str):
         """Write two lines to the LCD safely within 16 chars each"""
-        # Ensure lines are exactly 16 characters
+        # Ensure lines are exactly 16 characters and stable
         line1 = line1[:16].ljust(16)
         line2 = line2[:16].ljust(16)
         
-        # Write to LCD using GrovePi library
-        setText(f"{line1}\n{line2}")
+        # Write to LCD in one operation to prevent flickering
+        try:
+            setText(f"{line1}\n{line2}")
+        except Exception as e:
+            # If LCD write fails, don't crash the program
+            logger.error(f"LCD write error: {e}")
     
     def display_page_lighting(self):
         """Display lighting information page"""
         lighting = self.state["lighting"]
         
-        # Line 1: Light presence and LDR
         line1 = f"Light P:{lighting['presence']} L:{lighting['ldrRaw']}"
         if len(line1) > 16:
             line1 = f"P:{lighting['presence']} LDR:{lighting['ldrRaw']}"
         
-        # Line 2: LED state and mode indicator
         led_state = "ON" if lighting['led']['on'] else "OFF"
         pwm = lighting['led']['pwm']
         mode_indicator = " M" if lighting['mode'] == 'manual' else ""
@@ -183,24 +190,23 @@ class SmartClassroomLCD:
         if len(line2) > 16:
             line2 = f"LED:{led_state} {pwm}{mode_indicator}"
         
-        self.lcd_write(line1.ljust(16), line2.ljust(16))
+        # Write to LCD once and set color once
+        self.lcd_write(line1, line2)
         self.set_lcd_color("blue")
     
     def display_page_climate(self):
         """Display climate information page"""
         climate = self.state["climate"]
         
-        # Line 1: Temperature and humidity
         temp = climate['tempC']
         humidity = climate['humidity']
         line1 = f"T:{temp:.1f}C H:{humidity:.0f}%"
         
-        # Line 2: Mode and fan state
-        mode = climate['mode'].upper()[:4]  # AUTO or MAN
+        mode = climate['mode'].upper()[:4]
         fan_pwm = climate['fan']['pwm']
         line2 = f"{mode} Fan:{fan_pwm}"
         
-        self.lcd_write(line1.ljust(16), line2.ljust(16))
+        self.lcd_write(line1, line2)
         self.set_lcd_color("cyan")
     
     def display_page_air_quality(self):
@@ -208,12 +214,9 @@ class SmartClassroomLCD:
         climate = self.state["climate"]
         aq_raw = climate['aqRaw']
         aq_status = climate['aqStatus']
-        aq_alert = climate['aqAlert']
         
-        # Line 1: AQ reading and status
         line1 = f"AQ:{aq_raw} {aq_status}"
         
-        # Line 2: Alert status
         if aq_status == "Poor":
             line2 = "ALERT"
             color = "red"
@@ -225,29 +228,31 @@ class SmartClassroomLCD:
             color = "green"
         
         # Always display data without blinking
-        self.lcd_write(line1.ljust(16), line2.ljust(16))
+        self.lcd_write(line1, line2)
         self.set_lcd_color(color)
     
     def update_display(self):
         """Update the LCD display with rotating pages"""
         current_time = time.time()
         
-        # Check if we should change pages
+        # Only update LCD when page changes, not every loop iteration
         if current_time - self.last_page_change >= PAGE_DURATION:
             self.current_page = (self.current_page + 1) % 3
             self.last_page_change = current_time
-        
-        # Display current page
-        try:
-            if self.current_page == 0:
-                self.display_page_lighting()
-            elif self.current_page == 1:
-                self.display_page_climate()
-            elif self.current_page == 2:
-                self.display_page_air_quality()
-                
-        except Exception as e:
-            logger.error(f"❌ Display error: {e}")
+            
+            # Only write to LCD when page actually changes
+            try:
+                if self.current_page == 0:
+                    self.display_page_lighting()
+                elif self.current_page == 1:
+                    self.display_page_climate()
+                elif self.current_page == 2:
+                    self.display_page_air_quality()
+                    
+            except Exception as e:
+                logger.error(f"❌ Display error: {e}")
+                # Show error on LCD instead of crashing
+                self.lcd_write("Display Error", "Check Logs")
     
     def run(self):
         """Main display loop"""
@@ -262,7 +267,7 @@ class SmartClassroomLCD:
             
             while True:
                 self.update_display()
-                time.sleep(0.1)  # Small delay for responsiveness
+                time.sleep(1.0)  # Check every second, LCD only updates every 3 seconds
                 
         except KeyboardInterrupt:
             logger.info("🛑 Stopping LCD dashboard...")
