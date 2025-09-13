@@ -182,11 +182,17 @@ export default function ClimateControl() {
   const handleManualControl = async (fan: { on: boolean; pwm: number }) => {
     if (!state || state.mode !== 'manual') return;
     
+    // Optimistic UI update for instant feedback
+    setState(prevState => prevState ? { ...prevState, fan } : null);
+    
     try {
       const stateRef = ref(database, `/climate/${ROOM_ID}/state`);
       await update(stateRef, { fan });
+      console.log(`✅ Climate fan control: ${fan.on ? 'ON' : 'OFF'} (PWM: ${fan.pwm})`);
     } catch (error) {
       console.error('Manual control failed:', error);
+      // Revert optimistic update on error
+      setState(prevState => prevState ? { ...prevState, fan: state.fan } : null);
       alert('Control failed - check Firebase connection');
     }
   };

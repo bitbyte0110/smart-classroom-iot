@@ -84,7 +84,7 @@ PubSubClient mqtt(espClient);
 // ===== TIMING CONSTANTS =====
 const unsigned long SENSOR_INTERVAL = 2000;     // 2 seconds
 const unsigned long CLOUD_SYNC_INTERVAL = 3000; // 3 seconds
-const unsigned long MANUAL_CHECK_INTERVAL = 500; // 0.5 seconds
+const unsigned long MANUAL_CHECK_INTERVAL = 200; // 0.2 seconds (much faster response)
 const unsigned long LOG_INTERVAL = 10000;       // 10 seconds
 const unsigned long PRESENCE_CHECK_INTERVAL = 10000; // 10 seconds
 
@@ -292,9 +292,9 @@ void loop() {
   // Actuator control
   controlActuators();
   
-  // Faster loop when in manual mode
+  // Much faster loop when in manual mode for instant response
   if (lightingState.mode == "manual" || climateState.mode == "manual") {
-    delay(50);  // Very responsive manual controls
+    delay(20);  // Ultra responsive manual controls (50Hz update rate)
   } else {
     delay(100); // Normal auto mode
   }
@@ -403,6 +403,11 @@ void readManualCommandsFromCloud() {
   if (WiFi.status() != WL_CONNECTED) return;
   
   HTTPClient http;
+  unsigned long startTime = millis(); // Track response time
+  
+  // Optimize HTTP client for faster requests
+  http.setTimeout(1000); // 1 second timeout instead of default 5 seconds
+  http.setConnectTimeout(1000); // Fast connection timeout
   
   // Read lighting commands
   String lightingUrl = String(FIREBASE_URL) + "/lighting/" + ROOM_ID + "/state/led.json";
@@ -421,6 +426,8 @@ void readManualCommandsFromCloud() {
         Serial.printf("⚡ Fast manual LED: %s\n", newLedOn ? "ON" : "OFF");
         lightingState.ledOn = manualCommands.ledOn;
         lightingState.ledPwm = manualCommands.ledPwm;
+        // Apply immediately for instant response
+        ledcWrite(LED_PIN, lightingState.ledPwm);
       }
     }
     if (doc.containsKey("pwm")) {
@@ -430,14 +437,17 @@ void readManualCommandsFromCloud() {
         Serial.printf("⚡ Fast manual LED PWM: %d\n", manualCommands.ledPwm);
         lightingState.ledOn = manualCommands.ledOn;
         lightingState.ledPwm = manualCommands.ledPwm;
+        // Apply immediately for instant response
+        ledcWrite(LED_PIN, lightingState.ledPwm);
       }
     }
   }
   http.end();
   
-  // Read climate commands
+  // Read climate commands with same optimization
   String climateUrl = String(FIREBASE_URL) + "/climate/" + ROOM_ID + "/state.json";
   http.begin(climateUrl);
+  http.setTimeout(1000); // Fast timeout for climate requests too
   httpCode = http.GET();
   
   if (httpCode == HTTP_CODE_OK) {
@@ -462,6 +472,13 @@ void readManualCommandsFromCloud() {
           Serial.printf("⚡ Fast manual Fan: %s\n", newFanOn ? "ON" : "OFF");
           climateState.fanOn = manualCommands.fanOn;
           climateState.fanPwm = manualCommands.fanPwm;
+          // Apply immediately for instant response
+          if (manualCommands.fanOn) {
+            int duty = map(manualCommands.fanPwm, 0, 255, 0, MAX_FAN_DUTY);
+            setFanDuty(duty);
+          } else {
+            setFanDuty(0);
+          }
         }
       }
       if (fan.containsKey("pwm")) {
@@ -471,11 +488,24 @@ void readManualCommandsFromCloud() {
           Serial.printf("⚡ Fast manual Fan PWM: %d\n", manualCommands.fanPwm);
           climateState.fanOn = manualCommands.fanOn;
           climateState.fanPwm = manualCommands.fanPwm;
+          // Apply immediately for instant response
+          if (manualCommands.fanOn) {
+            int duty = map(manualCommands.fanPwm, 0, 255, 0, MAX_FAN_DUTY);
+            setFanDuty(duty);
+          } else {
+            setFanDuty(0);
+          }
         }
       }
     }
   }
   http.end();
+  
+  // Debug: Show actual response time
+  unsigned long responseTime = millis() - startTime;
+  if (responseTime > 100) { // Only log if slower than 100ms
+    Serial.printf("⏱️ Manual command check took %lums\n", responseTime);
+  }
 }
 
 void readAIDataFromCloud() {

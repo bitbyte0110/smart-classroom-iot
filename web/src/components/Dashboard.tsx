@@ -133,11 +133,17 @@ export default function Dashboard() {
   const handleManualControl = async (led: { on: boolean; pwm: number }) => {
     if (!state || state.mode !== 'manual') return;
     
+    // Optimistic UI update for instant feedback
+    setState(prevState => prevState ? { ...prevState, led } : null);
+    
     try {
       const stateRef = ref(database, `/lighting/${ROOM_ID}/state`);
       await update(stateRef, { led });
+      console.log(`✅ Lighting control: ${led.on ? 'ON' : 'OFF'} (PWM: ${led.pwm})`);
     } catch (error) {
       console.error('Manual control failed:', error);
+      // Revert optimistic update on error
+      setState(prevState => prevState ? { ...prevState, led: state.led } : null);
       alert('Control failed - check Firebase connection');
     }
   };
