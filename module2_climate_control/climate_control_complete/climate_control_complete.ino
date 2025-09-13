@@ -631,6 +631,7 @@ void setFanDuty(int duty) {
 void publishMqttData() {
   if (!mqtt.connected()) return;
   
+  // Publish individual topics (for other subscribers)
   // Temperature
   DynamicJsonDocument tempDoc(128);
   tempDoc["c"] = currentState.temperature;
@@ -668,6 +669,25 @@ void publishMqttData() {
   String fanStr;
   serializeJson(fanDoc, fanStr);
   mqtt.publish("sensors/climate/fan_state", fanStr.c_str());
+  
+  // NEW: Consolidated state for LCD dashboard compatibility
+  DynamicJsonDocument stateDoc(512);
+  stateDoc["tempC"] = currentState.temperature;
+  stateDoc["humidity"] = currentState.humidity;
+  stateDoc["aqRaw"] = currentState.aqRaw;
+  stateDoc["aqStatus"] = currentState.aqStatus;
+  stateDoc["aqAlert"] = currentState.aqAlert;
+  stateDoc["mode"] = currentState.mode;
+  stateDoc["fan"]["on"] = currentState.fanOn;
+  stateDoc["fan"]["pwm"] = currentState.fanPwm;
+  stateDoc["comfortBand"] = currentState.comfortBand;
+  stateDoc["presence"] = currentState.presence;
+  
+  String stateStr;
+  serializeJson(stateDoc, stateStr);
+  mqtt.publish("sensors/climate/state", stateStr.c_str());
+  
+  Serial.println("📡 MQTT Published: All individual topics + consolidated sensors/climate/state");
 }
 
 void syncFirebase() {
