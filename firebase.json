@@ -13,5 +13,8 @@
       "enabled": true,
       "port": 4000
     }
+  },
+  "projects": {
+    "default": "smartclassroom-af237"
   }
 }

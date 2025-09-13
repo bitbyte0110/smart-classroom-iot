@@ -139,6 +139,31 @@
   font-weight: 500;
 }
 
+.error-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.retry-button {
+  background: #dc2626;
+  border: none;
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.retry-button:hover {
+  background: #b91c1c;
+  transform: translateY(-1px);
+}
+
 .voice-commands {
   background: #f8f9fa;
   border-radius: 6px;
@@ -172,6 +197,126 @@
   font-family: 'Courier New', monospace;
 }
 
+/* Global Voice Control Styles */
+.voice-control.global-voice {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: 2px solid #5a67d8;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.voice-control.global-voice .voice-icon {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.voice-control.global-voice .voice-text h4 {
+  color: white;
+  font-size: 1.2rem;
+}
+
+.voice-control.global-voice .voice-text p {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.current-module {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin-top: 0.2rem;
+  font-weight: 500;
+}
+
+.voice-last-command {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 0.6rem;
+  margin-bottom: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.command-label {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.command-text {
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 500;
+  font-style: italic;
+}
+
+.voice-control.global-voice .voice-toggle {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+.voice-control.global-voice .voice-toggle:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.voice-control.global-voice .voice-toggle.listening {
+  background: #e53e3e;
+  border-color: #c53030;
+  animation: pulse 2s infinite;
+}
+
+.voice-control.global-voice .voice-commands {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.voice-control.global-voice .voice-commands h5 {
+  color: white;
+}
+
+.command-group {
+  margin-bottom: 1rem;
+}
+
+.command-group:last-child {
+  margin-bottom: 0;
+}
+
+.command-group h6 {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem 0;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.command-group span {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.voice-control.global-voice .voice-error {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fecaca;
+}
+
+.voice-control.global-voice .retry-button {
+  background: #e53e3e;
+  color: white;
+}
+
+.voice-control.global-voice .retry-button:hover {
+  background: #c53030;
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
   .voice-header {
@@ -190,5 +335,9 @@
   
   .command-examples span {
     text-align: center;
+  }
+  
+  .command-group {
+    margin-bottom: 0.8rem;
   }
 }

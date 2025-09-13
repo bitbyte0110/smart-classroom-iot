@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ref, onValue, update } from 'firebase/database';
 import { database } from '../firebase';
 import type { ClimateState } from '../types';
@@ -6,16 +6,16 @@ import { ROOM_ID } from '../types';
 import ClimateStatusTiles from './ClimateStatusTiles';
 import ClimateManualControls from './ClimateManualControls';
 import ClimateReports from './ClimateReports';
-import VoiceControl from './VoiceControl';
+import { useVoiceControl } from '../contexts/VoiceControlContext';
 import './Dashboard.css'; // Reuse the same styles
 
 export default function ClimateControl() {
+  const { setClimateHandler, setModeHandler } = useVoiceControl();
   const [state, setState] = useState<ClimateState | null>(null);
   const [activeTab, setActiveTab] = useState<'live' | 'reports'>('live');
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string>('');
   const [lastModeChange, setLastModeChange] = useState<number>(0);
-  const [isVoiceListening, setIsVoiceListening] = useState(false);
 
   useEffect(() => {
     console.log('🚀 Climate Control component mounted, connecting to Firebase...');
@@ -155,7 +155,7 @@ export default function ClimateControl() {
     };
   }, []);
 
-  const handleModeChange = async (newMode: 'auto' | 'manual') => {
+  const handleModeChange = useCallback(async (newMode: 'auto' | 'manual') => {
     if (!state) return;
     
     // Prevent rapid mode changes (debounce)
@@ -179,9 +179,9 @@ export default function ClimateControl() {
       setState(prevState => prevState ? { ...prevState, mode: state.mode } : null);
       alert('Mode change failed - check Firebase connection');
     }
-  };
+  }, [state, lastModeChange]);
 
-  const handleManualControl = async (fan: { on: boolean; pwm: number }) => {
+  const handleManualControl = useCallback(async (fan: { on: boolean; pwm: number }) => {
     if (!state || state.mode !== 'manual') return;
     
     // Optimistic UI update for instant feedback
@@ -197,10 +197,10 @@ export default function ClimateControl() {
       setState(prevState => prevState ? { ...prevState, fan: state.fan } : null);
       alert('Control failed - check Firebase connection');
     }
-  };
+  }, [state]);
 
   // Voice control handlers
-  const handleVoiceClimateControl = (command: string) => {
+  const handleVoiceClimateControl = useCallback((command: string) => {
     if (!state) return;
     
     console.log(`🎤 Voice climate command: ${command}`);
@@ -227,11 +227,19 @@ export default function ClimateControl() {
         // Note: In a real implementation, you'd set a timer to reset after 10 minutes
         break;
     }
-  };
+  }, [state, handleManualControl]);
 
-  const handleVoiceToggle = () => {
-    setIsVoiceListening(!isVoiceListening);
-  };
+
+  // Register voice control handlers with global context
+  useEffect(() => {
+    setClimateHandler(handleVoiceClimateControl);
+    setModeHandler(handleModeChange);
+    
+    return () => {
+      setClimateHandler(() => {});
+      setModeHandler(() => {});
+    };
+  }, [setClimateHandler, setModeHandler, handleVoiceClimateControl, handleModeChange]);
 
   if (!state) {
     return (
@@ -330,14 +338,6 @@ export default function ClimateControl() {
               onControlChange={handleManualControl}
             />
           )}
-
-          <VoiceControl
-            onClimateControl={handleVoiceClimateControl}
-            onModeChange={handleModeChange}
-            isListening={isVoiceListening}
-            onToggleListening={handleVoiceToggle}
-            currentModule="climate"
-          />
         </div>
       )}
 

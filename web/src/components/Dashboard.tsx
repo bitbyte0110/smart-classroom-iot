@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ref, onValue, update } from 'firebase/database';
 import { database } from '../firebase';
 import type { LightingState } from '../types';
@@ -6,16 +6,16 @@ import { ROOM_ID } from '../types';
 import StatusTiles from './StatusTiles';
 import ManualControls from './ManualControls';
 import Reports from './Reports';
-import VoiceControl from './VoiceControl';
+import { useVoiceControl } from '../contexts/VoiceControlContext';
 import './Dashboard.css';
 
 export default function Dashboard() {
+  const { setLightingHandler, setModeHandler } = useVoiceControl();
   const [state, setState] = useState<LightingState | null>(null);
   const [activeTab, setActiveTab] = useState<'live' | 'reports'>('live');
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string>('');
   const [lastModeChange, setLastModeChange] = useState<number>(0);
-  const [isVoiceListening, setIsVoiceListening] = useState(false);
 
   useEffect(() => {
     console.log('🚀 Dashboard component mounted, connecting to Firebase...');
@@ -106,7 +106,7 @@ export default function Dashboard() {
     };
   }, []);
 
-  const handleModeChange = async (newMode: 'auto' | 'manual') => {
+  const handleModeChange = useCallback(async (newMode: 'auto' | 'manual') => {
     if (!state) return;
     
     // Prevent rapid mode changes (debounce)
@@ -130,9 +130,9 @@ export default function Dashboard() {
       setState(prevState => prevState ? { ...prevState, mode: state.mode } : null);
       alert('Mode change failed - check Firebase connection');
     }
-  };
+  }, [state, lastModeChange]);
 
-  const handleManualControl = async (led: { on: boolean; pwm: number }) => {
+  const handleManualControl = useCallback(async (led: { on: boolean; pwm: number }) => {
     if (!state || state.mode !== 'manual') return;
     
     // Optimistic UI update for instant feedback
@@ -148,10 +148,10 @@ export default function Dashboard() {
       setState(prevState => prevState ? { ...prevState, led: state.led } : null);
       alert('Control failed - check Firebase connection');
     }
-  };
+  }, [state]);
 
   // Voice control handlers
-  const handleVoiceLightingControl = (command: string) => {
+  const handleVoiceLightingControl = useCallback((command: string) => {
     if (!state) return;
     
     console.log(`🎤 Voice lighting command: ${command}`);
@@ -183,11 +183,19 @@ export default function Dashboard() {
         handleManualControl({ on: true, pwm: 128 });
         break;
     }
-  };
+  }, [state, handleManualControl]);
 
-  const handleVoiceToggle = () => {
-    setIsVoiceListening(!isVoiceListening);
-  };
+
+  // Register voice control handlers with global context
+  useEffect(() => {
+    setLightingHandler(handleVoiceLightingControl);
+    setModeHandler(handleModeChange);
+    
+    return () => {
+      setLightingHandler(() => {});
+      setModeHandler(() => {});
+    };
+  }, [setLightingHandler, setModeHandler, handleVoiceLightingControl, handleModeChange]);
 
   if (!state) {
     return (
@@ -259,14 +267,6 @@ export default function Dashboard() {
               onControlChange={handleManualControl}
             />
           )}
-
-          <VoiceControl
-            onLightingControl={handleVoiceLightingControl}
-            onModeChange={handleModeChange}
-            isListening={isVoiceListening}
-            onToggleListening={handleVoiceToggle}
-            currentModule="lighting"
-          />
         </div>
       )}
 
