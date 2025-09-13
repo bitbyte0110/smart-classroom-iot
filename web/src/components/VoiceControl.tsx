@@ -125,7 +125,7 @@ export default function VoiceControl({
     }
   };
 
-  const processClimateCommand = (command: string) {
+  const processClimateCommand = (command: string) => {
     if (command.includes('fan on') || command.includes('turn on fan') || command.includes('start fan')) {
       onClimateControl?.('fan_on');
     } else if (command.includes('fan off') || command.includes('turn off fan') || command.includes('stop fan')) {

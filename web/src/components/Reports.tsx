@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ref, query, orderByKey, limitToLast, onValue } from 'firebase/database';
+import { ref, onValue } from 'firebase/database';
 import { Line, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -35,67 +35,53 @@ export default function Reports() {
   const [demoMode, setDemoMode] = useState(false);
 
   useEffect(() => {
-    // Try combined logs first (new system), fallback to lighting logs (old system)
+    console.log('📊 Reports component mounted, connecting to Firebase...');
+    console.log('🎯 Using ONLY Combined Logs data for historical charts:', `/combined/${ROOM_ID}/logs`);
+    
+    // Use ONLY combined logs for historical data - no fallback to single data points
     const combinedLogsRef = ref(database, `/combined/${ROOM_ID}/logs`);
-    const lightingLogsRef = ref(database, `/lighting/${ROOM_ID}/logs`);
-    const recentLogsQuery = query(combinedLogsRef, orderByKey(), limitToLast(1000));
-
-    const unsubscribe = onValue(recentLogsQuery, (snapshot) => {
-      const data = snapshot.val();
-      console.log('📊 Raw combined log data from Firebase:', data); // Debug log
+    
+    const unsubscribe = onValue(combinedLogsRef, (snapshot) => {
+      const logsData = snapshot.val();
+      console.log('📊 Raw combined logs data from Firebase:', logsData);
       
-      if (data) {
-        const logsArray = Object.values(data).map((rawLog: any) => {
-          // Handle combined ESP32 log structure
-          const log: LightingLog = {
-            ts: rawLog.timestamp || rawLog.ts || Date.now(),
-            presence: rawLog.ai?.presence || rawLog.lighting?.ai_presence || false,
-            ldrRaw: rawLog.lighting?.ldr || rawLog.lighting?.ldrRaw || 0,
-            mode: rawLog.lighting?.mode || 'auto',
-            led: {
-              on: rawLog.lighting?.ledOn || false,
-              pwm: rawLog.lighting?.ledPWM || 0
-            },
-            sensorError: rawLog.system?.status || null
-          };
-          return log;
-        }) as LightingLog[];
+      if (logsData) {
+        // Convert combined logs to LightingLog format
+        const lightingLogs: LightingLog[] = Object.values(logsData)
+          .filter((log: unknown): log is Record<string, unknown> => log !== null && typeof log === 'object')
+          .map((log: Record<string, unknown>) => {
+            const lighting = (log.lighting as Record<string, unknown>) || {};
+            const ai = (log.ai as Record<string, unknown>) || {};
+            
+            return {
+              ts: (log.timestamp as number) || (log.ts as number) || Date.now(),
+              presence: (ai.presence as boolean) || false,
+              ldrRaw: Number.isFinite(lighting.ldr as number) ? (lighting.ldr as number) : 0,
+              mode: ((lighting.mode as string) === 'manual' ? 'manual' : 'auto') as 'auto' | 'manual',
+              led: {
+                on: Boolean(lighting.ledOn as boolean),
+                pwm: Number.isFinite(lighting.ledPWM as number) ? (lighting.ledPWM as number) : 0
+              },
+              sensorError: null // No sensor error in combined logs
+            };
+          })
+          .sort((a, b) => a.ts - b.ts); // Sort by timestamp
         
-        console.log('📊 Processed combined logs:', logsArray.slice(0, 3)); // Debug: show first 3
-        setLogs(logsArray.sort((a, b) => a.ts - b.ts));
+        console.log('📊 Processed lighting logs from combined data:', lightingLogs);
+        setLogs(lightingLogs);
         setIsLoading(false);
+        console.log('📊 Using HISTORICAL data from combined logs');
         return;
       }
       
-      // Fallback: try old lighting logs if combined logs are empty
-      console.log('📊 No combined logs found, trying old lighting logs...');
-      const fallbackQuery = query(lightingLogsRef, orderByKey(), limitToLast(1000));
-      onValue(fallbackQuery, (fallbackSnapshot) => {
-        const fallbackData = fallbackSnapshot.val();
-        console.log('📊 Raw lighting log data from Firebase:', fallbackData);
-        
-        if (fallbackData) {
-          const logsArray = Object.values(fallbackData).map((rawLog: any) => {
-            // Handle old ESP32 nested log structure
-            const log: LightingLog = {
-              ts: rawLog.timestamp || rawLog.ts || Date.now(),
-              presence: rawLog.ai?.presence || rawLog.presence || false,
-              ldrRaw: rawLog.sensors?.ldr || rawLog.ldrRaw || 0,
-              mode: rawLog.system?.mode || rawLog.mode || 'auto',
-              led: {
-                on: rawLog.actuators?.ledOn || rawLog.led?.on || false,
-                pwm: rawLog.actuators?.ledPWM || rawLog.led?.pwm || 0
-              },
-              sensorError: rawLog.system?.status || rawLog.sensorError || null
-            };
-            return log;
-          }) as LightingLog[];
-          
-          console.log('📊 Processed fallback logs:', logsArray.slice(0, 3));
-          setLogs(logsArray.sort((a, b) => a.ts - b.ts));
-        }
-        setIsLoading(false);
-      });
+      // If no combined logs, show no data message
+      console.log('📊 No combined logs found - showing no data message');
+      setLogs([]);
+      setIsLoading(false);
+    }, (error) => {
+      console.error('📊 Firebase error for combined logs:', error);
+      setLogs([]);
+      setIsLoading(false);
     });
 
     return () => unsubscribe();
@@ -118,6 +104,14 @@ export default function Reports() {
       );
     }
 
+    // Only show charts if we have multiple data points (historical data)
+    if (filteredLogs.length < 2) {
+      return {
+        labels: [],
+        datasets: []
+      };
+    }
+
     return {
       labels: filteredLogs.map(log => dayjs(log.ts).format('HH:mm')),
       datasets: [
@@ -135,6 +129,14 @@ export default function Reports() {
   // 2. Presence Heatmap/Bar (detections per hour or minute for demo)
   const getPresenceChart = () => {
     const hourlyPresence: { [time: string]: number } = {};
+    
+    // Only show charts if we have multiple data points (historical data)
+    if (logs.length < 2) {
+      return {
+        labels: [],
+        datasets: []
+      };
+    }
     
     if (demoMode) {
       // Demo mode: show detections per minute for last 10 minutes
@@ -276,7 +278,7 @@ export default function Reports() {
           <div className="stat-value">0</div>
           <div className="stat-subtitle">
             Reports will appear once your ESP32 starts logging data to Firebase at<br/>
-            <code>/combined/roomA/logs</code> (or <code>/lighting/roomA/logs</code> for old system)
+            <code>/combined/roomA/logs</code> (for historical data) or <code>/lighting/roomA/state</code> (for current data)
           </div>
           <div style={{ marginTop: '1rem', fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)' }}>
             💡 The system logs data every 30 seconds when running<br/>
@@ -303,6 +305,19 @@ export default function Reports() {
       <div className="reports-header">
         <h2>📊 Analytics & Reports</h2>
         <div className="header-controls">
+          {logs.length === 1 && (
+            <div style={{ 
+              fontSize: '0.8rem', 
+              color: '#27ae60', 
+              marginRight: '1rem',
+              padding: '0.3rem 0.6rem',
+              backgroundColor: 'rgba(39, 174, 96, 0.1)',
+              borderRadius: '4px',
+              border: '1px solid rgba(39, 174, 96, 0.3)'
+            }}>
+              🔴 LIVE DATA (Real-time from ESP32)
+            </div>
+          )}
           <button 
             onClick={() => setDemoMode(!demoMode)} 
             className={`demo-toggle ${demoMode ? 'active' : ''}`}
@@ -341,35 +356,67 @@ export default function Reports() {
       <div className="charts-grid">
         <div className="chart-container">
           <h3>📈 Daily Brightness Levels {demoMode ? '(Last 10 min)' : '(24h data)'}</h3>
-          <Line 
-            data={getBrightnessChart()} 
-            options={{
-              responsive: true,
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  max: 4095,
-                  title: { display: true, text: 'LDR Raw Value' }
+          {logs.length >= 2 ? (
+            <Line 
+              data={getBrightnessChart()} 
+              options={{
+                responsive: true,
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    max: 4095,
+                    title: { display: true, text: 'LDR Raw Value' }
+                  }
                 }
-              }
-            }} 
-          />
+              }} 
+            />
+          ) : (
+            <div style={{ 
+              padding: '2rem', 
+              textAlign: 'center', 
+              color: '#5a6c7d',
+              background: '#f8f9fa',
+              borderRadius: '8px',
+              border: '1px solid #e1e8ed'
+            }}>
+              <p>📊 No historical data available</p>
+              <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                Charts will appear once multiple data points are logged
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="chart-container">
           <h3>👤 Presence Detection {demoMode ? '(Last 10 min)' : 'by Hour'}</h3>
-          <Bar 
-            data={getPresenceChart()} 
-            options={{
-              responsive: true,
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  title: { display: true, text: 'Detection Count' }
+          {logs.length >= 2 ? (
+            <Bar 
+              data={getPresenceChart()} 
+              options={{
+                responsive: true,
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    title: { display: true, text: 'Detection Count' }
+                  }
                 }
-              }
-            }} 
-          />
+              }} 
+            />
+          ) : (
+            <div style={{ 
+              padding: '2rem', 
+              textAlign: 'center', 
+              color: '#5a6c7d',
+              background: '#f8f9fa',
+              borderRadius: '8px',
+              border: '1px solid #e1e8ed'
+            }}>
+              <p>📊 No historical data available</p>
+              <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                Charts will appear once multiple data points are logged
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ref, query, orderByKey, limitToLast, onValue } from 'firebase/database';
+import { ref, onValue } from 'firebase/database';
 import { Line, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -41,125 +41,65 @@ interface ClimateLog {
   presence: boolean;
 }
 
-interface CurrentClimateState {
-  tempC?: number;
-  humidity?: number;
-  aqRaw?: number;
-  aqStatus?: string;
-  fanOn?: boolean;
-  fanPwm?: number;
-  comfortBand?: string;
-  mode?: string;
-  ts?: number;
-}
 
-interface LogData {
-  timestamp?: number;
-  ts?: number;
-  climate?: Record<string, unknown>;
-  ai?: Record<string, unknown>;
-  tempC?: number;
-  humidity?: number;
-  aqRaw?: number;
-  aqStatus?: string;
-  fanOn?: boolean;
-  fanPwm?: number;
-  comfortBand?: string;
-  mode?: string;
-  presence?: boolean;
-}
 
 export default function ClimateReports() {
   const [logs, setLogs] = useState<ClimateLog[]>([]);
-  const [currentClimate, setCurrentClimate] = useState<CurrentClimateState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [demoMode, setDemoMode] = useState(false);
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
   useEffect(() => {
-    // First, get current climate state for real-time data
-    const currentClimateRef = ref(database, `/climate/${ROOM_ID}/state`);
-    const currentClimateUnsubscribe = onValue(currentClimateRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        setCurrentClimate(data);
-        setLastUpdate(new Date());
-        console.log('🌡️ Current climate state:', data);
-      }
-    });
-
-    // Then, try combined logs first (new system), fallback to climate logs (old system)
+    console.log('🌡️ Climate Reports component mounted, connecting to Firebase...');
+    console.log('🎯 Using ONLY Combined Logs data for historical charts:', `/combined/${ROOM_ID}/logs`);
+    
+    // Use ONLY combined logs for historical data - no fallback to single data points
     const combinedLogsRef = ref(database, `/combined/${ROOM_ID}/logs`);
-    const climateLogsRef = ref(database, `/climate/${ROOM_ID}/logs`);
-    const recentLogsQuery = query(combinedLogsRef, orderByKey(), limitToLast(1000));
-
-    const unsubscribe = onValue(recentLogsQuery, (snapshot) => {
-      const data = snapshot.val();
-      console.log('🌡️ Raw combined climate log data from Firebase:', data);
+    
+    const unsubscribe = onValue(combinedLogsRef, (snapshot) => {
+      const logsData = snapshot.val();
+      console.log('🌡️ Raw combined logs data from Firebase:', logsData);
       
-      if (data) {
-        const logsArray = Object.values(data).map((rawLog: unknown) => {
-          // Handle combined ESP32 log structure
-          const logData = rawLog as LogData;
-          const climate = logData.climate as Record<string, unknown> || {};
-          const ai = logData.ai as Record<string, unknown> || {};
-          const log: ClimateLog = {
-            ts: (logData.timestamp as number) || (logData.ts as number) || Date.now(),
-            tempC: (climate.tempC as number) || 0,
-            humidity: (climate.humidity as number) || 0,
-            aqRaw: (climate.aqRaw as number) || 0,
-            aqStatus: (climate.aqStatus as string) || 'Good',
-            fanOn: (climate.fanOn as boolean) || false,
-            fanPwm: (climate.fanPwm as number) || 0,
-            comfortBand: (climate.comfortBand as string) || 'Moderate',
-            mode: (climate.mode as string) || 'auto',
-            presence: (ai.presence as boolean) || false
-          };
-          return log;
-        }) as ClimateLog[];
+      if (logsData) {
+        // Convert combined logs to ClimateLog format
+        const climateLogs: ClimateLog[] = Object.values(logsData)
+          .filter((log: unknown): log is Record<string, unknown> => log !== null && typeof log === 'object')
+          .map((log: Record<string, unknown>) => {
+            const climate = (log.climate as Record<string, unknown>) || {};
+            const ai = (log.ai as Record<string, unknown>) || {};
+            
+            return {
+              ts: (log.timestamp as number) || (log.ts as number) || Date.now(),
+              tempC: (climate.tempC as number) || 0,
+              humidity: (climate.humidity as number) || 0,
+              aqRaw: (climate.aqRaw as number) || 0,
+              aqStatus: (climate.aqStatus as string) || 'Good',
+              fanOn: (climate.fanOn as boolean) || false,
+              fanPwm: (climate.fanPwm as number) || 0,
+              comfortBand: (climate.comfortBand as string) || 'Moderate',
+              mode: (climate.mode as string) || 'auto',
+              presence: (ai.presence as boolean) || false
+            };
+          })
+          .sort((a, b) => a.ts - b.ts); // Sort by timestamp
         
-        console.log('🌡️ Processed combined climate logs:', logsArray.slice(0, 3));
-        setLogs(logsArray.sort((a, b) => a.ts - b.ts));
+        console.log('🌡️ Processed climate logs from combined data:', climateLogs);
+        setLogs(climateLogs);
         setIsLoading(false);
+        console.log('🌡️ Using HISTORICAL data from combined logs');
         return;
       }
       
-      // Fallback: try old climate logs if combined logs are empty
-      console.log('🌡️ No combined logs found, trying old climate logs...');
-      const fallbackQuery = query(climateLogsRef, orderByKey(), limitToLast(1000));
-      onValue(fallbackQuery, (fallbackSnapshot) => {
-        const fallbackData = fallbackSnapshot.val();
-        console.log('🌡️ Raw climate log data from Firebase:', fallbackData);
-        
-        if (fallbackData) {
-          const logsArray = Object.values(fallbackData).map((rawLog: unknown) => {
-            const logData = rawLog as LogData;
-            const log: ClimateLog = {
-              ts: (logData.timestamp as number) || (logData.ts as number) || Date.now(),
-              tempC: (logData.tempC as number) || 0,
-              humidity: (logData.humidity as number) || 0,
-              aqRaw: (logData.aqRaw as number) || 0,
-              aqStatus: (logData.aqStatus as string) || 'Good',
-              fanOn: (logData.fanOn as boolean) || false,
-              fanPwm: (logData.fanPwm as number) || 0,
-              comfortBand: (logData.comfortBand as string) || 'Moderate',
-              mode: (logData.mode as string) || 'auto',
-              presence: (logData.presence as boolean) || false
-            };
-            return log;
-          }) as ClimateLog[];
-          
-          console.log('🌡️ Processed fallback climate logs:', logsArray.slice(0, 3));
-          setLogs(logsArray.sort((a, b) => a.ts - b.ts));
-        }
-        setIsLoading(false);
-      });
+      // If no combined logs, show no data message
+      console.log('🌡️ No combined logs found - showing no data message');
+      setLogs([]);
+      setIsLoading(false);
+    }, (error) => {
+      console.error('🌡️ Firebase error for combined logs:', error);
+      setLogs([]);
+      setIsLoading(false);
     });
 
-    return () => {
-      currentClimateUnsubscribe();
-      unsubscribe();
-    };
+    return () => unsubscribe();
   }, []);
 
   // Temperature Chart
@@ -303,18 +243,6 @@ export default function ClimateReports() {
       };
     }
     
-    // If no logs but we have current climate data, use current values
-    if (currentClimate) {
-      return {
-        totalMinutes: 0,
-        fanMinutes: 0,
-        fanUsagePercent: 0,
-        avgTemp: Math.round((currentClimate.tempC || 0) * 10) / 10,
-        avgHumidity: Math.round((currentClimate.humidity || 0) * 10) / 10,
-        avgAQ: Math.round(currentClimate.aqRaw || 0),
-      };
-    }
-    
     // Fallback to zero values
     return {
       totalMinutes: 0,
@@ -355,7 +283,7 @@ export default function ClimateReports() {
     return <div className="reports loading">Loading climate reports...</div>;
   }
 
-  if (logs.length === 0 && !currentClimate) {
+  if (logs.length === 0) {
     return (
       <div className="reports">
         <div className="reports-header">
@@ -366,7 +294,7 @@ export default function ClimateReports() {
           <div className="stat-value">0</div>
           <div className="stat-subtitle">
             Reports will appear once your ESP32 starts logging climate data to Firebase at<br/>
-            <code>/combined/roomA/logs</code> (or <code>/climate/roomA/logs</code> for old system)
+            <code>/combined/roomA/logs</code> (for historical data) or <code>/climate/roomA/state</code> (for current data)
           </div>
           <div style={{ marginTop: '1rem', fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)' }}>
             💡 The system logs data every 10 seconds when running<br/>
@@ -386,8 +314,7 @@ export default function ClimateReports() {
         <h2>🌡️ Climate Analytics & Reports</h2>
         <div className="header-controls">
           <div style={{ fontSize: '0.8rem', color: '#5a6c7d', marginRight: '1rem' }}>
-            Last updated: {lastUpdate.toLocaleTimeString()}
-            {currentClimate && logs.length === 0 && <span style={{ color: '#27ae60', marginLeft: '0.3rem' }}>● Live</span>}
+            Historical data from combined logs
           </div>
           <button 
             onClick={() => setDemoMode(!demoMode)} 
@@ -403,35 +330,31 @@ export default function ClimateReports() {
 
       <div className="stats-overview">
         <div className="stat-card">
-          <h3>🌡️ {logs.length > 0 ? 'Avg Temperature' : 'Current Temperature'}</h3>
+          <h3>🌡️ Avg Temperature</h3>
           <div className="stat-value">{climateStats.avgTemp}°C</div>
           <div className="stat-subtitle">
-            {logs.length > 0 ? '24h average' : 'Live reading'}
-            {currentClimate && logs.length === 0 && <span style={{ color: '#27ae60', marginLeft: '0.5rem' }}>●</span>}
+            {logs.length > 0 ? 'Historical average' : 'No data'}
           </div>
         </div>
         <div className="stat-card">
-          <h3>💧 {logs.length > 0 ? 'Avg Humidity' : 'Current Humidity'}</h3>
+          <h3>💧 Avg Humidity</h3>
           <div className="stat-value">{climateStats.avgHumidity}%</div>
           <div className="stat-subtitle">
-            {logs.length > 0 ? '24h average' : 'Live reading'}
-            {currentClimate && logs.length === 0 && <span style={{ color: '#27ae60', marginLeft: '0.5rem' }}>●</span>}
+            {logs.length > 0 ? 'Historical average' : 'No data'}
           </div>
         </div>
         <div className="stat-card">
           <h3>🌬️ Fan Usage</h3>
           <div className="stat-value">{climateStats.fanUsagePercent}%</div>
           <div className="stat-subtitle">
-            {logs.length > 0 ? `${climateStats.fanMinutes} min total` : 'Current status'}
-            {currentClimate && logs.length === 0 && <span style={{ color: '#27ae60', marginLeft: '0.5rem' }}>●</span>}
+            {logs.length > 0 ? `${climateStats.fanMinutes} min total` : 'No data'}
           </div>
         </div>
         <div className="stat-card">
-          <h3>🌪️ {logs.length > 0 ? 'Air Quality' : 'Current Air Quality'}</h3>
+          <h3>🌪️ Air Quality</h3>
           <div className="stat-value">{climateStats.avgAQ}</div>
           <div className="stat-subtitle">
-            {logs.length > 0 ? 'avg raw reading' : 'Live reading'}
-            {currentClimate && logs.length === 0 && <span style={{ color: '#27ae60', marginLeft: '0.5rem' }}>●</span>}
+            {logs.length > 0 ? 'avg raw reading' : 'No data'}
           </div>
         </div>
       </div>
@@ -439,59 +362,107 @@ export default function ClimateReports() {
       <div className="charts-grid">
         <div className="chart-container">
           <h3>🌡️ Temperature & Humidity {demoMode ? '(Last 10 min)' : '(24h data)'}</h3>
-          <Line 
-            data={getTemperatureChart()} 
-            options={{
-              responsive: true,
-              scales: {
-                y: {
-                  type: 'linear',
-                  display: true,
-                  position: 'left',
-                  title: { display: true, text: 'Temperature (°C)' }
-                },
-                y1: {
-                  type: 'linear',
-                  display: true,
-                  position: 'right',
-                  title: { display: true, text: 'Humidity (%)' },
-                  grid: { drawOnChartArea: false },
+          {logs.length >= 2 ? (
+            <Line 
+              data={getTemperatureChart()} 
+              options={{
+                responsive: true,
+                scales: {
+                  y: {
+                    type: 'linear',
+                    display: true,
+                    position: 'left',
+                    title: { display: true, text: 'Temperature (°C)' }
+                  },
+                  y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: { display: true, text: 'Humidity (%)' },
+                    grid: { drawOnChartArea: false },
+                  }
                 }
-              }
-            }} 
-          />
+              }} 
+            />
+          ) : (
+            <div style={{ 
+              padding: '2rem', 
+              textAlign: 'center', 
+              color: '#5a6c7d',
+              background: '#f8f9fa',
+              borderRadius: '8px',
+              border: '1px solid #e1e8ed'
+            }}>
+              <p>📊 No historical data available</p>
+              <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                Charts will appear once multiple data points are logged
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="chart-container">
           <h3>🌪️ Air Quality {demoMode ? '(Last 10 min)' : '(24h data)'}</h3>
-          <Line 
-            data={getAirQualityChart()} 
-            options={{
-              responsive: true,
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  title: { display: true, text: 'Air Quality Raw Value' }
+          {logs.length >= 2 ? (
+            <Line 
+              data={getAirQualityChart()} 
+              options={{
+                responsive: true,
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    title: { display: true, text: 'Air Quality Raw Value' }
+                  }
                 }
-              }
-            }} 
-          />
+              }} 
+            />
+          ) : (
+            <div style={{ 
+              padding: '2rem', 
+              textAlign: 'center', 
+              color: '#5a6c7d',
+              background: '#f8f9fa',
+              borderRadius: '8px',
+              border: '1px solid #e1e8ed'
+            }}>
+              <p>📊 No historical data available</p>
+              <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                Charts will appear once multiple data points are logged
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="chart-container">
           <h3>🌬️ Fan Usage {demoMode ? '(Last 10 min)' : 'by Hour'}</h3>
-          <Bar 
-            data={getFanUsageChart()} 
-            options={{
-              responsive: true,
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  title: { display: true, text: 'Usage Count' }
+          {logs.length >= 2 ? (
+            <Bar 
+              data={getFanUsageChart()} 
+              options={{
+                responsive: true,
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    title: { display: true, text: 'Usage Count' }
+                  }
                 }
-              }
-            }} 
-          />
+              }} 
+            />
+          ) : (
+            <div style={{ 
+              padding: '2rem', 
+              textAlign: 'center', 
+              color: '#5a6c7d',
+              background: '#f8f9fa',
+              borderRadius: '8px',
+              border: '1px solid #e1e8ed'
+            }}>
+              <p>📊 No historical data available</p>
+              <p style={{ fontSize: '0.9rem', marginTop: '0.5rem' }}>
+                Charts will appear once multiple data points are logged
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
