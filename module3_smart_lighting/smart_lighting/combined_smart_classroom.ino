@@ -45,7 +45,7 @@ const int LED_PIN = 18;      // LED actuator (PWM output)
 DHT dht(DHT_PIN, DHT_TYPE);
 
 // ===== SMART LIGHTING CONSTANTS =====
-const int BRIGHT_THRESHOLD = 1500;  // Below this = bright room (LED OFF)
+const int BRIGHT_THRESHOLD = 2000;  // Below this = bright room (LED OFF)
 const int DARK_THRESHOLD = 2500;    // Above this = dark room (LED ON)
 const int LED_PWM_FREQ = 5000;
 const int LED_PWM_RESOLUTION = 8;

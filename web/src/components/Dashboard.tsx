@@ -136,13 +136,19 @@ export default function Dashboard() {
   };
 
   const handleManualControl = async (led: { on: boolean; pwm: number }) => {
-    if (!state || state.mode !== 'manual') return;
+    if (!state || state.mode !== 'manual') {
+      console.log(`❌ Manual control blocked: state=${!!state}, mode=${state?.mode}`);
+      return;
+    }
+    
+    console.log(`🎛️ Manual control called: on=${led.on}, pwm=${led.pwm}, current mode=${state.mode}`);
     
     // Optimistic UI update for instant feedback
     setState(prevState => prevState ? { ...prevState, led } : null);
     
     try {
       const stateRef = ref(database, `/lighting/${ROOM_ID}/state`);
+      console.log(`🔥 Updating Firebase with: { led: { on: ${led.on}, pwm: ${led.pwm} } }`);
       await update(stateRef, { led });
       console.log(`✅ Lighting control: ${led.on ? 'ON' : 'OFF'} (PWM: ${led.pwm})`);
     } catch (error) {
@@ -164,10 +170,11 @@ export default function Dashboard() {
     if (state.mode !== 'manual') {
       console.log(`🎤 Switching to manual mode for voice command`);
       handleModeChange('manual');
-      // Wait a moment for mode change to take effect
+      // Wait longer for mode change to propagate to ESP32
       setTimeout(() => {
+        console.log(`🎤 Processing voice command after mode change: "${command}"`);
         processVoiceCommand(command);
-      }, 100);
+      }, 500); // Increased from 100ms to 500ms
       return;
     }
     
@@ -204,6 +211,7 @@ export default function Dashboard() {
       case 'max':
         console.log(`🎤 MAX: Setting to 255 (maximum brightness)`);
         console.log(`🎤 Current state before max: mode=${state.mode}, led.on=${state.led.on}, led.pwm=${state.led.pwm}`);
+        console.log(`🎤 Calling handleManualControl with: on=true, pwm=255`);
         handleManualControl({ on: true, pwm: 255 });
         console.log(`🎤 MAX command sent: on=true, pwm=255`);
         break;

@@ -419,6 +419,7 @@ void readManualCommandsFromCloud() {
   
   if (httpCode == HTTP_CODE_OK) {
     String payload = http.getString();
+    Serial.printf("🔍 Manual LED command payload: %s\n", payload.c_str());
     DynamicJsonDocument doc(256);
     deserializeJson(doc, payload);
     
@@ -435,6 +436,7 @@ void readManualCommandsFromCloud() {
     }
     if (doc.containsKey("pwm")) {
       int newPwm = doc["pwm"];
+      Serial.printf("🔍 PWM command received: %d (current: %d)\n", newPwm, manualCommands.ledPwm);
       if (newPwm != manualCommands.ledPwm) {
         manualCommands.ledPwm = constrain(newPwm, 0, MAX_LED_PWM);
         Serial.printf("⚡ Fast manual LED PWM: %d\n", manualCommands.ledPwm);
@@ -442,6 +444,7 @@ void readManualCommandsFromCloud() {
         lightingState.ledPwm = manualCommands.ledPwm;
         // Apply immediately for instant response
         ledcWrite(LED_PIN, lightingState.ledPwm);
+        Serial.printf("💡 LED PWM applied: %d\n", lightingState.ledPwm);
       }
     }
   }
