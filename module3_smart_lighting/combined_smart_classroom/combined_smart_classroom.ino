@@ -253,6 +253,13 @@ void loop() {
   mqttEnsureConnected();
   mqtt.loop();
   
+  // Debug: Show we're running (every 30 seconds)
+  static unsigned long lastDebugOutput = 0;
+  if (now - lastDebugOutput >= 30000) {
+    Serial.println("🔄 Main loop running - system operational");
+    lastDebugOutput = now;
+  }
+  
   // Fast Manual Command Check (0.5s response time)
   if (now - lastManualCheck >= MANUAL_CHECK_INTERVAL) {
     if (lightingState.mode == "manual" || climateState.mode == "manual") {
@@ -301,6 +308,8 @@ void loop() {
 }
 
 void acquireSensorData() {
+  Serial.println("📊 Reading sensor data...");
+  
   // ===== SMART LIGHTING SENSORS =====
   int rawLDR1 = analogRead(LDR_PIN);
   delay(10);
@@ -875,12 +884,16 @@ void publishMQTT() {
 void syncWithCloud() {
   if (WiFi.status() != WL_CONNECTED) return;
   
+  Serial.println("☁️ Syncing with Firebase...");
+  
   // Sync Lighting State
   HTTPClient http;
   String lightingUrl = String(FIREBASE_URL) + "/lighting/" + ROOM_ID + "/state.json";
   
   http.begin(lightingUrl);
   http.addHeader("Content-Type", "application/json");
+  http.setTimeout(5000); // 5 second timeout
+  http.setConnectTimeout(3000); // 3 second connection timeout
   
   DynamicJsonDocument lightingDoc(2048);
   lightingDoc["ts"] = getEpochTime();
@@ -922,6 +935,8 @@ void syncWithCloud() {
   
   http.begin(climateUrl);
   http.addHeader("Content-Type", "application/json");
+  http.setTimeout(5000); // 5 second timeout
+  http.setConnectTimeout(3000); // 3 second connection timeout
   
   DynamicJsonDocument climateDoc(512);
   climateDoc["tempC"] = climateState.temperature;
@@ -1050,11 +1065,35 @@ void mqttCallback(char* topic, byte* payload, unsigned int len) {
 
 void mqttEnsureConnected() {
   if (mqtt.connected()) return;
-  while (!mqtt.connected()) {
+  
+  static unsigned long lastMqttAttempt = 0;
+  static int mqttAttempts = 0;
+  const unsigned long MQTT_RETRY_INTERVAL = 5000; // Try every 5 seconds
+  const int MAX_MQTT_ATTEMPTS = 3; // Max attempts before giving up
+  
+  unsigned long now = millis();
+  
+  // Only try to connect if enough time has passed and we haven't exceeded max attempts
+  if (now - lastMqttAttempt >= MQTT_RETRY_INTERVAL && mqttAttempts < MAX_MQTT_ATTEMPTS) {
+    Serial.printf("📡 Attempting MQTT connection (attempt %d/%d)...\n", mqttAttempts + 1, MAX_MQTT_ATTEMPTS);
+    
     if (mqtt.connect(MQTT_CLIENT_ID)) {
       Serial.println("📡 MQTT connected (publish only)");
+      mqttAttempts = 0; // Reset attempts on success
     } else {
-      delay(1000);
+      Serial.printf("❌ MQTT connection failed (attempt %d/%d)\n", mqttAttempts + 1, MAX_MQTT_ATTEMPTS);
+      mqttAttempts++;
+    }
+    
+    lastMqttAttempt = now;
+  }
+  
+  // If we've exceeded max attempts, just skip MQTT for this session
+  if (mqttAttempts >= MAX_MQTT_ATTEMPTS) {
+    static bool mqttWarningShown = false;
+    if (!mqttWarningShown) {
+      Serial.println("⚠️ MQTT connection failed after max attempts - continuing without MQTT");
+      mqttWarningShown = true;
     }
   }
 }

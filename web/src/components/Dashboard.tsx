@@ -136,13 +136,19 @@ export default function Dashboard() {
   };
 
   const handleManualControl = async (led: { on: boolean; pwm: number }) => {
-    if (!state || state.mode !== 'manual') return;
+    console.log(`🎛️ handleManualControl called: on=${led.on}, pwm=${led.pwm}, currentMode=${state?.mode}`);
+    
+    if (!state || state.mode !== 'manual') {
+      console.log(`❌ handleManualControl blocked: state=${!!state}, mode=${state?.mode}`);
+      return;
+    }
     
     // Optimistic UI update for instant feedback
     setState(prevState => prevState ? { ...prevState, led } : null);
     
     try {
       const stateRef = ref(database, `/lighting/${ROOM_ID}/state`);
+      console.log(`📤 Sending to Firebase: { led: { on: ${led.on}, pwm: ${led.pwm} } }`);
       await update(stateRef, { led });
       console.log(`✅ Lighting control: ${led.on ? 'ON' : 'OFF'} (PWM: ${led.pwm})`);
     } catch (error) {
@@ -163,11 +169,15 @@ export default function Dashboard() {
     // Switch to manual mode for voice commands
     if (state.mode !== 'manual') {
       console.log(`🎤 Switching to manual mode for voice command`);
-      handleModeChange('manual');
-      // Wait a moment for mode change to take effect
-      setTimeout(() => {
-        processVoiceCommand(command);
-      }, 100);
+      handleModeChange('manual').then(() => {
+        // Wait for mode change to complete, then execute command
+        setTimeout(() => {
+          console.log(`🎤 Mode changed, now executing command: ${command}`);
+          processVoiceCommand(command);
+        }, 200);
+      }).catch((error) => {
+        console.error('Mode change failed:', error);
+      });
       return;
     }
     
@@ -186,7 +196,7 @@ export default function Dashboard() {
         break;
       case 'brighter': {
         // Fix: Increase by 50% of current value (not 150% of current value)
-        const currentPwm = state.led.pwm || 128;
+        const currentPwm = state.led.pwm || 0; // Use 0 as default, not 128
         const increaseAmount = Math.round(currentPwm * 0.5); // 50% of current value
         const brighterPwm = Math.min(255, currentPwm + increaseAmount);
         console.log(`🎤 BRIGHTER: ${currentPwm} → ${brighterPwm} (+${increaseAmount} = 50% increase)`);
@@ -194,8 +204,8 @@ export default function Dashboard() {
         break;
       }
       case 'dimmer': {
-        // Fix: Decrease by 50% instead of fixed 50
-        const currentPwm = state.led.pwm || 128;
+        // Fix: Decrease by 50% of current value
+        const currentPwm = state.led.pwm || 0; // Use 0 as default, not 128
         const dimmerPwm = Math.max(0, Math.round(currentPwm * 0.5));
         console.log(`🎤 DIMMER: ${currentPwm} → ${dimmerPwm} (50% reduction)`);
         handleManualControl({ on: dimmerPwm > 0, pwm: dimmerPwm });
@@ -204,6 +214,7 @@ export default function Dashboard() {
       case 'max':
         console.log(`🎤 MAX: Setting to 255 (maximum brightness)`);
         console.log(`🎤 Current state before max: mode=${state.mode}, led.on=${state.led.on}, led.pwm=${state.led.pwm}`);
+        console.log(`🎤 About to call handleManualControl with: on=true, pwm=255`);
         handleManualControl({ on: true, pwm: 255 });
         console.log(`🎤 MAX command sent: on=true, pwm=255`);
         break;

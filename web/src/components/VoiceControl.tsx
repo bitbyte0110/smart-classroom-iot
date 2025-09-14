@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './VoiceControl.css';
 
 interface VoiceControlProps {
@@ -125,22 +125,33 @@ export default function VoiceControl({
   const processLightingCommand = (command: string) => {
     console.log(`🎯 Processing lighting command: "${command}"`);
     
-    if (command.includes('light on') || command.includes('turn on light') || command.includes('lights on')) {
+    // Turn on light commands
+    if (command.includes('turn on light') || command.includes('light on') || command.includes('lights on')) {
       console.log('✅ Voice: Light ON');
       onLightingControl?.('on');
-    } else if (command.includes('light off') || command.includes('turn off light') || command.includes('lights off')) {
+    } 
+    // Turn off light commands
+    else if (command.includes('turn off light') || command.includes('light off') || command.includes('lights off')) {
       console.log('✅ Voice: Light OFF');
       onLightingControl?.('off');
-    } else if (command.includes('bright') || command.includes('brighter') || command.includes('increase brightness')) {
+    } 
+    // Increase brightness commands
+    else if (command.includes('increase brightness') || command.includes('brighter') || command.includes('bright')) {
       console.log('✅ Voice: INCREASE BRIGHTNESS (50% increase)');
       onLightingControl?.('brighter');
-    } else if (command.includes('dim') || command.includes('dimmer') || command.includes('decrease brightness') || command.includes('lower the light')) {
+    } 
+    // Decrease brightness commands
+    else if (command.includes('lower the light') || command.includes('decrease brightness') || command.includes('dim') || command.includes('dimmer')) {
       console.log('✅ Voice: DIMMER (50% reduction)');
       onLightingControl?.('dimmer');
-    } else if (command.includes('max') || command.includes('maximum') || command.includes('full') || command.includes('maximum brightness')) {
+    } 
+    // Maximum brightness commands
+    else if (command.includes('maximum brightness') || command.includes('max') || command.includes('maximum') || command.includes('full')) {
       console.log('✅ Voice: MAXIMUM BRIGHTNESS (255)');
       onLightingControl?.('max');
-    } else if (command.includes('min') || command.includes('minimum') || command.includes('low')) {
+    } 
+    // Additional commands (keeping for compatibility)
+    else if (command.includes('min') || command.includes('minimum') || command.includes('low')) {
       console.log('✅ Voice: MINIMUM BRIGHTNESS');
       onLightingControl?.('min');
     } else if (command.includes('medium') || command.includes('mid')) {
@@ -154,22 +165,33 @@ export default function VoiceControl({
   const processClimateCommand = (command: string) => {
     console.log(`🎯 Processing climate command: "${command}"`);
     
-    if (command.includes('fan on') || command.includes('turn on fan') || command.includes('start fan')) {
+    // Turn on fan commands
+    if (command.includes('turn on fan') || command.includes('fan on') || command.includes('start fan')) {
       console.log('✅ Voice: Fan ON');
       onClimateControl?.('fan_on');
-    } else if (command.includes('fan off') || command.includes('turn off fan') || command.includes('stop fan')) {
+    } 
+    // Turn off fan commands
+    else if (command.includes('turn off fan') || command.includes('fan off') || command.includes('stop fan')) {
       console.log('✅ Voice: Fan OFF');
       onClimateControl?.('fan_off');
-    } else if (command.includes('increase fan speed')) {
+    } 
+    // Increase fan speed commands
+    else if (command.includes('increase fan speed') || command.includes('fan speed up') || command.includes('faster fan')) {
       console.log('✅ Voice: INCREASE FAN SPEED (50% increase)');
       onClimateControl?.('fan_increase');
-    } else if (command.includes('lower fan speed')) {
+    } 
+    // Decrease fan speed commands
+    else if (command.includes('lower fan speed') || command.includes('decrease fan speed') || command.includes('slower fan')) {
       console.log('✅ Voice: LOWER FAN SPEED (50% reduction)');
       onClimateControl?.('fan_low');
-    } else if (command.includes('fan maximum speed')) {
+    } 
+    // Maximum fan speed commands
+    else if (command.includes('fan maximum speed') || command.includes('maximum fan speed') || command.includes('fan max') || command.includes('maximum fan')) {
       console.log('✅ Voice: Fan MAXIMUM SPEED');
       onClimateControl?.('fan_high');
-    } else if (command.includes('fan high') || command.includes('fan max') || command.includes('maximum fan')) {
+    } 
+    // Additional commands (keeping for compatibility)
+    else if (command.includes('fan high') || command.includes('fan max')) {
       console.log('✅ Voice: Fan MAXIMUM SPEED');
       onClimateControl?.('fan_high');
     } else if (command.includes('fan low') || command.includes('fan min') || command.includes('minimum fan')) {
@@ -185,12 +207,6 @@ export default function VoiceControl({
 
   const handleToggleListening = () => {
     if (!isSupported) return;
-    
-    // Prevent rapid clicking
-    if (recognitionRef.current?.state === 'starting' || recognitionRef.current?.state === 'stopping') {
-      console.log('🎤 Voice recognition is busy, please wait...');
-      return;
-    }
     
     if (isListening) {
       console.log('🎤 Stopping voice recognition...');

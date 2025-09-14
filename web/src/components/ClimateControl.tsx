@@ -197,13 +197,19 @@ export default function ClimateControl() {
   };
 
   const handleManualControl = async (fan: { on: boolean; pwm: number }) => {
-    if (!state || state.mode !== 'manual') return;
+    console.log(`🎛️ handleManualControl called: on=${fan.on}, pwm=${fan.pwm}, currentMode=${state?.mode}`);
+    
+    if (!state || state.mode !== 'manual') {
+      console.log(`❌ handleManualControl blocked: state=${!!state}, mode=${state?.mode}`);
+      return;
+    }
     
     // Optimistic UI update for instant feedback
     setState(prevState => prevState ? { ...prevState, fan } : null);
     
     try {
       const stateRef = ref(database, `/climate/${ROOM_ID}/state`);
+      console.log(`📤 Sending to Firebase: { fan: { on: ${fan.on}, pwm: ${fan.pwm} } }`);
       await update(stateRef, { fan });
       console.log(`✅ Climate fan control: ${fan.on ? 'ON' : 'OFF'} (PWM: ${fan.pwm})`);
     } catch (error) {
@@ -219,7 +225,28 @@ export default function ClimateControl() {
     if (!state) return;
     
     console.log(`🎤 Voice climate command received: "${command}"`);
-    console.log(`🎤 Current fan state: on=${state.fan.on}, pwm=${state.fan.pwm}`);
+    console.log(`🎤 Current fan state: on=${state.fan.on}, pwm=${state.fan.pwm}, mode=${state.mode}`);
+    
+    // Switch to manual mode for voice commands
+    if (state.mode !== 'manual') {
+      console.log(`🎤 Switching to manual mode for voice command`);
+      handleModeChange('manual').then(() => {
+        // Wait for mode change to complete, then execute command
+        setTimeout(() => {
+          console.log(`🎤 Mode changed, now executing command: ${command}`);
+          processVoiceCommand(command);
+        }, 200);
+      }).catch((error) => {
+        console.error('Mode change failed:', error);
+      });
+      return;
+    }
+    
+    processVoiceCommand(command);
+  };
+  
+  const processVoiceCommand = (command: string) => {
+    if (!state) return;
     
     switch (command) {
       case 'fan_on':
@@ -235,8 +262,8 @@ export default function ClimateControl() {
         handleManualControl({ on: true, pwm: 255 });
         break;
       case 'fan_low': {
-        // Fix: Decrease by 50% instead of fixed value
-        const currentPwm = state.fan.pwm || 128;
+        // Fix: Decrease by 50% of current value
+        const currentPwm = state.fan.pwm || 0; // Use 0 as default, not 128
         const lowerPwm = Math.max(0, Math.round(currentPwm * 0.5));
         console.log(`🎤 FAN LOW: ${currentPwm} → ${lowerPwm} (50% reduction)`);
         handleManualControl({ on: lowerPwm > 0, pwm: lowerPwm });
@@ -247,8 +274,8 @@ export default function ClimateControl() {
         handleManualControl({ on: true, pwm: 170 });
         break;
       case 'fan_increase': {
-        // Fix: Increase by 50% instead of fixed value
-        const currentPwmIncrease = state.fan.pwm || 128;
+        // Fix: Increase by 50% of current value
+        const currentPwmIncrease = state.fan.pwm || 0; // Use 0 as default, not 128
         const higherPwm = Math.min(255, Math.round(currentPwmIncrease * 1.5));
         console.log(`🎤 FAN INCREASE: ${currentPwmIncrease} → ${higherPwm} (50% increase)`);
         handleManualControl({ on: true, pwm: higherPwm });
