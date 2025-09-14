@@ -248,7 +248,7 @@ class ForceGPUYOLODetector:
                 cv2.putText(frame, status, (5, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1)
                 
                 # Show frame
-                cv2.imshow('Force GPU YOLO', frame)
+                cv2.imshow('AI Presence Detection', frame)
                 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
