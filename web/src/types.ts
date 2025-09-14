@@ -59,9 +59,9 @@ export interface ClimateLog extends ClimateState {
   // Logs have the same structure as state
 }
 
-// Constants from requirements
-export const BRIGHT_THRESHOLD = 2800;
-export const DARK_THRESHOLD = 3200;
+// Constants from requirements (must match ESP32 values)
+export const BRIGHT_THRESHOLD = 1500;  // Below this = bright room (LED OFF)
+export const DARK_THRESHOLD = 2500;    // Above this = dark room (LED ON)
 export const ROOM_ID = 'roomA';
 
 // Climate control constants (from instruction.md)

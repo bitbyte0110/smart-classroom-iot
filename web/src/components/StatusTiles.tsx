@@ -14,7 +14,7 @@ export default function StatusTiles({ state }: StatusTilesProps) {
   };
 
   const brightnessStatus = getBrightnessStatus(state.ldrRaw);
-  const brightnessPercent = Math.round((state.ldrRaw / 4095) * 100);
+  const brightnessPercent = Math.round(((4095 - state.ldrRaw) / 4095) * 100);
 
   return (
     <div className="status-tiles">
