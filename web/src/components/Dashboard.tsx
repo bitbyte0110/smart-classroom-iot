@@ -35,7 +35,8 @@ export default function Dashboard() {
             ldrRaw: 1200,
             mode: 'auto' as const,
             led: { on: false, pwm: 0 },
-            sensorError: 'No data - Timeout'
+            sensorError: 'No data - Timeout',
+            ai_people_count: 0
           };
         }
         return prevState;
@@ -58,7 +59,8 @@ export default function Dashboard() {
           ldrRaw: 1200,  // Show demo data instead of 0
           mode: 'auto',
           led: { on: false, pwm: 0 },
-          sensorError: 'No data - Demo mode'
+          sensorError: 'No data - Demo mode',
+          ai_people_count: 0
         });
         return;
       }
@@ -78,7 +80,8 @@ export default function Dashboard() {
           on: Boolean(value.led?.on),
           pwm: Number.isFinite(value.led?.pwm) ? value.led.pwm : 0
         },
-        sensorError: value.sensorError ?? null
+        sensorError: value.sensorError ?? null,
+        ai_people_count: Number.isFinite(value.ai_people_count) ? value.ai_people_count : 0
       } as const;
 
       console.log('Setting state:', merged); // Debug log

@@ -9,6 +9,7 @@ export interface LightingState {
     pwm: number; // 0-255
   };
   sensorError: string | null;
+  ai_people_count?: number; // Number of people detected by AI
 }
 
 

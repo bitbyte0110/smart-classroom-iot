@@ -25,6 +25,9 @@ export default function StatusTiles({ state }: StatusTilesProps) {
           <div className={`tile-value ${state.presence ? 'active' : ''}`}>
             {state.presence ? 'DETECTED' : 'None'}
           </div>
+          <div className="tile-subtitle">
+            People: {state.ai_people_count || 0}
+          </div>
         </div>
       </div>
 
