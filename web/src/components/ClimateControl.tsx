@@ -40,7 +40,8 @@ export default function ClimateControl() {
             mode: 'auto' as const,
             fan: { on: false, pwm: 0 },
             comfortBand: 'Moderate',
-            sensorError: 'No data - Timeout'
+            sensorError: 'No data - Timeout',
+            ai_people_count: 0
           };
           return fallbackState;
         }
@@ -69,7 +70,8 @@ export default function ClimateControl() {
           mode: 'auto',
           fan: { on: false, pwm: 0 },
           comfortBand: 'Moderate',
-          sensorError: 'No data - Demo mode'
+          sensorError: 'No data - Demo mode',
+          ai_people_count: 0
         };
         setState(demoState);
         return;
@@ -116,7 +118,8 @@ export default function ClimateControl() {
           pwm: Number.isFinite(value.fan?.pwm) ? value.fan.pwm : 0
         },
         comfortBand: (value.comfortBand || 'Moderate') as 'Low' | 'Moderate' | 'High',
-        sensorError: value.sensorError ?? null
+        sensorError: value.sensorError ?? null,
+        ai_people_count: Number.isFinite(value.ai_people_count) ? value.ai_people_count : 0
       };
 
       // Debug fan PWM changes to identify override issues
@@ -154,7 +157,8 @@ export default function ClimateControl() {
         mode: 'auto',
         fan: { on: false, pwm: 0 },
         comfortBand: 'Moderate',
-        sensorError: 'Connection failed - Demo mode'
+        sensorError: 'Connection failed - Demo mode',
+        ai_people_count: 0
       };
       setState(errorState);
     });

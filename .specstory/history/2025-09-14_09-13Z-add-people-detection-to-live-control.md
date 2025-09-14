@@ -489,3 +489,295 @@ Your Live Control Presence section will now show the current number of detected 
 
 ---
 
+_**User (2025-09-14 09:13Z)**_
+
+@ClimateStatusTiles.tsx can this help me update also got people count, dont touch other  part that is not related
+
+---
+
+_**Assistant**_
+
+I can see that `ClimateStatusTiles.tsx` also has a Presence tile that should show the people count, just like we did for the lighting system. Let me update it to include the people count display.
+
+
+---
+
+## Todo List
+
+- [-] Add people count display to ClimateStatusTiles presence tile
+
+---
+
+First, let me check if the `ClimateState` type already includes the people count field:
+
+
+---
+
+Read file: undefined
+
+---
+
+I need to add the `ai_people_count` field to the `ClimateState` type as well:
+
+
+---
+
+<details><summary>Edit file: web/src/types.ts</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: undefined
+
+```diff
+@@ -53,4 +53,5 @@
+    comfortBand: 'Low' | 'Moderate' | 'High';
+    sensorError: string | null;
++   ai_people_count?: number; // Number of people detected by AI
+  }
+  
+```
+
+</details>
+
+---
+
+Now let me update the ClimateStatusTiles component to display the people count in the presence tile:
+
+
+---
+
+<details><summary>Edit file: web/src/components/ClimateStatusTiles.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 3, lines removed: undefined
+
+```diff
+@@ -41,4 +41,7 @@
+              {state.presence ? 'DETECTED' : 'None'}
+            </div>
++           <div className="tile-subtitle">
++             People: {state.ai_people_count || 0}
++           </div>
+          </div>
+        </div>
+```
+
+</details>
+
+---
+
+Now let me check if there are any climate control components that need to be updated to capture the people count from Firebase. Let me search for climate-related components:
+
+
+---
+
+<details>
+                <summary>Searched codebase "How does climate control component get data from Firebase?" • **6** results</summary>
+            
+| File | Lines |
+|------|-------|
+| `web/src/components/ClimateControl.tsx` | L9-372 |
+| `web/src/components/ClimateReports.tsx` | L30-469 |
+| `web/src/components/ClimateControl.tsx` | Lundefined-372 |
+| `web/src/components/Dashboard.tsx` | L9-308 |
+| `web/src/components/Reports.tsx` | L20-423 |
+| `web/src/components/ClimateReports.tsx` | L41-469 |
+
+</details>
+
+---
+
+Now I need to update the ClimateControl component to capture the people count from Firebase. Let me read the relevant part of the ClimateControl component:
+
+
+---
+
+Read file: undefined
+
+---
+
+Let me continue reading to see the state merging part:
+
+
+---
+
+Read file: undefined
+
+---
+
+Now I need to update the ClimateControl component to include the people count. Let me update the state merging part:
+
+
+---
+
+<details><summary>Edit file: web/src/components/ClimateControl.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 2, lines removed: 1
+
+```diff
+@@ -117,5 +117,6 @@
+          },
+          comfortBand: (value.comfortBand || 'Moderate') as 'Low' | 'Moderate' | 'High',
+-         sensorError: value.sensorError ?? null
++         sensorError: value.sensorError ?? null,
++         ai_people_count: Number.isFinite(value.ai_people_count) ? value.ai_people_count : 0
+        };
+  
+```
+
+</details>
+
+---
+
+I also need to update the fallback states to include the people count. Let me update the demo state:
+
+
+---
+
+<details><summary>Edit file: web/src/components/ClimateControl.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 2, lines removed: 1
+
+```diff
+@@ -70,5 +70,6 @@
+            fan: { on: false, pwm: 0 },
+            comfortBand: 'Moderate',
+-           sensorError: 'No data - Demo mode'
++           sensorError: 'No data - Demo mode',
++           ai_people_count: 0
+          };
+          setState(demoState);
+```
+
+</details>
+
+---
+
+Let me also update the fallback state in the timeout section:
+
+
+---
+
+<details><summary>Edit file: web/src/components/ClimateControl.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 2, lines removed: 1
+
+```diff
+@@ -41,5 +41,6 @@
+              fan: { on: false, pwm: 0 },
+              comfortBand: 'Moderate',
+-             sensorError: 'No data - Timeout'
++             sensorError: 'No data - Timeout',
++             ai_people_count: 0
+            };
+            return fallbackState;
+```
+
+</details>
+
+---
+
+Let me also check if there's an error state that needs updating:
+
+
+---
+
+Read file: undefined
+
+---
+
+Let me update the error state as well:
+
+
+---
+
+<details><summary>Edit file: web/src/components/ClimateControl.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 2, lines removed: 1
+
+```diff
+@@ -158,5 +158,6 @@
+          fan: { on: false, pwm: 0 },
+          comfortBand: 'Moderate',
+-         sensorError: 'Connection failed - Demo mode'
++         sensorError: 'Connection failed - Demo mode',
++         ai_people_count: 0
+        };
+        setState(errorState);
+```
+
+</details>
+
+---
+
+Now let me check for any linting errors:
+
+
+---
+
+
+
+---
+
+Perfect! Now let me update the todo list:
+
+
+---
+
+## Todo List
+
+- [x] Add people count display to ClimateStatusTiles presence tile
+
+---
+
+## ✅ **Climate Control People Count Integration Complete!**
+
+I have successfully updated the Climate Control system to display the people count in the Presence tile, just like we did for the lighting system. Here's what I've implemented:
+
+### **Changes Made:**
+
+1. **Updated ClimateState Type** (`web/src/types.ts`):
+   - Added `ai_people_count?: number` field to the `ClimateState` interface
+
+2. **Updated ClimateControl Component** (`web/src/components/ClimateControl.tsx`):
+   - Modified Firebase data processing to capture `ai_people_count` from the database
+   - Added fallback value of `0` for people count in all state scenarios (demo, timeout, error)
+   - Ensured the data flows correctly from Firebase to the climate UI components
+
+3. **Updated ClimateStatusTiles Component** (`web/src/components/ClimateStatusTiles.tsx`):
+   - Enhanced the Presence tile to display both detection status and people count
+   - Added a subtitle showing "People: X" where X is the detected count
+   - Maintains the existing "DETECTED" / "None" status while adding the count
+
+### **Display Format:**
+The Climate Control Presence tile now shows:
+- **Main Status**: "DETECTED" or "None" (existing functionality)
+- **Subtitle**: "People: X" (new people count display)
+
+### **Data Flow:**
+```
+YOLO Camera → Firebase (ai_people_count) → ClimateControl → ClimateStatusTiles → UI Display
+```
+
+### **Consistency:**
+Both the **Lighting Control** and **Climate Control** systems now display the people count consistently in their respective Presence tiles, providing a unified user experience across the entire smart classroom dashboard.
+
+The integration is fully compatible with your existing YOLO detection system and MQTT bridge, which already handle the `ai_people_count` data properly! 🎉
+
+---
+

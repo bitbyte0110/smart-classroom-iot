@@ -52,6 +52,7 @@ export interface ClimateState {
   };
   comfortBand: 'Low' | 'Moderate' | 'High';
   sensorError: string | null;
+  ai_people_count?: number; // Number of people detected by AI
 }
 
 export interface ClimateLog extends ClimateState {
