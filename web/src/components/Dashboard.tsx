@@ -189,34 +189,40 @@ export default function Dashboard() {
     
     switch (command) {
       case 'on':
-        handleManualControl({ on: true, pwm: state.led.pwm || 128 });
+        // Turn on light with PWM 255
+        console.log(`🎤 LIGHT ON: Setting to PWM 255`);
+        handleManualControl({ on: true, pwm: 255 });
         break;
       case 'off':
+        // Turn off light with PWM 0
+        console.log(`🎤 LIGHT OFF: Setting to PWM 0`);
         handleManualControl({ on: false, pwm: 0 });
         break;
       case 'brighter': {
-        // Fix: Increase by 50% of current value (not 150% of current value)
-        const currentPwm = state.led.pwm || 0; // Use 0 as default, not 128
-        const increaseAmount = Math.round(currentPwm * 0.5); // 50% of current value
-        const brighterPwm = Math.min(255, currentPwm + increaseAmount);
-        console.log(`🎤 BRIGHTER: ${currentPwm} → ${brighterPwm} (+${increaseAmount} = 50% increase)`);
-        handleManualControl({ on: true, pwm: brighterPwm });
+        // Increase brightness by 50% - if current is 0, start from 50
+        const currentPwm = state.led.pwm || 0;
+        let newPwm;
+        if (currentPwm === 0) {
+          newPwm = 50; // Start from 50 if currently 0
+        } else {
+          newPwm = Math.min(255, Math.round(currentPwm * 1.5)); // Increase by 50%
+        }
+        console.log(`🎤 BRIGHTER: ${currentPwm} → ${newPwm} (50% increase)`);
+        handleManualControl({ on: true, pwm: newPwm });
         break;
       }
       case 'dimmer': {
-        // Fix: Decrease by 50% of current value
-        const currentPwm = state.led.pwm || 0; // Use 0 as default, not 128
-        const dimmerPwm = Math.max(0, Math.round(currentPwm * 0.5));
-        console.log(`🎤 DIMMER: ${currentPwm} → ${dimmerPwm} (50% reduction)`);
-        handleManualControl({ on: dimmerPwm > 0, pwm: dimmerPwm });
+        // Decrease brightness by 50%
+        const currentPwm = state.led.pwm || 0;
+        const newPwm = Math.max(0, Math.round(currentPwm * 0.5)); // Decrease by 50%
+        console.log(`🎤 DIMMER: ${currentPwm} → ${newPwm} (50% decrease)`);
+        handleManualControl({ on: newPwm > 0, pwm: newPwm });
         break;
       }
       case 'max':
-        console.log(`🎤 MAX: Setting to 255 (maximum brightness)`);
-        console.log(`🎤 Current state before max: mode=${state.mode}, led.on=${state.led.on}, led.pwm=${state.led.pwm}`);
-        console.log(`🎤 About to call handleManualControl with: on=true, pwm=255`);
+        // Maximum brightness - PWM 255
+        console.log(`🎤 MAX: Setting to PWM 255 (maximum brightness)`);
         handleManualControl({ on: true, pwm: 255 });
-        console.log(`🎤 MAX command sent: on=true, pwm=255`);
         break;
       case 'min':
         handleManualControl({ on: true, pwm: 50 });

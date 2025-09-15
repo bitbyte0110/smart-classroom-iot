@@ -125,83 +125,72 @@ export default function VoiceControl({
   const processLightingCommand = (command: string) => {
     console.log(`🎯 Processing lighting command: "${command}"`);
     
-    // Turn on light commands
-    if (command.includes('turn on light') || command.includes('light on') || command.includes('lights on')) {
-      console.log('✅ Voice: Light ON');
+    // Ensure Manual Mode first for all lighting commands
+    onModeChange?.('manual');
+    
+    // Turn on light commands - exact matches
+    if (command.includes('turn on light') || command.includes('turn on the light')) {
+      console.log('✅ Voice: Light ON (Manual Mode) - Setting PWM to 255');
       onLightingControl?.('on');
     } 
-    // Turn off light commands
-    else if (command.includes('turn off light') || command.includes('light off') || command.includes('lights off')) {
-      console.log('✅ Voice: Light OFF');
+    // Turn off light commands - exact matches
+    else if (command.includes('turn off light') || command.includes('turn off the light')) {
+      console.log('✅ Voice: Light OFF (Manual Mode) - Setting PWM to 0');
       onLightingControl?.('off');
     } 
-    // Increase brightness commands
-    else if (command.includes('increase brightness') || command.includes('brighter') || command.includes('bright')) {
-      console.log('✅ Voice: INCREASE BRIGHTNESS (50% increase)');
+    // Increase brightness commands - exact matches
+    else if (command.includes('increase brightness') || command.includes('increase the brightness')) {
+      console.log('✅ Voice: INCREASE BRIGHTNESS (50% increase, Manual Mode)');
       onLightingControl?.('brighter');
     } 
-    // Decrease brightness commands
-    else if (command.includes('lower the light') || command.includes('decrease brightness') || command.includes('dim') || command.includes('dimmer')) {
-      console.log('✅ Voice: DIMMER (50% reduction)');
+    // Decrease brightness commands - exact matches
+    else if (command.includes('lower light') || command.includes('lower the light')) {
+      console.log('✅ Voice: LOWER LIGHT (50% decrease, Manual Mode)');
       onLightingControl?.('dimmer');
     } 
-    // Maximum brightness commands
-    else if (command.includes('maximum brightness') || command.includes('max') || command.includes('maximum') || command.includes('full')) {
-      console.log('✅ Voice: MAXIMUM BRIGHTNESS (255)');
+    // Maximum brightness commands - exact matches
+    else if (command.includes('maximum brightness') || command.includes('maximum the brightness')) {
+      console.log('✅ Voice: MAXIMUM BRIGHTNESS (PWM=255, Manual Mode)');
       onLightingControl?.('max');
     } 
-    // Additional commands (keeping for compatibility)
-    else if (command.includes('min') || command.includes('minimum') || command.includes('low')) {
-      console.log('✅ Voice: MINIMUM BRIGHTNESS');
-      onLightingControl?.('min');
-    } else if (command.includes('medium') || command.includes('mid')) {
-      console.log('✅ Voice: MEDIUM BRIGHTNESS');
-      onLightingControl?.('medium');
-    } else {
-      console.log('❌ Voice: Command not recognized');
+    else {
+      console.log('❌ Voice: Lighting command not recognized');
     }
   };
 
   const processClimateCommand = (command: string) => {
     console.log(`🎯 Processing climate command: "${command}"`);
     
-    // Turn on fan commands
-    if (command.includes('turn on fan') || command.includes('fan on') || command.includes('start fan')) {
-      console.log('✅ Voice: Fan ON');
+    // Ensure Manual Mode first for all climate commands
+    onModeChange?.('manual');
+    
+    // Turn on fan commands - exact matches
+    if (command.includes('turn on fan') || command.includes('turn on the fan')) {
+      console.log('✅ Voice: Fan ON (Manual Mode) - Setting PWM to 255');
       onClimateControl?.('fan_on');
     } 
-    // Turn off fan commands
-    else if (command.includes('turn off fan') || command.includes('fan off') || command.includes('stop fan')) {
-      console.log('✅ Voice: Fan OFF');
+    // Turn off fan commands - exact matches
+    else if (command.includes('turn off fan') || command.includes('turn off the fan')) {
+      console.log('✅ Voice: Fan OFF (Manual Mode) - Setting PWM to 0');
       onClimateControl?.('fan_off');
     } 
-    // Increase fan speed commands
-    else if (command.includes('increase fan speed') || command.includes('fan speed up') || command.includes('faster fan')) {
-      console.log('✅ Voice: INCREASE FAN SPEED (50% increase)');
+    // Increase fan speed commands - exact matches
+    else if (command.includes('increase fan speed') || command.includes('increase the fan speed')) {
+      console.log('✅ Voice: INCREASE FAN SPEED (50% increase, Manual Mode)');
       onClimateControl?.('fan_increase');
     } 
-    // Decrease fan speed commands
-    else if (command.includes('lower fan speed') || command.includes('decrease fan speed') || command.includes('slower fan')) {
-      console.log('✅ Voice: LOWER FAN SPEED (50% reduction)');
+    // Decrease fan speed commands - exact matches
+    else if (command.includes('lower fan speed') || command.includes('lower the fan speed')) {
+      console.log('✅ Voice: LOWER FAN SPEED (50% decrease, Manual Mode)');
       onClimateControl?.('fan_low');
     } 
-    // Maximum fan speed commands
-    else if (command.includes('fan maximum speed') || command.includes('maximum fan speed') || command.includes('fan max') || command.includes('maximum fan')) {
-      console.log('✅ Voice: Fan MAXIMUM SPEED');
+    // Maximum fan speed commands - exact matches
+    else if (command.includes('fan maximum speed') || command.includes('fan maximum the speed')) {
+      console.log('✅ Voice: FAN MAXIMUM SPEED (PWM=255, Manual Mode)');
       onClimateControl?.('fan_high');
     } 
-    // Additional commands (keeping for compatibility)
-    else if (command.includes('fan high') || command.includes('fan max')) {
-      console.log('✅ Voice: Fan MAXIMUM SPEED');
-      onClimateControl?.('fan_high');
-    } else if (command.includes('fan low') || command.includes('fan min') || command.includes('minimum fan')) {
-      console.log('✅ Voice: Fan LOW SPEED (50% reduction)');
-      onClimateControl?.('fan_low');
-    } else if (command.includes('fan medium') || command.includes('fan mid')) {
-      console.log('✅ Voice: Fan MEDIUM SPEED');
-      onClimateControl?.('fan_medium');
-    } else {
-      console.log('❌ Voice: Fan command not recognized');
+    else {
+      console.log('❌ Voice: Climate command not recognized');
     }
   };
 

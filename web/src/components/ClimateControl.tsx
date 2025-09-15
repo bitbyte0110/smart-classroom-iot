@@ -250,23 +250,26 @@ export default function ClimateControl() {
     
     switch (command) {
       case 'fan_on':
-        console.log(`🎤 FAN ON: Setting to current PWM or 128`);
-        handleManualControl({ on: true, pwm: state.fan.pwm || 128 });
+        // Turn on fan with PWM 255
+        console.log(`🎤 FAN ON: Setting to PWM 255`);
+        handleManualControl({ on: true, pwm: 255 });
         break;
       case 'fan_off':
-        console.log(`🎤 FAN OFF: Turning off`);
+        // Turn off fan with PWM 0
+        console.log(`🎤 FAN OFF: Setting to PWM 0`);
         handleManualControl({ on: false, pwm: 0 });
         break;
       case 'fan_high':
-        console.log(`🎤 FAN HIGH: Setting to 255 (maximum)`);
+        // Maximum fan speed - PWM 255
+        console.log(`🎤 FAN HIGH: Setting to PWM 255 (maximum)`);
         handleManualControl({ on: true, pwm: 255 });
         break;
       case 'fan_low': {
-        // Fix: Decrease by 50% of current value
-        const currentPwm = state.fan.pwm || 0; // Use 0 as default, not 128
-        const lowerPwm = Math.max(0, Math.round(currentPwm * 0.5));
-        console.log(`🎤 FAN LOW: ${currentPwm} → ${lowerPwm} (50% reduction)`);
-        handleManualControl({ on: lowerPwm > 0, pwm: lowerPwm });
+        // Decrease fan speed by 50%
+        const currentPwm = state.fan.pwm || 0;
+        const newPwm = Math.max(0, Math.round(currentPwm * 0.5)); // Decrease by 50%
+        console.log(`🎤 FAN LOW: ${currentPwm} → ${newPwm} (50% decrease)`);
+        handleManualControl({ on: newPwm > 0, pwm: newPwm });
         break;
       }
       case 'fan_medium':
@@ -274,11 +277,16 @@ export default function ClimateControl() {
         handleManualControl({ on: true, pwm: 170 });
         break;
       case 'fan_increase': {
-        // Fix: Increase by 50% of current value
-        const currentPwmIncrease = state.fan.pwm || 0; // Use 0 as default, not 128
-        const higherPwm = Math.min(255, Math.round(currentPwmIncrease * 1.5));
-        console.log(`🎤 FAN INCREASE: ${currentPwmIncrease} → ${higherPwm} (50% increase)`);
-        handleManualControl({ on: true, pwm: higherPwm });
+        // Increase fan speed by 50% - if current is 0, start from 50
+        const currentPwm = state.fan.pwm || 0;
+        let newPwm;
+        if (currentPwm === 0) {
+          newPwm = 50; // Start from 50 if currently 0
+        } else {
+          newPwm = Math.min(255, Math.round(currentPwm * 1.5)); // Increase by 50%
+        }
+        console.log(`🎤 FAN INCREASE: ${currentPwm} → ${newPwm} (50% increase)`);
+        handleManualControl({ on: true, pwm: newPwm });
         break;
       }
     }
