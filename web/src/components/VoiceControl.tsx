@@ -130,7 +130,7 @@ export default function VoiceControl({
     
     // Turn on light commands - exact matches
     if (command.includes('turn on light') || command.includes('turn on the light')) {
-      console.log('✅ Voice: Light ON (Manual Mode) - Setting PWM to 255');
+      console.log('✅ Voice: Light ON (Manual Mode) - Setting PWM to 128');
       onLightingControl?.('on');
     } 
     // Turn off light commands - exact matches
@@ -139,12 +139,12 @@ export default function VoiceControl({
       onLightingControl?.('off');
     } 
     // Increase brightness commands - exact matches
-    else if (command.includes('increase brightness') || command.includes('increase the brightness')) {
+    else if (command.includes('increase brightness') || command.includes('increase the brightness') || command.includes('increase light') || command.includes('increase the light')) {
       console.log('✅ Voice: INCREASE BRIGHTNESS (50% increase, Manual Mode)');
       onLightingControl?.('brighter');
     } 
     // Decrease brightness commands - exact matches
-    else if (command.includes('lower light') || command.includes('lower the light')) {
+    else if (command.includes('lower light') || command.includes('lower the light') || command.includes('lower the brightness') || command.includes('lower brightness')) {
       console.log('✅ Voice: LOWER LIGHT (50% decrease, Manual Mode)');
       onLightingControl?.('dimmer');
     } 
@@ -166,7 +166,7 @@ export default function VoiceControl({
     
     // Turn on fan commands - exact matches
     if (command.includes('turn on fan') || command.includes('turn on the fan')) {
-      console.log('✅ Voice: Fan ON (Manual Mode) - Setting PWM to 255');
+      console.log('✅ Voice: Fan ON (Manual Mode) - Setting PWM to 128');
       onClimateControl?.('fan_on');
     } 
     // Turn off fan commands - exact matches
@@ -185,7 +185,7 @@ export default function VoiceControl({
       onClimateControl?.('fan_low');
     } 
     // Maximum fan speed commands - exact matches
-    else if (command.includes('fan maximum speed') || command.includes('fan maximum the speed')) {
+    else if (command.includes('fan maximum speed') || command.includes('fan maximum the speed') || command.includes('maximum fan speed')) {
       console.log('✅ Voice: FAN MAXIMUM SPEED (PWM=255, Manual Mode)');
       onClimateControl?.('fan_high');
     } 
@@ -273,7 +273,7 @@ export default function VoiceControl({
               <span>"Turn on fan"</span>
               <span>"Turn off fan"</span>
               <span>"Increase fan speed"</span>
-              <span>"Fan maximum speed"</span>
+              <span>"Maximum fan speed"</span>
               <span>"Lower fan speed"</span>
               <span>"Switch to manual mode"</span>
             </>

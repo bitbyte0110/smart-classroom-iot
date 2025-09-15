@@ -250,9 +250,9 @@ export default function ClimateControl() {
     
     switch (command) {
       case 'fan_on':
-        // Turn on fan with PWM 255
-        console.log(`🎤 FAN ON: Setting to PWM 255`);
-        handleManualControl({ on: true, pwm: 255 });
+        // Turn on fan with PWM 128
+        console.log(`🎤 FAN ON: Setting to PWM 128`);
+        handleManualControl({ on: true, pwm: 128 });
         break;
       case 'fan_off':
         // Turn off fan with PWM 0

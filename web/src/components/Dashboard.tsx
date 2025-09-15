@@ -189,9 +189,9 @@ export default function Dashboard() {
     
     switch (command) {
       case 'on':
-        // Turn on light with PWM 255
-        console.log(`🎤 LIGHT ON: Setting to PWM 255`);
-        handleManualControl({ on: true, pwm: 255 });
+        // Turn on light with PWM 128
+        console.log(`🎤 LIGHT ON: Setting to PWM 128`);
+        handleManualControl({ on: true, pwm: 128 });
         break;
       case 'off':
         // Turn off light with PWM 0

@@ -1289,3 +1289,409 @@ The voice control system is now fully compliant with your requirements and ready
 
 ---
 
+_**User (2025-09-14 13:12Z)**_
+
+help me change the value when turn on ligth and turn on fan set to 128 pwm instaed of 255
+
+---
+
+_**Assistant**_
+
+I'll help you change the PWM values for "turn on light" and "turn on fan" commands from 255 to 128. Let me update both the Dashboard and ClimateControl components.
+
+
+---
+
+## Todo List
+
+- [-] Change turn on light PWM from 255 to 128
+- [ ] Change turn on fan PWM from 255 to 128
+- [ ] Update VoiceControl logging to reflect new PWM values
+
+---
+
+Let me first update the Dashboard component to change the "turn on light" command from PWM 255 to 128:
+
+
+---
+
+<details><summary>Edit file: web/src/components/Dashboard.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 3, lines removed: 3
+
+```diff
+@@ -190,7 +190,7 @@
+      switch (command) {
+        case 'on':
+-         // Turn on light with PWM 255
+-         console.log(`🎤 LIGHT ON: Setting to PWM 255`);
+-         handleManualControl({ on: true, pwm: 255 });
++         // Turn on light with PWM 128
++         console.log(`🎤 LIGHT ON: Setting to PWM 128`);
++         handleManualControl({ on: true, pwm: 128 });
+          break;
+        case 'off':
+```
+
+</details>
+
+---
+
+## Todo List
+
+- [x] Change turn on light PWM from 255 to 128
+- [-] Change turn on fan PWM from 255 to 128
+- [ ] Update VoiceControl logging to reflect new PWM values
+
+---
+
+Now let me update the ClimateControl component to change the "turn on fan" command from PWM 255 to 128:
+
+
+---
+
+<details><summary>Edit file: web/src/components/ClimateControl.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 3, lines removed: 3
+
+```diff
+@@ -251,7 +251,7 @@
+      switch (command) {
+        case 'fan_on':
+-         // Turn on fan with PWM 255
+-         console.log(`🎤 FAN ON: Setting to PWM 255`);
+-         handleManualControl({ on: true, pwm: 255 });
++         // Turn on fan with PWM 128
++         console.log(`🎤 FAN ON: Setting to PWM 128`);
++         handleManualControl({ on: true, pwm: 128 });
+          break;
+        case 'fan_off':
+```
+
+</details>
+
+---
+
+## Todo List
+
+- [x] Change turn on light PWM from 255 to 128
+- [x] Change turn on fan PWM from 255 to 128
+- [-] Update VoiceControl logging to reflect new PWM values
+
+---
+
+Now let me update the VoiceControl component to reflect the new PWM values in the logging messages:
+
+
+---
+
+<details><summary>Edit file: web/src/components/VoiceControl.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -131,5 +131,5 @@
+      // Turn on light commands - exact matches
+      if (command.includes('turn on light') || command.includes('turn on the light')) {
+-       console.log('✅ Voice: Light ON (Manual Mode) - Setting PWM to 255');
++       console.log('✅ Voice: Light ON (Manual Mode) - Setting PWM to 128');
+        onLightingControl?.('on');
+      } 
+```
+
+</details>
+
+---
+
+<details><summary>Edit file: web/src/components/VoiceControl.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -167,5 +167,5 @@
+      // Turn on fan commands - exact matches
+      if (command.includes('turn on fan') || command.includes('turn on the fan')) {
+-       console.log('✅ Voice: Fan ON (Manual Mode) - Setting PWM to 255');
++       console.log('✅ Voice: Fan ON (Manual Mode) - Setting PWM to 128');
+        onClimateControl?.('fan_on');
+      } 
+```
+
+</details>
+
+---
+
+## Todo List
+
+- [x] Change turn on light PWM from 255 to 128
+- [x] Change turn on fan PWM from 255 to 128
+- [x] Update VoiceControl logging to reflect new PWM values
+
+---
+
+Let me check for any linting errors:
+
+
+---
+
+
+
+---
+
+Perfect! I've successfully updated the PWM values for both "turn on light" and "turn on fan" commands. Here's a summary of the changes:
+
+## ✅ **PWM Values Updated Successfully**
+
+### **Changes Made:**
+
+#### **1. Dashboard Component (Lighting):**
+- **"Turn on light"** command now sets PWM to **128** instead of 255
+- Updated console logging to reflect the new value
+
+#### **2. ClimateControl Component (Climate):**
+- **"Turn on fan"** command now sets PWM to **128** instead of 255
+- Updated console logging to reflect the new value
+
+#### **3. VoiceControl Component:**
+- Updated logging messages to show PWM 128 for both commands
+- Maintains all other functionality (manual mode enforcement, etc.)
+
+### **Updated Voice Command Behavior:**
+
+| Command | Manual Mode | PWM Result | Status |
+|---------|-------------|------------|---------|
+| "Turn on light" | ✅ Auto | **128** (was 255) | ✅ Updated |
+| "Turn off light" | ✅ Auto | 0 | ✅ Unchanged |
+| "Turn on fan" | ✅ Auto | **128** (was 255) | ✅ Updated |
+| "Turn off fan" | ✅ Auto | 0 | ✅ Unchanged |
+| "Maximum brightness" | ✅ Auto | 255 | ✅ Unchanged |
+| "Fan maximum speed" | ✅ Auto | 255 | ✅ Unchanged |
+
+### **What This Means:**
+- **"Turn on light"** will now turn on the light at **50% brightness** (PWM 128) instead of full brightness
+- **"Turn on fan"** will now turn on the fan at **50% speed** (PWM 128) instead of full speed
+- All other commands remain unchanged
+- Manual mode enforcement still works for all commands
+- The brightness/speed adjustment commands (+50%, -50%) still work as before
+
+The voice control system now provides a more moderate initial power level when turning on lights and fans, while still allowing users to increase to maximum brightness/speed using the "maximum" commands.
+
+---
+
+_**User (2025-09-14 13:12Z)**_
+
+"Lower light" / "Lower the light" /"Lower the brightness " / "Lower brightness" 
+"Fan maximum speed" / "Maximum fan speed" / "Fan maximum the speed"
+ "Increase brightness" / "Increase the brightness" / "Increase light" / "Increase the light"
+
+add on the word
+
+---
+
+_**Assistant**_
+
+I'll help you add those additional voice command variations to make the voice control more flexible and natural. Let me update the VoiceControl component to include these new command patterns.
+
+
+---
+
+## Todo List
+
+- [-] Add brightness variations: Lower the brightness, Lower brightness
+- [ ] Add fan speed variations: Maximum fan speed
+- [ ] Add light variations: Increase light, Increase the light
+
+---
+
+Let me update the lighting commands first to add the new variations:
+
+
+---
+
+<details><summary>Edit file: web/src/components/VoiceControl.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 2, lines removed: 2
+
+```diff
+@@ -140,10 +140,10 @@
+      } 
+      // Increase brightness commands - exact matches
+-     else if (command.includes('increase brightness') || command.includes('increase the brightness')) {
++     else if (command.includes('increase brightness') || command.includes('increase the brightness') || command.includes('increase light') || command.includes('increase the light')) {
+        console.log('✅ Voice: INCREASE BRIGHTNESS (50% increase, Manual Mode)');
+        onLightingControl?.('brighter');
+      } 
+      // Decrease brightness commands - exact matches
+-     else if (command.includes('lower light') || command.includes('lower the light')) {
++     else if (command.includes('lower light') || command.includes('lower the light') || command.includes('lower the brightness') || command.includes('lower brightness')) {
+        console.log('✅ Voice: LOWER LIGHT (50% decrease, Manual Mode)');
+        onLightingControl?.('dimmer');
+```
+
+</details>
+
+---
+
+## Todo List
+
+- [x] Add brightness variations: Lower the brightness, Lower brightness
+- [-] Add fan speed variations: Maximum fan speed
+- [ ] Add light variations: Increase light, Increase the light
+
+---
+
+Now let me update the climate commands to add the "Maximum fan speed" variation:
+
+
+---
+
+<details><summary>Edit file: web/src/components/VoiceControl.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -186,5 +186,5 @@
+      } 
+      // Maximum fan speed commands - exact matches
+-     else if (command.includes('fan maximum speed') || command.includes('fan maximum the speed')) {
++     else if (command.includes('fan maximum speed') || command.includes('fan maximum the speed') || command.includes('maximum fan speed')) {
+        console.log('✅ Voice: FAN MAXIMUM SPEED (PWM=255, Manual Mode)');
+        onClimateControl?.('fan_high');
+```
+
+</details>
+
+---
+
+## Todo List
+
+- [x] Add brightness variations: Lower the brightness, Lower brightness
+- [x] Add fan speed variations: Maximum fan speed
+- [x] Add light variations: Increase light, Increase the light
+
+---
+
+Now let me update the command examples in the UI to show some of these new variations:
+
+
+---
+
+The string to replace was not found in the file.
+
+---
+
+Let me read the current state of the file to see the exact content:
+
+
+---
+
+Read file: undefined
+
+---
+
+I can see the UI already shows "Lower the light" and "Fan maximum speed". Let me update it to show "Maximum fan speed" as well:
+
+
+---
+
+<details><summary>Edit file: web/src/components/VoiceControl.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -274,5 +274,5 @@
+                <span>"Turn off fan"</span>
+                <span>"Increase fan speed"</span>
+-               <span>"Fan maximum speed"</span>
++               <span>"Maximum fan speed"</span>
+                <span>"Lower fan speed"</span>
+                <span>"Switch to manual mode"</span>
+```
+
+</details>
+
+---
+
+Let me check for any linting errors:
+
+
+---
+
+
+
+---
+
+Perfect! I've successfully added all the new voice command variations you requested. Here's a summary of what was added:
+
+## ✅ **New Voice Command Variations Added**
+
+### **Lighting Commands - New Variations:**
+
+#### **Increase Brightness:**
+- ✅ "Increase brightness" (existing)
+- ✅ "Increase the brightness" (existing)
+- ✅ **"Increase light"** (new)
+- ✅ **"Increase the light"** (new)
+
+#### **Lower Brightness:**
+- ✅ "Lower light" (existing)
+- ✅ "Lower the light" (existing)
+- ✅ **"Lower the brightness"** (new)
+- ✅ **"Lower brightness"** (new)
+
+### **Climate Commands - New Variations:**
+
+#### **Maximum Fan Speed:**
+- ✅ "Fan maximum speed" (existing)
+- ✅ "Fan maximum the speed" (existing)
+- ✅ **"Maximum fan speed"** (new)
+
+### **Updated Voice Command Matrix:**
+
+| Command Category | Original Commands | New Variations Added |
+|------------------|-------------------|---------------------|
+| **Increase Brightness** | "Increase brightness", "Increase the brightness" | "Increase light", "Increase the light" |
+| **Lower Brightness** | "Lower light", "Lower the light" | "Lower the brightness", "Lower brightness" |
+| **Maximum Fan Speed** | "Fan maximum speed", "Fan maximum the speed" | "Maximum fan speed" |
+
+### **All Supported Commands Now:**
+
+#### **Lighting:**
+- "Turn on light" / "Turn on the light" → PWM 128
+- "Turn off light" / "Turn off the light" → PWM 0
+- "Increase brightness" / "Increase the brightness" / "Increase light" / "Increase the light" → +50%
+- "Lower light" / "Lower the light" / "Lower the brightness" / "Lower brightness" → -50%
+- "Maximum brightness" / "Maximum the brightness" → PWM 255
+
+#### **Climate:**
+- "Turn on fan" / "Turn on the fan" → PWM 128
+- "Turn off fan" / "Turn off the fan" → PWM 0
+- "Increase fan speed" / "Increase the fan speed" → +50%
+- "Lower fan speed" / "Lower the fan speed" → -50%
+- "Fan maximum speed" / "Fan maximum the speed" / "Maximum fan speed" → PWM 255
+
+The voice control system is now much more flexible and natural to use, accepting multiple ways to phrase the same commands!
+
+---
+
