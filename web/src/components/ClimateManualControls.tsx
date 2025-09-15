@@ -4,15 +4,19 @@ import './ManualControls.css';
 interface ClimateManualControlsProps {
   fan: { on: boolean; pwm: number };
   onControlChange: (fan: { on: boolean; pwm: number }) => void;
+  airQualityStatus?: string;
+  airQualityAlert?: string;
 }
 
-export default function ClimateManualControls({ fan, onControlChange }: ClimateManualControlsProps) {
+export default function ClimateManualControls({ fan, onControlChange, airQualityStatus, airQualityAlert }: ClimateManualControlsProps) {
   const [localPwm, setLocalPwm] = useState(fan.pwm);
 
   // Update local state when prop changes (from Firebase)
   React.useEffect(() => {
     setLocalPwm(fan.pwm);
   }, [fan.pwm]);
+
+  const isAirQualityOverride = airQualityStatus === "Poor";
 
   const handleToggle = () => {
     const newState = { 
@@ -45,6 +49,24 @@ export default function ClimateManualControls({ fan, onControlChange }: ClimateM
     <div className="manual-controls">
       <h3 style={{ color: '#000000' }}>🎛️ Manual Fan Controls</h3>
       
+      {/* Air Quality Alert */}
+      {isAirQualityOverride && (
+        <div className="air-quality-alert" style={{
+          backgroundColor: '#ff8800',
+          color: 'white',
+          padding: '10px',
+          borderRadius: '8px',
+          marginBottom: '15px',
+          textAlign: 'center',
+          fontWeight: 'bold'
+        }}>
+          ⚠️ AIR QUALITY ALERT: POOR AIR QUALITY DETECTED
+          <br />
+          <small>Auto mode will force fan to maximum speed, but manual control is still available</small>
+          {airQualityAlert && <div style={{ marginTop: '5px', fontSize: '0.9em' }}>{airQualityAlert}</div>}
+        </div>
+      )}
+      
       <div className="control-group">
         <label>Fan Control</label>
         <button 
@@ -74,7 +96,11 @@ export default function ClimateManualControls({ fan, onControlChange }: ClimateM
       <div className="control-info">
         <p>🌪️ <strong>Current State:</strong> {fan.on ? `${getFanSpeedLabel(fan.pwm)} at ${fan.pwm}/255` : 'OFF'}</p>
         <p>⚡ <strong>Power Usage:</strong> ~{getPowerUsage(fan.on ? fan.pwm : 0)}W</p>
-        <p>🌡️ <strong>Note:</strong> Fan speed automatically adjusts based on temperature and air quality in Auto mode</p>
+        {isAirQualityOverride ? (
+          <p>⚠️ <strong>Air Quality Alert:</strong> Poor air quality detected - Auto mode will force maximum fan speed</p>
+        ) : (
+          <p>🌡️ <strong>Note:</strong> Fan speed automatically adjusts based on temperature and air quality in Auto mode</p>
+        )}
       </div>
     </div>
   );

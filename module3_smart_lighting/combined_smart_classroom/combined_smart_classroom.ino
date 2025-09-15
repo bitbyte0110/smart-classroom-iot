@@ -478,6 +478,7 @@ void readManualCommandsFromCloud() {
     
     if (climateState.mode == "manual" && doc.containsKey("fan")) {
       JsonObject fan = doc["fan"];
+      
       if (fan.containsKey("on")) {
         bool newFanOn = fan["on"];
         if (newFanOn != manualCommands.fanOn) {
@@ -672,8 +673,23 @@ void validateBusinessRules() {
     Serial.printf("🎛️ Business Rules: Manual mode - fanOn=%s, pwm=%d (NO setFanDuty call)\n", 
                   climateState.fanOn ? "true" : "false", climateState.fanPwm);
   } else {
-    // Auto mode - presence-based control
-    if (climateState.presence) {
+    // Auto mode - check for air quality override first
+    if (climateState.aqStatus == "Poor") {
+      // POOR Air Quality - IMMEDIATE fan activation at MAXIMUM speed
+      // This works WITHOUT human presence for safety
+      setFanDuty(FAN_DUTY_HIGH);
+      climateState.fanOn = true;
+      climateState.fanPwm = 255; // Maximum PWM
+      climateState.comfortBand = "High";
+      
+      Serial.println("🚨 CRITICAL: POOR Air Quality detected!");
+      Serial.printf("   AQ Raw: %d (Threshold: >%d = Poor)\n", climateState.aqRaw, AQ_MODERATE_MAX);
+      Serial.println("   🌪️ Fan FORCED to MAXIMUM speed (255/255 PWM)");
+      Serial.println("   ⚠️ Override: Works WITHOUT human presence for safety!");
+      
+      // Update system status to show air quality alert
+      lightingState.systemStatus = "AIR_QUALITY_ALERT";
+    } else if (climateState.presence) {
       // Presence detected - IMMEDIATE response
       if (presenceChanged) {
         Serial.println("🚀 IMMEDIATE FAN START - Presence detected!");
@@ -696,7 +712,8 @@ void validateBusinessRules() {
     lightingState.systemStatus = "ERROR";
   } else if (WiFi.status() != WL_CONNECTED) {
     lightingState.systemStatus = "OFFLINE";
-  } else {
+  } else if (climateState.aqStatus != "Poor") {
+    // Only set to NORMAL if air quality is not Poor
     lightingState.systemStatus = "NORMAL";
   }
 }

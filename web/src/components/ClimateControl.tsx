@@ -391,6 +391,8 @@ export default function ClimateControl() {
             <ClimateManualControls 
               fan={state.fan}
               onControlChange={handleManualControl}
+              airQualityStatus={state.aqStatus}
+              airQualityAlert={state.aqAlert}
             />
           )}
 
