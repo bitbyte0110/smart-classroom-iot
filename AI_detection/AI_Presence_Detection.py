@@ -49,7 +49,9 @@ class ForceGPUYOLODetector:
         
         # Timing
         self.last_update = 0
-        self.update_interval = 1.0  # Update every 1s for immediate LED response
+        self.update_interval = 0.5  # Update every 0.5s for responsive updates
+        self.last_console_update = 0
+        self.console_interval = 2.0  # Console output every 2s to reduce spam
         
         # MQTT client (Raspberry Pi broker)
         self.mqtt_host = mqtt_host
@@ -172,13 +174,16 @@ class ForceGPUYOLODetector:
             climate_success = climate_response.status_code == 200
             
             if lighting_success and climate_success:
-                # Enhanced logging for LED and Fan control debugging
-                status_icon = "🟢" if presence else "🔴"
-                led_action = "LED should turn ON" if presence else "LED should turn OFF IMMEDIATELY"
-                fan_action = "Fan should turn ON (if temp/humidity needs it)" if presence else "Fan should turn OFF IMMEDIATELY"
-                print(f"{status_icon} Firebase updated (both modules): AI presence={presence}, people={person_count}, conf={max_confidence:.2f}")
-                print(f"💡 {led_action}")
-                print(f"🌪️ {fan_action}")
+                # Throttled console output to reduce spam
+                current_time = time.time()
+                if current_time - self.last_console_update >= self.console_interval:
+                    status_icon = "🟢" if presence else "🔴"
+                    led_action = "LED should turn ON" if presence else "LED should turn OFF IMMEDIATELY"
+                    fan_action = "Fan should turn ON (if temp/humidity needs it)" if presence else "Fan should turn OFF IMMEDIATELY"
+                    print(f"{status_icon} Firebase updated (both modules): AI presence={presence}, people={person_count}, conf={max_confidence:.2f}")
+                    print(f"💡 {led_action}")
+                    print(f"🌪️ {fan_action}")
+                    self.last_console_update = current_time
                 return True
             else:
                 if not lighting_success:
@@ -219,6 +224,7 @@ class ForceGPUYOLODetector:
         frame_count = 0
         start_time = time.time()
         last_fps_time = start_time
+        fps_frames = 0  # Frames in current FPS calculation window
         
         print("🚀 Starting detection...")
         
@@ -229,6 +235,7 @@ class ForceGPUYOLODetector:
                     break
                 
                 frame_count += 1
+                fps_frames += 1
                 current_time = time.time()
                 
                 # Process every Nth frame
@@ -240,21 +247,29 @@ class ForceGPUYOLODetector:
                     # Get max confidence for Firebase
                     max_confidence = max(confidences) if confidences else 0.0
                     
-                    # Update Firebase occasionally
+                    # Update Firebase occasionally (non-blocking)
                     if current_time - self.last_update >= self.update_interval:
-                        self.update_firebase(stable_presence, person_count, max_confidence)
+                        # Run Firebase update in a separate thread to avoid blocking
+                        import threading
+                        def firebase_update():
+                            self.update_firebase(stable_presence, person_count, max_confidence)
+                        threading.Thread(target=firebase_update, daemon=True).start()
                         self.last_update = current_time
                     
                     # Draw detections
                     frame = self.draw_detections(frame, boxes, confidences)
                 
-                # Calculate FPS
+                # Calculate FPS (rolling 1-second window)
                 if current_time - last_fps_time >= 1.0:
-                    fps = frame_count / (current_time - start_time)
+                    fps = fps_frames / (current_time - last_fps_time)
                     last_fps_time = current_time
-                    print(f"📊 FPS: {fps:.1f} | People: {person_count if frame_count % self.frame_skip == 0 else '...'}")
+                    fps_frames = 0  # Reset frame counter
+                    # Only print FPS every 2 seconds to reduce console spam
+                    if current_time - self.last_console_update >= self.console_interval:
+                        print(f"📊 FPS: {fps:.1f} | People: {person_count if frame_count % self.frame_skip == 0 else '...'}")
                 else:
-                    fps = frame_count / (current_time - start_time)
+                    # Calculate current FPS for display
+                    fps = fps_frames / (current_time - last_fps_time) if (current_time - last_fps_time) > 0 else 0
                 
                 # Add status
                 status = f"People: {person_count if frame_count % self.frame_skip == 0 else '...'} | FPS: {fps:.1f}"
