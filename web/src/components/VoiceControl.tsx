@@ -23,23 +23,9 @@ export default function VoiceControl({
   const [error, setError] = useState('');
   const [isIntentionallyStopped, setIsIntentionallyStopped] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
-<<<<<<< HEAD
-  const isListeningRef = useRef(isListening);
-  const isIntentionallyStoppedRef = useRef(isIntentionallyStopped);
-
-  // Update refs when values change
-  useEffect(() => {
-    isListeningRef.current = isListening;
-  }, [isListening]);
-
-  useEffect(() => {
-    isIntentionallyStoppedRef.current = isIntentionallyStopped;
-  }, [isIntentionallyStopped]);
-=======
   // Local, immediate flags to avoid race conditions with prop updates
   const isActiveRef = useRef(false); // true while we should process results and allow restart
   const suppressResultsRef = useRef(false); // blocks stray results after stopping
->>>>>>> c5624bad36b5e9a644d18d77e8c87261ce56fe4a
 
   useEffect(() => {
     // Check browser support
