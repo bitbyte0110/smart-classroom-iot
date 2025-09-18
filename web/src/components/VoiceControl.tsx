@@ -21,7 +21,6 @@ export default function VoiceControl({
   const [transcript, setTranscript] = useState('');
   const [isSupported, setIsSupported] = useState(false);
   const [error, setError] = useState('');
-  const [isIntentionallyStopped, setIsIntentionallyStopped] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   // Local, immediate flags to avoid race conditions with prop updates
   const isActiveRef = useRef(false); // true while we should process results and allow restart
@@ -87,20 +86,11 @@ export default function VoiceControl({
       };
 
       recognitionRef.current.onend = () => {
-<<<<<<< HEAD
-        // Only restart if we're supposed to be listening AND we didn't intentionally stop
-        console.log('🎤 onend fired - isListening:', isListeningRef.current, 'isIntentionallyStopped:', isIntentionallyStoppedRef.current);
-        if (isListeningRef.current && !isIntentionallyStoppedRef.current) {
-          console.log('🎤 Auto-restarting voice recognition...');
-          setTimeout(() => {
-            if (isListeningRef.current && !isIntentionallyStoppedRef.current && recognitionRef.current) {
-=======
         // Only restart if we are actively supposed to be listening
         if (isActiveRef.current) {
           // Restart if we're supposed to be listening
           setTimeout(() => {
             if (isActiveRef.current && recognitionRef.current) {
->>>>>>> c5624bad36b5e9a644d18d77e8c87261ce56fe4a
               recognitionRef.current.start();
             }
           }, 100);
@@ -218,10 +208,6 @@ export default function VoiceControl({
     
     if (isListening) {
       console.log('🎤 Stopping voice recognition...');
-<<<<<<< HEAD
-      setIsIntentionallyStopped(true); // Mark as intentionally stopped
-      recognitionRef.current?.stop();
-=======
       // Set flags to immediately block results and restarts
       isActiveRef.current = false;
       suppressResultsRef.current = true;
@@ -234,10 +220,8 @@ export default function VoiceControl({
           recognitionRef.current.stop();
         }
       }
->>>>>>> c5624bad36b5e9a644d18d77e8c87261ce56fe4a
     } else {
       console.log('🎤 Starting voice recognition...');
-      setIsIntentionallyStopped(false); // Reset the flag
       setError('');
       setTranscript('');
       suppressResultsRef.current = false;
