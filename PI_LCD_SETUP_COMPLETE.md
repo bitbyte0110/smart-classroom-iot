@@ -101,7 +101,7 @@ python3 -c 'import sys; sys.path.insert(0, "."); from grove_rgb_lcd.grove_rgb_lc
 ### 4.1 Copy Dashboard File
 ```bash
 # From your Windows development machine:
-scp pi_lcd_dashboard_working.py pi@192.168.202.221:~/pi_lcd_dashboard.py
+scp pi_lcd_dashboard_working.py pi@192.168.225.221:~/pi_lcd_dashboard_working.py
 
 # Replace 192.168.202.221 with your actual Pi IP address
 ```
@@ -111,7 +111,7 @@ scp pi_lcd_dashboard_working.py pi@192.168.202.221:~/pi_lcd_dashboard.py
 # On Raspberry Pi, activate environment and run
 source grove-env/bin/activate
 cd ~/GrovePi/Software/Python
-python3 ~/pi_lcd_dashboard.py
+python3 ~/pi_lcd_dashboard_working.py
 ```
 
 **Expected output:**

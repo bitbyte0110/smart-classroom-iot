@@ -22,6 +22,9 @@ export default function VoiceControl({
   const [isSupported, setIsSupported] = useState(false);
   const [error, setError] = useState('');
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  // Local, immediate flags to avoid race conditions with prop updates
+  const isActiveRef = useRef(false); // true while we should process results and allow restart
+  const suppressResultsRef = useRef(false); // blocks stray results after stopping
 
   useEffect(() => {
     // Check browser support
@@ -36,6 +39,10 @@ export default function VoiceControl({
       recognitionRef.current.lang = 'en-US';
 
       recognitionRef.current.onresult = (event) => {
+        // Ignore any results that arrive after we've clicked Stop
+        if (!isActiveRef.current || suppressResultsRef.current) {
+          return;
+        }
         let finalTranscript = '';
         let interimTranscript = '';
 
@@ -79,10 +86,11 @@ export default function VoiceControl({
       };
 
       recognitionRef.current.onend = () => {
-        if (isListening) {
+        // Only restart if we are actively supposed to be listening
+        if (isActiveRef.current) {
           // Restart if we're supposed to be listening
           setTimeout(() => {
-            if (isListening && recognitionRef.current) {
+            if (isActiveRef.current && recognitionRef.current) {
               recognitionRef.current.start();
             }
           }, 100);
@@ -199,11 +207,24 @@ export default function VoiceControl({
     
     if (isListening) {
       console.log('🎤 Stopping voice recognition...');
-      recognitionRef.current?.stop();
+      // Set flags to immediately block results and restarts
+      isActiveRef.current = false;
+      suppressResultsRef.current = true;
+      // Abort cancels immediately without producing more results
+      if (recognitionRef.current) {
+        // Prefer abort for immediate cancellation without extra results
+        if (typeof recognitionRef.current.abort === 'function') {
+          recognitionRef.current.abort();
+        } else {
+          recognitionRef.current.stop();
+        }
+      }
     } else {
       console.log('🎤 Starting voice recognition...');
       setError('');
       setTranscript('');
+      suppressResultsRef.current = false;
+      isActiveRef.current = true;
       recognitionRef.current?.start();
     }
     onToggleListening();
