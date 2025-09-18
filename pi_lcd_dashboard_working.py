@@ -52,6 +52,7 @@ except ImportError as e:
 MQTT_HOST = "localhost"
 MQTT_PORT = 1883
 PAGE_DURATION = 3  # seconds per page
+TOTAL_PAGES = 3  # lighting, climate, air quality
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -62,7 +63,7 @@ class SmartClassroomLCD:
         self.current_page = 0
         self.last_page_change = 0
         
-        # System state from MQTT (all data comes from ESP32 modules)
+        # System state from MQTT (ESP32 modules + AI detection)
         self.state = {
             "lighting": {
                 "presence": 0,
@@ -78,6 +79,11 @@ class SmartClassroomLCD:
                 "aqRaw": 0,
                 "aqStatus": "Good", 
                 "aqAlert": ""
+            },
+            "ai": {
+                "presence": False,
+                "people_count": 0,
+                "confidence": 0.0
             }
         }
         
@@ -112,10 +118,13 @@ class SmartClassroomLCD:
     def on_mqtt_connect(self, client, userdata, flags, rc):
         if rc == 0:
             logger.info("📡 Connected to MQTT broker")
-            # Subscribe to ESP32 sensor topics
+            # Subscribe to ESP32 sensor topics and AI detection topics
             topics = [
                 ("sensors/lighting/state", 1),
-                ("sensors/climate/state", 1)
+                ("sensors/climate/state", 1),
+                ("ai/presence/detection", 1),
+                ("ai/presence/count", 1),
+                ("ai/presence/confidence", 1)
             ]
             for topic, qos in topics:
                 client.subscribe(topic, qos)
@@ -126,10 +135,11 @@ class SmartClassroomLCD:
     def on_mqtt_message(self, client, userdata, msg):
         """Handle incoming MQTT messages"""
         try:
-            data = json.loads(msg.payload.decode())
             topic = msg.topic
+            data = msg.payload.decode()
             
             if topic == "sensors/lighting/state":
+                data = json.loads(data)
                 self.state["lighting"].update({
                     "presence": data.get("presence", 0),
                     "ldrRaw": data.get("ldrRaw", 0),
@@ -138,6 +148,7 @@ class SmartClassroomLCD:
                 })
                 
             elif topic == "sensors/climate/state":
+                data = json.loads(data)
                 self.state["climate"].update({
                     "tempC": data.get("tempC", 0),
                     "humidity": data.get("humidity", 0),
@@ -147,6 +158,22 @@ class SmartClassroomLCD:
                     "aqStatus": data.get("aqStatus", "Good"),
                     "aqAlert": data.get("aqAlert", "")
                 })
+                
+            # AI detection topics (string values, not JSON)
+            elif topic == "ai/presence/detection":
+                self.state["ai"]["presence"] = data.lower() == "true"
+                
+            elif topic == "ai/presence/count":
+                try:
+                    self.state["ai"]["people_count"] = int(data)
+                except ValueError:
+                    self.state["ai"]["people_count"] = 0
+                    
+            elif topic == "ai/presence/confidence":
+                try:
+                    self.state["ai"]["confidence"] = float(data)
+                except ValueError:
+                    self.state["ai"]["confidence"] = 0.0
                 
         except Exception as e:
             logger.error(f"❌ Error processing MQTT message: {e}")
@@ -175,12 +202,15 @@ class SmartClassroomLCD:
             logger.error(f"LCD write error: {e}")
     
     def display_page_lighting(self):
-        """Display lighting information page"""
+        """Display lighting information page with AI people count"""
         lighting = self.state["lighting"]
+        ai = self.state["ai"]
         
-        line1 = f"Light P:{lighting['presence']} L:{lighting['ldrRaw']}"
-        if len(line1) > 16:
-            line1 = f"P:{lighting['presence']} LDR:{lighting['ldrRaw']}"
+        # Show AI people count instead of ESP32 presence
+        people_count = ai['people_count']
+        presence_status = "DET" if ai['presence'] else "None"
+        
+        line1 = f"P:{people_count} LDR:{lighting['ldrRaw']}"
         
         led_state = "ON" if lighting['led']['on'] else "OFF"
         pwm = lighting['led']['pwm']
@@ -237,7 +267,7 @@ class SmartClassroomLCD:
         
         # Only update LCD when page changes, not every loop iteration
         if current_time - self.last_page_change >= PAGE_DURATION:
-            self.current_page = (self.current_page + 1) % 3
+            self.current_page = (self.current_page + 1) % TOTAL_PAGES
             self.last_page_change = current_time
             
             # Only write to LCD when page actually changes
