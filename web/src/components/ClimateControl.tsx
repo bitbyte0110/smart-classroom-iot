@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ref, onValue, update } from 'firebase/database';
 import { database } from '../firebase';
 import type { ClimateState } from '../types';
@@ -16,6 +16,7 @@ export default function ClimateControl() {
   const [error, setError] = useState<string>('');
   const [lastModeChange, setLastModeChange] = useState<number>(0);
   const [isVoiceListening, setIsVoiceListening] = useState(false);
+  const currentFanPwmRef = useRef(0);
 
   useEffect(() => {
     console.log('🚀 Climate Control component mounted, connecting to Firebase...');
@@ -134,6 +135,10 @@ export default function ClimateControl() {
       console.log('Setting climate state:', merged); // Debug log
       console.log(`🌪️ Fan state from Firebase: ON=${merged.fan.on}, PWM=${merged.fan.pwm}, Mode=${merged.mode}`); // Debug fan specifically
       
+      // Update the ref with current fan PWM value
+      currentFanPwmRef.current = merged.fan.pwm;
+      console.log(`🎯 Updated currentFanPwmRef to: ${currentFanPwmRef.current}`);
+      
       // Debug air quality alerts
       if (merged.aqAlert) {
         console.log(`🚨 Air Quality Alert: ${merged.aqStatus} - ${merged.aqAlert}`);
@@ -198,6 +203,7 @@ export default function ClimateControl() {
 
   const handleManualControl = async (fan: { on: boolean; pwm: number }) => {
     console.log(`🎛️ handleManualControl called: on=${fan.on}, pwm=${fan.pwm}, currentMode=${state?.mode}`);
+    console.log(`🎛️ Previous fan state: on=${state?.fan.on}, pwm=${state?.fan.pwm}`);
     
     if (!state || state.mode !== 'manual') {
       console.log(`❌ handleManualControl blocked: state=${!!state}, mode=${state?.mode}`);
@@ -205,6 +211,8 @@ export default function ClimateControl() {
     }
     
     // Optimistic UI update for instant feedback
+    console.log(`🎛️ Updating state optimistically to: on=${fan.on}, pwm=${fan.pwm}`);
+    currentFanPwmRef.current = fan.pwm; // Update ref immediately
     setState(prevState => prevState ? { ...prevState, fan } : null);
     
     try {
@@ -226,6 +234,7 @@ export default function ClimateControl() {
     
     console.log(`🎤 Voice climate command received: "${command}"`);
     console.log(`🎤 Current fan state: on=${state.fan.on}, pwm=${state.fan.pwm}, mode=${state.mode}`);
+    console.log(`🎤 Timestamp: ${new Date().toISOString()}`);
     
     // Switch to manual mode for voice commands
     if (state.mode !== 'manual') {
@@ -234,6 +243,7 @@ export default function ClimateControl() {
         // Wait for mode change to complete, then execute command
         setTimeout(() => {
           console.log(`🎤 Mode changed, now executing command: ${command}`);
+          console.log(`🎤 State after mode change: on=${state?.fan.on}, pwm=${state?.fan.pwm}, mode=${state?.mode}`);
           processVoiceCommand(command);
         }, 200);
       }).catch((error) => {
@@ -242,17 +252,21 @@ export default function ClimateControl() {
       return;
     }
     
+    console.log(`🎤 Already in manual mode, executing command directly`);
     processVoiceCommand(command);
   };
   
   const processVoiceCommand = (command: string) => {
     if (!state) return;
     
+    console.log(`🎤 processVoiceCommand called with: "${command}"`);
+    console.log(`🎤 Current fan state in processVoiceCommand: on=${state.fan.on}, pwm=${state.fan.pwm}, mode=${state.mode}`);
+    
     switch (command) {
       case 'fan_on':
-        // Turn on fan with PWM 128
-        console.log(`🎤 FAN ON: Setting to PWM 128`);
-        handleManualControl({ on: true, pwm: 128 });
+        // Turn on fan with PWM 255 (as per requirements)
+        console.log(`🎤 FAN ON: Setting to PWM 255`);
+        handleManualControl({ on: true, pwm: 255 });
         break;
       case 'fan_off':
         // Turn off fan with PWM 0
@@ -265,10 +279,11 @@ export default function ClimateControl() {
         handleManualControl({ on: true, pwm: 255 });
         break;
       case 'fan_low': {
-        // Decrease fan speed by 50%
-        const currentPwm = state.fan.pwm || 0;
+        // Decrease fan speed by 50% - use ref for current value
+        const currentPwm = currentFanPwmRef.current || 0;
         const newPwm = Math.max(0, Math.round(currentPwm * 0.5)); // Decrease by 50%
         console.log(`🎤 FAN LOW: ${currentPwm} → ${newPwm} (50% decrease)`);
+        console.log(`🎤 Ref PWM value: ${currentFanPwmRef.current}`);
         handleManualControl({ on: newPwm > 0, pwm: newPwm });
         break;
       }
@@ -278,7 +293,7 @@ export default function ClimateControl() {
         break;
       case 'fan_increase': {
         // Increase fan speed by 50% - if current is 0, start from 50
-        const currentPwm = state.fan.pwm || 0;
+        const currentPwm = currentFanPwmRef.current || 0;
         let newPwm;
         if (currentPwm === 0) {
           newPwm = 50; // Start from 50 if currently 0
@@ -286,6 +301,7 @@ export default function ClimateControl() {
           newPwm = Math.min(255, Math.round(currentPwm * 1.5)); // Increase by 50%
         }
         console.log(`🎤 FAN INCREASE: ${currentPwm} → ${newPwm} (50% increase)`);
+        console.log(`🎤 Ref PWM value: ${currentFanPwmRef.current}`);
         handleManualControl({ on: true, pwm: newPwm });
         break;
       }
