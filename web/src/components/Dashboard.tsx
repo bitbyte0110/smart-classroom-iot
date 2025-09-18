@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ref, onValue, update } from 'firebase/database';
 import { database } from '../firebase';
 import type { LightingState } from '../types';
@@ -16,6 +16,7 @@ export default function Dashboard() {
   const [error, setError] = useState<string>('');
   const [lastModeChange, setLastModeChange] = useState<number>(0);
   const [isVoiceListening, setIsVoiceListening] = useState(false);
+  const currentPwmRef = useRef(0);
 
   useEffect(() => {
     console.log('🚀 Dashboard component mounted, connecting to Firebase...');
@@ -85,6 +86,11 @@ export default function Dashboard() {
       } as const;
 
       console.log('Setting state:', merged); // Debug log
+      
+      // Update the ref with current PWM value
+      currentPwmRef.current = merged.led.pwm;
+      console.log(`🎯 Updated currentPwmRef to: ${currentPwmRef.current}`);
+      
       setState(merged);
       setIsConnected(!isStale);
       setError(isStale ? 'Live data is stale (>10s). Check Camera AI and ESP32.' : '');
@@ -137,6 +143,7 @@ export default function Dashboard() {
 
   const handleManualControl = async (led: { on: boolean; pwm: number }) => {
     console.log(`🎛️ handleManualControl called: on=${led.on}, pwm=${led.pwm}, currentMode=${state?.mode}`);
+    console.log(`🎛️ Previous LED state: on=${state?.led.on}, pwm=${state?.led.pwm}`);
     
     if (!state || state.mode !== 'manual') {
       console.log(`❌ handleManualControl blocked: state=${!!state}, mode=${state?.mode}`);
@@ -144,6 +151,8 @@ export default function Dashboard() {
     }
     
     // Optimistic UI update for instant feedback
+    console.log(`🎛️ Updating state optimistically to: on=${led.on}, pwm=${led.pwm}`);
+    currentPwmRef.current = led.pwm; // Update ref immediately
     setState(prevState => prevState ? { ...prevState, led } : null);
     
     try {
@@ -165,6 +174,7 @@ export default function Dashboard() {
     
     console.log(`🎤 Voice lighting command received: "${command}"`);
     console.log(`🎤 Current LED state: on=${state.led.on}, pwm=${state.led.pwm}, mode=${state.mode}`);
+    console.log(`🎤 Timestamp: ${new Date().toISOString()}`);
     
     // Switch to manual mode for voice commands
     if (state.mode !== 'manual') {
@@ -173,6 +183,7 @@ export default function Dashboard() {
         // Wait for mode change to complete, then execute command
         setTimeout(() => {
           console.log(`🎤 Mode changed, now executing command: ${command}`);
+          console.log(`🎤 State after mode change: on=${state?.led.on}, pwm=${state?.led.pwm}, mode=${state?.mode}`);
           processVoiceCommand(command);
         }, 200);
       }).catch((error) => {
@@ -181,11 +192,15 @@ export default function Dashboard() {
       return;
     }
     
+    console.log(`🎤 Already in manual mode, executing command directly`);
     processVoiceCommand(command);
   };
   
   const processVoiceCommand = (command: string) => {
     if (!state) return;
+    
+    console.log(`🎤 processVoiceCommand called with: "${command}"`);
+    console.log(`🎤 Current state in processVoiceCommand: on=${state.led.on}, pwm=${state.led.pwm}, mode=${state.mode}`);
     
     switch (command) {
       case 'on':
@@ -200,7 +215,7 @@ export default function Dashboard() {
         break;
       case 'brighter': {
         // Increase brightness by 50% - if current is 0, start from 50
-        const currentPwm = state.led.pwm || 0;
+        const currentPwm = currentPwmRef.current || 0;
         let newPwm;
         if (currentPwm === 0) {
           newPwm = 50; // Start from 50 if currently 0
@@ -208,14 +223,19 @@ export default function Dashboard() {
           newPwm = Math.min(255, Math.round(currentPwm * 1.5)); // Increase by 50%
         }
         console.log(`🎤 BRIGHTER: ${currentPwm} → ${newPwm} (50% increase)`);
+        console.log(`🎤 Ref PWM value: ${currentPwmRef.current}`);
         handleManualControl({ on: true, pwm: newPwm });
         break;
       }
       case 'dimmer': {
-        // Decrease brightness by 50%
-        const currentPwm = state.led.pwm || 0;
+        // Decrease brightness by 50% - use ref for current value
+        const currentPwm = currentPwmRef.current || 0;
         const newPwm = Math.max(0, Math.round(currentPwm * 0.5)); // Decrease by 50%
-        console.log(`🎤 DIMMER: ${currentPwm} → ${newPwm} (50% decrease)`);
+        console.log(`🎤 DIMMER COMMAND RECEIVED: ${currentPwm} → ${newPwm} (50% decrease)`);
+        console.log(`🎤 Current LED state: on=${state.led.on}, pwm=${state.led.pwm}`);
+        console.log(`🎤 Ref PWM value: ${currentPwmRef.current}`);
+        console.log(`🎤 Mode: ${state.mode}, Will turn LED ${newPwm > 0 ? 'ON' : 'OFF'}`);
+        
         handleManualControl({ on: newPwm > 0, pwm: newPwm });
         break;
       }

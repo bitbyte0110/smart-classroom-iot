@@ -21,7 +21,19 @@ export default function VoiceControl({
   const [transcript, setTranscript] = useState('');
   const [isSupported, setIsSupported] = useState(false);
   const [error, setError] = useState('');
+  const [isIntentionallyStopped, setIsIntentionallyStopped] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const isListeningRef = useRef(isListening);
+  const isIntentionallyStoppedRef = useRef(isIntentionallyStopped);
+
+  // Update refs when values change
+  useEffect(() => {
+    isListeningRef.current = isListening;
+  }, [isListening]);
+
+  useEffect(() => {
+    isIntentionallyStoppedRef.current = isIntentionallyStopped;
+  }, [isIntentionallyStopped]);
 
   useEffect(() => {
     // Check browser support
@@ -79,13 +91,17 @@ export default function VoiceControl({
       };
 
       recognitionRef.current.onend = () => {
-        if (isListening) {
-          // Restart if we're supposed to be listening
+        // Only restart if we're supposed to be listening AND we didn't intentionally stop
+        console.log('🎤 onend fired - isListening:', isListeningRef.current, 'isIntentionallyStopped:', isIntentionallyStoppedRef.current);
+        if (isListeningRef.current && !isIntentionallyStoppedRef.current) {
+          console.log('🎤 Auto-restarting voice recognition...');
           setTimeout(() => {
-            if (isListening && recognitionRef.current) {
+            if (isListeningRef.current && !isIntentionallyStoppedRef.current && recognitionRef.current) {
               recognitionRef.current.start();
             }
           }, 100);
+        } else {
+          console.log('🎤 Voice recognition ended - not restarting');
         }
       };
     } else {
@@ -98,10 +114,12 @@ export default function VoiceControl({
         recognitionRef.current.stop();
       }
     };
-  }, [isListening]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array since we use refs for current values
 
   const processVoiceCommand = (command: string) => {
     console.log(`🎯 Processing voice command: "${command}"`);
+    console.log(`🎯 Current module: ${currentModule}`);
     
     // Common commands that work for both modules
     if (command.includes('auto') || command.includes('automatic')) {
@@ -116,17 +134,16 @@ export default function VoiceControl({
 
     // Module-specific commands
     if (currentModule === 'lighting') {
+      console.log(`🎯 Processing as lighting command`);
       processLightingCommand(command);
     } else if (currentModule === 'climate') {
+      console.log(`🎯 Processing as climate command`);
       processClimateCommand(command);
     }
   };
 
   const processLightingCommand = (command: string) => {
     console.log(`🎯 Processing lighting command: "${command}"`);
-    
-    // Ensure Manual Mode first for all lighting commands
-    onModeChange?.('manual');
     
     // Turn on light commands - exact matches
     if (command.includes('turn on light') || command.includes('turn on the light')) {
@@ -146,6 +163,7 @@ export default function VoiceControl({
     // Decrease brightness commands - exact matches
     else if (command.includes('lower light') || command.includes('lower the light') || command.includes('lower the brightness') || command.includes('lower brightness')) {
       console.log('✅ Voice: LOWER LIGHT (50% decrease, Manual Mode)');
+      console.log('🎤 Calling onLightingControl with command: "dimmer"');
       onLightingControl?.('dimmer');
     } 
     // Maximum brightness commands - exact matches
@@ -160,9 +178,6 @@ export default function VoiceControl({
 
   const processClimateCommand = (command: string) => {
     console.log(`🎯 Processing climate command: "${command}"`);
-    
-    // Ensure Manual Mode first for all climate commands
-    onModeChange?.('manual');
     
     // Turn on fan commands - exact matches
     if (command.includes('turn on fan') || command.includes('turn on the fan')) {
@@ -199,9 +214,11 @@ export default function VoiceControl({
     
     if (isListening) {
       console.log('🎤 Stopping voice recognition...');
+      setIsIntentionallyStopped(true); // Mark as intentionally stopped
       recognitionRef.current?.stop();
     } else {
       console.log('🎤 Starting voice recognition...');
+      setIsIntentionallyStopped(false); // Reset the flag
       setError('');
       setTranscript('');
       recognitionRef.current?.start();
