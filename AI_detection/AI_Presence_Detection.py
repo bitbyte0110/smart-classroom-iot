@@ -149,9 +149,15 @@ class ForceGPUYOLODetector:
                 "ai_source": "GPU_Camera"
             }
             
-            # Update Firebase state
-            state_url = f"{self.firebase_url}/lighting/{self.room_id}/state.json"
-            response = requests.patch(state_url, json=ai_data, timeout=5)
+            # Update Firebase state for both lighting and climate modules
+            lighting_url = f"{self.firebase_url}/lighting/{self.room_id}/state.json"
+            climate_url = f"{self.firebase_url}/climate/{self.room_id}/state.json"
+            
+            # Update lighting module
+            lighting_response = requests.patch(lighting_url, json=ai_data, timeout=5)
+            
+            # Update climate module
+            climate_response = requests.patch(climate_url, json=ai_data, timeout=5)
             
             # Publish to MQTT alongside Firebase
             try:
@@ -161,17 +167,24 @@ class ForceGPUYOLODetector:
             except Exception as e:
                 print(f"⚠️ MQTT publish failed: {e}")
 
-            if response.status_code == 200:
+            # Check both responses
+            lighting_success = lighting_response.status_code == 200
+            climate_success = climate_response.status_code == 200
+            
+            if lighting_success and climate_success:
                 # Enhanced logging for LED and Fan control debugging
                 status_icon = "🟢" if presence else "🔴"
                 led_action = "LED should turn ON" if presence else "LED should turn OFF IMMEDIATELY"
                 fan_action = "Fan should turn ON (if temp/humidity needs it)" if presence else "Fan should turn OFF IMMEDIATELY"
-                print(f"{status_icon} Firebase updated: AI presence={presence}, people={person_count}, conf={max_confidence:.2f}")
+                print(f"{status_icon} Firebase updated (both modules): AI presence={presence}, people={person_count}, conf={max_confidence:.2f}")
                 print(f"💡 {led_action}")
                 print(f"🌪️ {fan_action}")
                 return True
             else:
-                print(f"❌ Firebase error: {response.status_code}")
+                if not lighting_success:
+                    print(f"❌ Lighting Firebase error: {lighting_response.status_code}")
+                if not climate_success:
+                    print(f"❌ Climate Firebase error: {climate_response.status_code}")
                 return False
                 
         except Exception as e:

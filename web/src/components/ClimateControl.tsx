@@ -93,8 +93,9 @@ export default function ClimateControl() {
         });
       }
 
-      // Get presence from the same AI source (follows lighting module)
+      // Get presence and AI data from climate data (AI script now writes to both paths)
       const presenceValue = value.presence ?? false;
+      const aiPeopleCount = Number.isFinite(value.ai_people_count) ? value.ai_people_count : 0;
 
       // Derive AQ status/alert if missing
       const classifyAQ = (raw: number) => {
@@ -120,7 +121,7 @@ export default function ClimateControl() {
         },
         comfortBand: (value.comfortBand || 'Moderate') as 'Low' | 'Moderate' | 'High',
         sensorError: value.sensorError ?? null,
-        ai_people_count: Number.isFinite(value.ai_people_count) ? value.ai_people_count : 0
+        ai_people_count: aiPeopleCount
       };
 
       // Debug fan PWM changes to identify override issues
