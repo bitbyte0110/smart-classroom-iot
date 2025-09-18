@@ -709,3 +709,244 @@ The AI people count should now update correctly in both modules when people ente
 
 ---
 
+_**User (2025-09-18 21:02Z)**_
+
+now it update people, but the time is not sync@ClimateStatusTiles.tsx
+
+like for example, when i show in camera, the people number will update first, then the none status only update to Presence @ClimateStatusTiles.tsx
+
+is not show at the same time for climate,can u make it use the ai_presence, check is it use the presence
+
+but for @Dashboard.tsx  light control, it show sat the same time @AI_Presence_Detection.py  
+
+---
+
+_**Assistant**_
+
+I see the issue! The climate module is using the `presence` field from the climate data, but the AI detection script is only writing to the `ai_presence` field. The lighting module works correctly because it uses `ai_presence` directly, but the climate module is using the wrong field.
+
+Let me check how the lighting module handles this and then fix the climate module to use the same approach.
+
+
+---
+
+Read file: undefined
+
+---
+
+Perfect! I can see that the lighting module uses `ai_presence` (line 72) and `ai_timestamp` (line 69) for immediate updates. The climate module needs to use the same approach. Let me fix the climate module to use `ai_presence` and `ai_timestamp` like the lighting module does.
+
+
+---
+
+<details><summary>Edit file: web/src/components/ClimateControl.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 3, lines removed: 3
+
+```diff
+@@ -79,11 +79,11 @@
+        }
+  
+-       const dataTimestamp = value.ts ?? Date.now();
++       const dataTimestamp = value.ai_timestamp ?? value.ts ?? Date.now();
+        const now = Date.now();
+        const timeDiff = now - dataTimestamp;
+-       const isStale = timeDiff > 30000; // Increased tolerance to 30s for ESP32 sync issues
++       const isStale = timeDiff > 10000; // Use same 10s threshold as lighting module
+        
+        // Debug timestamp issues
+-       if (timeDiff > 15000) {
++       if (timeDiff > 5000) {
+          console.warn(`⏰ Climate data timestamp issue:`, {
+            currentTime: new Date(now).toISOString(),
+```
+
+**Chunk 2**
+Lines added: 3, lines removed: 2
+
+```diff
+@@ -94,6 +94,7 @@
+        }
+  
+-       // Get presence from the same AI source (follows lighting module)
+-       const presenceValue = value.presence ?? false;
++       // Get presence from AI data (same as lighting module for immediate updates)
++       const presenceFromAI = typeof value.ai_presence === 'boolean' ? value.ai_presence : false;
++       const uiPresence = presenceFromAI && !isStale;
+  
+        // Derive AQ status/alert if missing
+```
+
+</details>
+
+---
+
+Now I need to update the merged state object to use `uiPresence` instead of `presenceValue`:
+
+
+---
+
+<details><summary>Edit file: web/src/components/ClimateControl.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -109,5 +109,5 @@
+        const merged: ClimateState = {
+          ts: dataTimestamp,
+-         presence: presenceValue && !isStale,
++         presence: uiPresence,
+          tempC: Number.isFinite(value.tempC) ? value.tempC : 0,
+          humidity: Number.isFinite(value.humidity) ? value.humidity : 0,
+```
+
+</details>
+
+---
+
+Now I need to remove the old `aiPeopleCount` variable since we're now using the same approach as the lighting module:
+
+
+---
+
+The string to replace was not found in the file.
+
+---
+
+Let me check the current state of the file around that area:
+
+
+---
+
+Read file: undefined
+
+---
+
+I need to add the AI people count extraction. Let me add it after the presence logic:
+
+
+---
+
+<details><summary>Edit file: web/src/components/ClimateControl.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 4, lines removed: 1
+
+```diff
+@@ -97,5 +97,8 @@
+        const presenceFromAI = typeof value.ai_presence === 'boolean' ? value.ai_presence : false;
+        const uiPresence = presenceFromAI && !isStale;
+- 
++       
++       // AI data extraction (same as lighting module)
++       const aiPeopleCount = Number.isFinite(value.ai_people_count) ? value.ai_people_count : 0;
++ 
+        // Derive AQ status/alert if missing
+        const classifyAQ = (raw: number) => {
+```
+
+</details>
+
+---
+
+Now let me check for any linting errors:
+
+
+---
+
+
+
+---
+
+I need to use the `aiPeopleCount` variable in the merged state object. Let me check if it's already there:
+
+
+---
+
+Read file: undefined
+
+---
+
+I can see that the `ai_people_count` is already being set directly from `value.ai_people_count` on line 127. I need to use the `aiPeopleCount` variable instead:
+
+
+---
+
+<details><summary>Edit file: web/src/components/ClimateControl.tsx</summary>
+
+undefined
+
+**Chunk 1**
+Lines added: 1, lines removed: 1
+
+```diff
+@@ -125,5 +125,5 @@
+          comfortBand: (value.comfortBand || 'Moderate') as 'Low' | 'Moderate' | 'High',
+          sensorError: value.sensorError ?? null,
+-         ai_people_count: Number.isFinite(value.ai_people_count) ? value.ai_people_count : 0
++         ai_people_count: aiPeopleCount
+        };
+  
+```
+
+</details>
+
+---
+
+Now let me check for linting errors again:
+
+
+---
+
+
+
+---
+
+Perfect! Now let me create a summary of the changes I made to fix the timing synchronization issue:
+
+## ✅ **Fixed Timing Synchronization Issue!**
+
+The problem was that the climate module was using the wrong fields for AI data. Here's what I fixed:
+
+### �� **Root Cause**
+- **Lighting Module**: Uses `ai_presence` and `ai_timestamp` for immediate updates ✅
+- **Climate Module**: Was using `presence` and `ts` (climate data timestamp) ❌
+
+This caused a delay because the climate module was waiting for the ESP32 to update the `presence` field, while the lighting module was getting immediate updates from the AI detection script.
+
+### ✅ **Solution Applied**
+
+Updated `ClimateControl.tsx` to use the same AI data approach as the lighting module:
+
+1. **Timestamp**: Now uses `ai_timestamp` first, then falls back to `ts`
+   ```typescript
+   const dataTimestamp = value.ai_timestamp ?? value.ts ?? Date.now();
+   ```
+
+2. **Presence**: Now uses `ai_presence` directly (same as lighting)
+   ```typescript
+   const presenceFromAI = typeof value.ai_presence === 'boolean' ? value.ai_presence : false;
+   const uiPresence = presenceFromAI && !isStale;
+   ```
+
+3. **Stale Threshold**: Now uses 10 seconds (same as lighting) instead of 30 seconds
+
+### �� **Expected Result**
+
+Now both modules should update **simultaneously**:
+
+- **Lighting Module**: `ai_presence` + `ai_timestamp` → Immediate updates ✅
+- **Climate Module**: `ai_presence` + `ai_timestamp` → Immediate updates ✅
+
+The people count and presence status should now appear at the same time in both the lighting and climate modules when you show your face to the camera!
+
+---
+

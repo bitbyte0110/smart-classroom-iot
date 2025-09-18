@@ -78,13 +78,13 @@ export default function ClimateControl() {
         return;
       }
 
-      const dataTimestamp = value.ts ?? Date.now();
+      const dataTimestamp = value.ai_timestamp ?? value.ts ?? Date.now();
       const now = Date.now();
       const timeDiff = now - dataTimestamp;
-      const isStale = timeDiff > 30000; // Increased tolerance to 30s for ESP32 sync issues
+      const isStale = timeDiff > 10000; // Use same 10s threshold as lighting module
       
       // Debug timestamp issues
-      if (timeDiff > 15000) {
+      if (timeDiff > 5000) {
         console.warn(`⏰ Climate data timestamp issue:`, {
           currentTime: new Date(now).toISOString(),
           dataTime: new Date(dataTimestamp).toISOString(),
@@ -93,8 +93,11 @@ export default function ClimateControl() {
         });
       }
 
-      // Get presence and AI data from climate data (AI script now writes to both paths)
-      const presenceValue = value.presence ?? false;
+      // Get presence from AI data (same as lighting module for immediate updates)
+      const presenceFromAI = typeof value.ai_presence === 'boolean' ? value.ai_presence : false;
+      const uiPresence = presenceFromAI && !isStale;
+      
+      // AI data extraction (same as lighting module)
       const aiPeopleCount = Number.isFinite(value.ai_people_count) ? value.ai_people_count : 0;
 
       // Derive AQ status/alert if missing
@@ -108,7 +111,7 @@ export default function ClimateControl() {
 
       const merged: ClimateState = {
         ts: dataTimestamp,
-        presence: presenceValue && !isStale,
+        presence: uiPresence,
         tempC: Number.isFinite(value.tempC) ? value.tempC : 0,
         humidity: Number.isFinite(value.humidity) ? value.humidity : 0,
         aqRaw: aqRawVal,
