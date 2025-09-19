@@ -74,7 +74,7 @@ const int AQ_MODERATE_MAX = 400;    // 301-400 → Moderate
 const unsigned long HYSTERESIS_DELAY = 60000; // 60 seconds
 
 // MQTT Configuration
-const char* MQTT_HOST = "192.168.202.221";
+const char* MQTT_HOST = "192.168.225.221";
 const int   MQTT_PORT = 1883;
 const char* MQTT_CLIENT_ID = "esp32-combined-roomA";
 

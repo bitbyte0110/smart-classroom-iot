@@ -6,6 +6,8 @@ export default defineConfig({
   plugins: [react()],
   // Dev-only: relax CSP so libs that use Function/eval in dev can run locally
   server: {
+    host: '0.0.0.0', // Allow external connections
+    port: 5173, // Default Vite port
     headers: {
       // Note: This header is for localhost development only
       // Remove or tighten for production hosting
